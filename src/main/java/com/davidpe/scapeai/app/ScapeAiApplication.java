@@ -1,19 +1,12 @@
 package com.davidpe.scapeai.app;
 
-import com.davidpe.scapeai.ui.MainWindow;
 import javafx.application.Application;
-import javafx.stage.Stage;
 
-public final class ScapeAiApplication extends Application {
+public final class ScapeAiApplication {
 
-  private final MainWindow mainWindow = new MainWindow();
-
-  @Override
-  public void start(Stage primaryStage) {
-    mainWindow.show(primaryStage);
-  }
+  private ScapeAiApplication() {}
 
   public static void main(String[] args) {
-    launch(args);
+    Application.launch(ScapeAiFxApplication.class, args);
   }
 }

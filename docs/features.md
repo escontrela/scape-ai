@@ -48,3 +48,4 @@
 - WIP objetivo: 1 ticket en `in_progress`.
 - Backlog objetivo: al menos 5 tickets listos.
 - Siguiente foco tecnico: completar `SCAPE-0001` y mantener slices verticales alternando UI, simulacion, IA y persistencia.
+- Implementacion tecnica: bootstrap JavaFX con ciclo de vida de contexto Spring Boot y `MainWindow` gestionada como componente Spring.
