@@ -44,10 +44,45 @@
 - Registro de resultado resumido por corrida (exito, pasos, tiempo, recompensa).
 - Consulta de historial basico de corridas por laberinto.
 
+### SCAPE-0006 - Renderizado de laberinto en viewport JavaFX
+- Objetivo funcional: visualizar el laberinto 2D operativo dentro del shell JavaFX.
+- Alcance introducido:
+- Renderizado de grilla con diferenciacion de muros, celdas transitables, inicio y salida.
+- Refresco del viewport al cambiar el laberinto seleccionado sin reiniciar aplicacion.
+- Base visual para integrar animacion del agente sobre el estado del motor.
+
+### SCAPE-0007 - Orquestador de episodio con limite temporal
+- Objetivo funcional: cerrar episodios de simulacion por exito o timeout estandar.
+- Alcance introducido:
+- Coordinacion del bucle de pasos sobre `SingleStepSimulationEngine` hasta estado terminal.
+- Politica de timeout configurable con valor por defecto de 5 minutos.
+- Resultado unificado por episodio con exito, pasos, duracion y motivo de finalizacion.
+
+### SCAPE-0008 - Politica heuristica baseline enchufable
+- Objetivo funcional: disponer de una politica de movimiento ejecutable sin dependencia de DJL.
+- Alcance introducido:
+- Implementacion baseline de `MovementPolicy` con heuristica espacial determinista.
+- Estrategia anti-bucle inmediata basada en historial reciente de celdas.
+- Seleccion de politica por configuracion para pruebas extremo a extremo del flujo actual.
+
+### SCAPE-0009 - Registro persistente de metricas por episodio
+- Objetivo funcional: guardar metricas detalladas de aprendizaje por episodio.
+- Alcance introducido:
+- Persistencia de recompensa acumulada, colisiones, nuevas celdas y distancia final a salida.
+- Consulta cronologica de episodios recientes por laberinto.
+- Compatibilidad del modelo de datos con `TrainingRunEntity` ya introducida.
+
+### SCAPE-0010 - Panel UI de metricas en tiempo real
+- Objetivo funcional: exponer telemetria operativa del episodio en ejecucion dentro de la UI.
+- Alcance introducido:
+- Visualizacion en vivo de pasos, colisiones, recompensa acumulada y tiempo transcurrido.
+- Actualizacion no bloqueante del panel durante ejecucion de simulacion.
+- Reinicio limpio de metricas al comenzar un nuevo episodio.
+
 ## Estado operativo actual
 - WIP objetivo: 1 ticket en `in_progress`.
 - Backlog objetivo: al menos 5 tickets listos.
-- Siguiente foco tecnico: completar `SCAPE-0001` y mantener slices verticales alternando UI, simulacion, IA y persistencia.
+- Siguiente foco tecnico: completar `SCAPE-0001` y planificar ejecucion en este orden sugerido `SCAPE-0006` -> `SCAPE-0007` -> `SCAPE-0008` -> `SCAPE-0009` -> `SCAPE-0010`.
 - Implementacion tecnica: bootstrap JavaFX con ciclo de vida de contexto Spring Boot y `MainWindow` gestionada como componente Spring.
 - Implementacion tecnica: `MainWindow` con panel de control, viewport de laberinto y panel de metricas; botones `Start/Pause/Reset` publican comandos a la capa de aplicacion.
 - Implementacion tecnica: motor `SingleStepSimulationEngine` con validacion de colisiones, conteo de intentos invalidos, seguimiento de celdas visitadas y deteccion de salida.
