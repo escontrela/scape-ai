@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS mazes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  rows_count INTEGER NOT NULL,
+  cols_count INTEGER NOT NULL,
+  layout TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS training_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  maze_id INTEGER NOT NULL,
+  success INTEGER NOT NULL,
+  steps INTEGER NOT NULL,
+  elapsed_millis INTEGER NOT NULL,
+  total_reward REAL NOT NULL,
+  created_at_epoch_millis INTEGER NOT NULL,
+  FOREIGN KEY (maze_id) REFERENCES mazes(id)
+);
