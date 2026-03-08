@@ -74,6 +74,7 @@
 - Persistencia de recompensa acumulada, colisiones, nuevas celdas y distancia final a salida.
 - Consulta cronologica de episodios recientes por laberinto.
 - Compatibilidad del modelo de datos con `TrainingRunEntity` ya introducida.
+- Implementacion tecnica: `training_runs` agrega columnas de metricas y `TrainingRunRepository` incorpora `findRecentByMazeId(mazeId, limit)`.
 
 ### SCAPE-0010 - Panel UI de metricas en tiempo real
 - Objetivo funcional: exponer telemetria operativa del episodio en ejecucion dentro de la UI.

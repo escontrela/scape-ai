@@ -39,6 +39,9 @@ class JdbcPersistenceRepositoriesTest {
             steps INTEGER NOT NULL,
             elapsed_millis INTEGER NOT NULL,
             total_reward REAL NOT NULL,
+            collisions INTEGER NOT NULL,
+            discovered_cells INTEGER NOT NULL,
+            final_distance_to_exit INTEGER NOT NULL,
             created_at_epoch_millis INTEGER NOT NULL
           )
           """);
@@ -49,15 +52,19 @@ class JdbcPersistenceRepositoriesTest {
       MazeEntity maze = mazeRepository.save(new MazeEntity(null, "Training Maze", 10, 10, "########"));
       assertTrue(maze.id() > 0);
 
-      runRepository.save(new TrainingRunEntity(null, maze.id(), false, 24, 1_500, -3.5, 1000));
-      runRepository.save(new TrainingRunEntity(null, maze.id(), true, 18, 1_000, 4.0, 2000));
+      runRepository.save(new TrainingRunEntity(null, maze.id(), false, 24, 1_500, -3.5, 8, 12, 4, 1000));
+      runRepository.save(new TrainingRunEntity(null, maze.id(), true, 18, 1_000, 4.0, 1, 19, 0, 2000));
 
       var history = runRepository.findByMazeId(maze.id());
+      var latestOnly = runRepository.findRecentByMazeId(maze.id(), 1);
 
       assertEquals(2, history.size());
+      assertEquals(1, latestOnly.size());
       assertTrue(history.get(0).createdAtEpochMillis() >= history.get(1).createdAtEpochMillis());
       assertEquals(18, history.get(0).steps());
       assertEquals(true, history.get(0).success());
+      assertEquals(19, history.get(0).discoveredCells());
+      assertEquals(0, history.get(0).finalDistanceToExit());
     }
 
     Files.deleteIfExists(dbFile);

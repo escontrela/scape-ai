@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS training_runs (
   steps INTEGER NOT NULL,
   elapsed_millis INTEGER NOT NULL,
   total_reward REAL NOT NULL,
+  collisions INTEGER NOT NULL,
+  discovered_cells INTEGER NOT NULL,
+  final_distance_to_exit INTEGER NOT NULL,
   created_at_epoch_millis INTEGER NOT NULL,
   FOREIGN KEY (maze_id) REFERENCES mazes(id)
 );

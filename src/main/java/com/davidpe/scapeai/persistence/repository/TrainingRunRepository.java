@@ -8,4 +8,6 @@ public interface TrainingRunRepository {
   TrainingRunEntity save(TrainingRunEntity run);
 
   List<TrainingRunEntity> findByMazeId(long mazeId);
+
+  List<TrainingRunEntity> findRecentByMazeId(long mazeId, int limit);
 }

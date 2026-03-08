@@ -7,4 +7,7 @@ public record TrainingRunEntity(
     int steps,
     long elapsedMillis,
     double totalReward,
+    int collisions,
+    int discoveredCells,
+    int finalDistanceToExit,
     long createdAtEpochMillis) {}
