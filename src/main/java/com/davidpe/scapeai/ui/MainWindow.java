@@ -1,7 +1,10 @@
 package com.davidpe.scapeai.ui;
 
+import com.davidpe.scapeai.application.LiveEpisodeMetrics;
+import com.davidpe.scapeai.application.LiveMetricsService;
 import com.davidpe.scapeai.application.SimulationControlService;
 import com.davidpe.scapeai.simulation.MazeDefinition;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -19,20 +22,28 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import java.util.ArrayList;
+import java.util.Locale;
 import org.springframework.stereotype.Component;
 
 @Component
 public final class MainWindow {
 
   private final SimulationControlService controlService;
+  private final LiveMetricsService liveMetricsService;
   private final MazeCatalogService mazeCatalogService;
   private final MazeViewportRenderer mazeViewportRenderer;
+  private Label stepsValue;
+  private Label collisionsValue;
+  private Label rewardValue;
+  private Label elapsedValue;
 
   public MainWindow(
       SimulationControlService controlService,
+      LiveMetricsService liveMetricsService,
       MazeCatalogService mazeCatalogService,
       MazeViewportRenderer mazeViewportRenderer) {
     this.controlService = controlService;
+    this.liveMetricsService = liveMetricsService;
     this.mazeCatalogService = mazeCatalogService;
     this.mazeViewportRenderer = mazeViewportRenderer;
   }
@@ -46,6 +57,7 @@ public final class MainWindow {
     root.setLeft(buildControlPanel());
     root.setCenter(buildMazePanel());
     root.setRight(buildMetricsPanel());
+    liveMetricsService.subscribe(this::applyMetrics);
 
     Scene scene = new Scene(root, 1200, 760);
     stage.setTitle("Scape AI Control Panel");
@@ -73,9 +85,30 @@ public final class MainWindow {
 
   private VBox buildControlPanel() {
     Label title = panelTitle("Controls");
-    Button start = neonButton("Start", "#22e6ff", controlService::start);
-    Button pause = neonButton("Pause", "#ffd166", controlService::pause);
-    Button reset = neonButton("Reset", "#ff6b8a", controlService::reset);
+    Button start =
+        neonButton(
+            "Start",
+            "#22e6ff",
+            () -> {
+              controlService.start();
+              liveMetricsService.startEpisode();
+            });
+    Button pause =
+        neonButton(
+            "Pause",
+            "#ffd166",
+            () -> {
+              controlService.pause();
+              liveMetricsService.pauseEpisode();
+            });
+    Button reset =
+        neonButton(
+            "Reset",
+            "#ff6b8a",
+            () -> {
+              controlService.reset();
+              liveMetricsService.resetEpisode();
+            });
 
     VBox panel = new VBox(12, title, start, pause, reset);
     panel.setPadding(new Insets(18));
@@ -140,11 +173,10 @@ public final class MainWindow {
     VBox metrics =
         new VBox(
             10,
-            metricLine("Iterations", "0"),
-            metricLine("Score", "0"),
-            metricLine("Best Score", "0"),
-            metricLine("Elapsed", "00:00"),
-            metricLine("Escapes", "0"));
+            metricLine("Steps", "0"),
+            metricLine("Collisions", "0"),
+            metricLine("Reward", "0.0"),
+            metricLine("Elapsed", "00:00"));
 
     VBox panel = new VBox(14, title, metrics);
     panel.setPadding(new Insets(18));
@@ -161,6 +193,7 @@ public final class MainWindow {
     Label right = new Label(value);
     right.setTextFill(Color.web("#b8ffcb"));
     right.setFont(Font.font("Consolas", 14));
+    bindMetricLabel(name, right);
 
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -199,5 +232,41 @@ public final class MainWindow {
         + "-fx-border-width: 1;"
         + "-fx-border-radius: 10;"
         + "-fx-background-radius: 10;";
+  }
+
+  private void bindMetricLabel(String metricName, Label label) {
+    switch (metricName) {
+      case "Steps" -> stepsValue = label;
+      case "Collisions" -> collisionsValue = label;
+      case "Reward" -> rewardValue = label;
+      case "Elapsed" -> elapsedValue = label;
+      default -> {
+      }
+    }
+  }
+
+  private void applyMetrics(LiveEpisodeMetrics metrics) {
+    Platform.runLater(
+        () -> {
+          if (stepsValue != null) {
+            stepsValue.setText(Integer.toString(metrics.steps()));
+          }
+          if (collisionsValue != null) {
+            collisionsValue.setText(Integer.toString(metrics.collisions()));
+          }
+          if (rewardValue != null) {
+            rewardValue.setText(String.format(Locale.US, "%.1f", metrics.accumulatedReward()));
+          }
+          if (elapsedValue != null) {
+            elapsedValue.setText(formatElapsed(metrics.elapsedMillis()));
+          }
+        });
+  }
+
+  private String formatElapsed(long elapsedMillis) {
+    long totalSeconds = elapsedMillis / 1_000;
+    long minutes = totalSeconds / 60;
+    long seconds = totalSeconds % 60;
+    return String.format("%02d:%02d", minutes, seconds);
   }
 }

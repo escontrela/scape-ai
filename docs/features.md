@@ -82,6 +82,7 @@
 - Visualizacion en vivo de pasos, colisiones, recompensa acumulada y tiempo transcurrido.
 - Actualizacion no bloqueante del panel durante ejecucion de simulacion.
 - Reinicio limpio de metricas al comenzar un nuevo episodio.
+- Implementacion tecnica: `InMemoryLiveMetricsService` emite snapshots periodicos y `MainWindow` aplica actualizaciones con `Platform.runLater`.
 
 ## Estado operativo actual
 - WIP objetivo: 1 ticket en `in_progress`.
