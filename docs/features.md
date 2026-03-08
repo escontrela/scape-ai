@@ -66,6 +66,7 @@
 - Implementacion baseline de `MovementPolicy` con heuristica espacial determinista.
 - Estrategia anti-bucle inmediata basada en historial reciente de celdas.
 - Seleccion de politica por configuracion para pruebas extremo a extremo del flujo actual.
+- Implementacion tecnica: `MovementPolicyConfiguration` selecciona `SimpleMovementPolicy` via `scape.ai.policy=heuristic-baseline`.
 
 ### SCAPE-0009 - Registro persistente de metricas por episodio
 - Objetivo funcional: guardar metricas detalladas de aprendizaje por episodio.
