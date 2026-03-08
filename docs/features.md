@@ -58,6 +58,7 @@
 - Coordinacion del bucle de pasos sobre `SingleStepSimulationEngine` hasta estado terminal.
 - Politica de timeout configurable con valor por defecto de 5 minutos.
 - Resultado unificado por episodio con exito, pasos, duracion y motivo de finalizacion.
+- Implementacion tecnica: `SimulationEpisodeOrchestrator` ejecuta `SimulationStepFlow` hasta `EXIT_REACHED` o `TIMEOUT` y retorna `SimulationEpisodeResult`.
 
 ### SCAPE-0008 - Politica heuristica baseline enchufable
 - Objetivo funcional: disponer de una politica de movimiento ejecutable sin dependencia de DJL.
