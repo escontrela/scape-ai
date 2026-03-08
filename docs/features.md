@@ -50,6 +50,7 @@
 - Renderizado de grilla con diferenciacion de muros, celdas transitables, inicio y salida.
 - Refresco del viewport al cambiar el laberinto seleccionado sin reiniciar aplicacion.
 - Base visual para integrar animacion del agente sobre el estado del motor.
+- Implementacion tecnica: `MazeCatalogService` provee mazes predefinidos y `MazeViewportRenderer` dibuja la grilla en JavaFX con selector reactivo en `MainWindow`.
 
 ### SCAPE-0007 - Orquestador de episodio con limite temporal
 - Objetivo funcional: cerrar episodios de simulacion por exito o timeout estandar.

@@ -1,28 +1,40 @@
 package com.davidpe.scapeai.ui;
 
 import com.davidpe.scapeai.application.SimulationControlService;
+import com.davidpe.scapeai.simulation.MazeDefinition;
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
+import java.util.ArrayList;
 import org.springframework.stereotype.Component;
 
 @Component
 public final class MainWindow {
 
   private final SimulationControlService controlService;
+  private final MazeCatalogService mazeCatalogService;
+  private final MazeViewportRenderer mazeViewportRenderer;
 
-  public MainWindow(SimulationControlService controlService) {
+  public MainWindow(
+      SimulationControlService controlService,
+      MazeCatalogService mazeCatalogService,
+      MazeViewportRenderer mazeViewportRenderer) {
     this.controlService = controlService;
+    this.mazeCatalogService = mazeCatalogService;
+    this.mazeViewportRenderer = mazeViewportRenderer;
   }
 
   public void show(Stage stage) {
@@ -74,11 +86,17 @@ public final class MainWindow {
 
   private VBox buildMazePanel() {
     Label title = panelTitle("Maze");
-    Label placeholder = new Label("Maze viewport reserved");
-    placeholder.setTextFill(Color.web("#c6d7ff"));
-    placeholder.setFont(Font.font("Consolas", 16));
+    ComboBox<String> mazeSelector =
+        new ComboBox<>(FXCollections.observableArrayList(new ArrayList<>(mazeCatalogService.names())));
+    mazeSelector.setMaxWidth(Double.MAX_VALUE);
+    mazeSelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
 
-    VBox viewport = new VBox(placeholder);
+    StackPane viewport = new StackPane();
     viewport.setAlignment(Pos.CENTER);
     viewport.setMinHeight(520);
     viewport.setStyle(
@@ -88,7 +106,29 @@ public final class MainWindow {
             + "-fx-border-radius: 8;"
             + "-fx-background-radius: 8;");
 
-    VBox panel = new VBox(12, title, viewport);
+    mazeSelector
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldValue, selectedName) -> {
+              if (selectedName == null || selectedName.equals(oldValue)) {
+                return;
+              }
+              MazeDefinition maze = mazeCatalogService.byName(selectedName);
+              if (maze != null) {
+                mazeViewportRenderer.renderInto(viewport, maze);
+              }
+            });
+
+    if (!mazeSelector.getItems().isEmpty()) {
+      mazeSelector.getSelectionModel().selectFirst();
+      MazeDefinition firstMaze = mazeCatalogService.byName(mazeSelector.getValue());
+      if (firstMaze != null) {
+        mazeViewportRenderer.renderInto(viewport, firstMaze);
+      }
+    }
+
+    VBox panel = new VBox(12, title, mazeSelector, viewport);
     panel.setPadding(new Insets(18));
     panel.setStyle(panelStyle());
     BorderPane.setMargin(panel, new Insets(0, 16, 0, 16));

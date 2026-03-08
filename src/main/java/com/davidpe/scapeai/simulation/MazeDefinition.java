@@ -5,13 +5,36 @@ public final class MazeDefinition {
   private final int rows;
   private final int cols;
   private final boolean[][] walls;
+  private final GridPosition start;
   private final GridPosition exit;
 
   public MazeDefinition(int rows, int cols, boolean[][] walls, GridPosition exit) {
+    this(rows, cols, walls, new GridPosition(0, 0), exit);
+  }
+
+  public MazeDefinition(
+      int rows, int cols, boolean[][] walls, GridPosition start, GridPosition exit) {
     this.rows = rows;
     this.cols = cols;
     this.walls = copyWalls(rows, cols, walls);
+    this.start = start;
     this.exit = exit;
+  }
+
+  public int rows() {
+    return rows;
+  }
+
+  public int cols() {
+    return cols;
+  }
+
+  public GridPosition start() {
+    return start;
+  }
+
+  public GridPosition exit() {
+    return exit;
   }
 
   public boolean isInside(GridPosition position) {
