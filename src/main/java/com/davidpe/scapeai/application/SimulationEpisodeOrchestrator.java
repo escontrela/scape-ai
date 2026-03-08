@@ -4,6 +4,7 @@ import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.SimulationState;
 import java.time.Duration;
 import java.util.function.LongSupplier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,7 @@ public class SimulationEpisodeOrchestrator {
   private final Duration defaultTimeout;
   private final LongSupplier currentTimeMillis;
 
+  @Autowired
   public SimulationEpisodeOrchestrator(
       SimulationStepFlow simulationStepFlow,
       @Value("${scape.simulation.episode-timeout:PT5M}") Duration defaultTimeout) {
@@ -49,7 +51,6 @@ public class SimulationEpisodeOrchestrator {
     EpisodeEndReason endReason =
         currentState.exitReached() ? EpisodeEndReason.EXIT_REACHED : EpisodeEndReason.TIMEOUT;
 
-    return new SimulationEpisodeResult(
-        currentState.exitReached(), totalSteps, elapsed, endReason);
+    return new SimulationEpisodeResult(currentState.exitReached(), totalSteps, elapsed, endReason);
   }
 }
