@@ -13,7 +13,8 @@ import com.davidpe.scapeai.application.SimulationSpeed;
 import com.davidpe.scapeai.application.SimulationControlService;
 import com.davidpe.scapeai.application.TrainingTargetDifficulty;
 import com.davidpe.scapeai.application.TrainingLifecycleEvent;
-import com.davidpe.scapeai.application.TrainingLifecycleEventBus;
+import com.davidpe.scapeai.application.TrainingLifecycleEventType;
+import com.davidpe.scapeai.application.TrainingLifecycleSubscriberRouter;
 import com.davidpe.scapeai.application.TrainingTimelineEntry;
 import com.davidpe.scapeai.application.TrainingTimelineStatus;
 import com.davidpe.scapeai.application.TrainingPresetOption;
@@ -22,6 +23,7 @@ import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
 import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -57,7 +59,6 @@ public final class MainWindow {
   private final RecentRunsComparisonService recentRunsComparisonService;
   private final MazeCatalogService mazeCatalogService;
   private final MazeViewportRenderer mazeViewportRenderer;
-  private final TrainingLifecycleEventBus trainingLifecycleEventBus;
   private final ScheduledExecutorService trajectoryScheduler =
       Executors.newSingleThreadScheduledExecutor(
           runnable -> {
@@ -91,7 +92,6 @@ public final class MainWindow {
   private GridPosition trajectoryCurrent;
   private ScheduledFuture<?> trajectoryTicker;
   private volatile boolean trajectoryRunning;
-  private TrainingLifecycleEventBus.Subscription lifecycleSubscription;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -100,14 +100,17 @@ public final class MainWindow {
       RecentRunsComparisonService recentRunsComparisonService,
       MazeCatalogService mazeCatalogService,
       MazeViewportRenderer mazeViewportRenderer,
-      TrainingLifecycleEventBus trainingLifecycleEventBus) {
+      TrainingLifecycleSubscriberRouter trainingLifecycleSubscriberRouter) {
     this.controlService = controlService;
     this.startTrainingSessionUseCase = startTrainingSessionUseCase;
     this.liveMetricsService = liveMetricsService;
     this.recentRunsComparisonService = recentRunsComparisonService;
     this.mazeCatalogService = mazeCatalogService;
     this.mazeViewportRenderer = mazeViewportRenderer;
-    this.trainingLifecycleEventBus = trainingLifecycleEventBus;
+    trainingLifecycleSubscriberRouter.register(
+        "main-window",
+        EnumSet.allOf(TrainingLifecycleEventType.class),
+        this::onTrainingLifecycleEvent);
   }
 
   public void show(Stage stage) {
@@ -121,10 +124,6 @@ public final class MainWindow {
     root.setRight(buildMetricsPanel());
     liveMetricsService.subscribe(this::applyMetrics);
     liveMetricsService.subscribeTimeline(this::applyTimeline);
-    if (lifecycleSubscription != null) {
-      lifecycleSubscription.unsubscribe();
-    }
-    lifecycleSubscription = trainingLifecycleEventBus.subscribe(this::onTrainingLifecycleEvent);
     refreshRecentRunsAsync();
 
     Scene scene = new Scene(root, 1200, 760);
@@ -946,10 +945,6 @@ public final class MainWindow {
 
   @PreDestroy
   public synchronized void shutdownTrajectoryOverlay() {
-    if (lifecycleSubscription != null) {
-      lifecycleSubscription.unsubscribe();
-      lifecycleSubscription = null;
-    }
     stopTrajectoryTicker();
     trajectoryScheduler.shutdownNow();
     recentRunsExecutor.shutdownNow();

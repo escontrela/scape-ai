@@ -267,7 +267,7 @@
 - Registro centralizado de suscriptores por tipo de `TrainingLifecycleEvent`.
 - Enlace de listeners de UI y persistencia mediante router, sin wiring directo modulo-a-modulo.
 - Validacion de suscriptor duplicado para prevenir configuraciones ambiguas.
-- Implementacion tecnica propuesta: `TrainingLifecycleSubscriberRouter` con registro tipado y estrategia fail-fast para duplicados.
+- Implementacion tecnica: `TrainingLifecycleSubscriberRouter` enruta eventos por tipo y aplica validacion fail-fast para suscriptor duplicado por evento.
 
 ### SCAPE-0034 - Indicador HUD de semilla y modo de ejecucion
 - Objetivo funcional: aumentar trazabilidad operativa mostrando en UI la semilla efectiva y el modo activo de ejecucion.
