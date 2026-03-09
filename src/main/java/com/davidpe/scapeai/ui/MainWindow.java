@@ -5,7 +5,17 @@ import com.davidpe.scapeai.application.LiveMetricsService;
 import com.davidpe.scapeai.application.MovementPolicyOption;
 import com.davidpe.scapeai.application.SimulationControlService;
 import com.davidpe.scapeai.application.TrainingPresetOption;
+import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
+import com.davidpe.scapeai.simulation.MoveDirection;
+import jakarta.annotation.PreDestroy;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -23,8 +33,6 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
-import java.util.ArrayList;
-import java.util.Locale;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -34,12 +42,25 @@ public final class MainWindow {
   private final LiveMetricsService liveMetricsService;
   private final MazeCatalogService mazeCatalogService;
   private final MazeViewportRenderer mazeViewportRenderer;
+  private final ScheduledExecutorService trajectoryScheduler =
+      Executors.newSingleThreadScheduledExecutor(
+          runnable -> {
+            Thread thread = new Thread(runnable, "maze-trajectory-overlay");
+            thread.setDaemon(true);
+            return thread;
+          });
+  private final List<GridPosition> trajectoryCells = new ArrayList<>();
+  private final Object trajectoryLock = new Object();
   private Label stepsValue;
   private Label collisionsValue;
   private Label rewardValue;
   private Label elapsedValue;
   private Label activePolicyValue;
   private Label activePresetValue;
+  private StackPane mazeViewport;
+  private MazeDefinition selectedMaze;
+  private GridPosition trajectoryCurrent;
+  private ScheduledFuture<?> trajectoryTicker;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -196,6 +217,7 @@ public final class MainWindow {
               }
               controlService.start();
               liveMetricsService.startEpisode();
+              startTrajectoryEpisode();
               updateActivePolicyLabel();
               updateActivePresetLabel();
             });
@@ -206,6 +228,7 @@ public final class MainWindow {
             () -> {
               controlService.pause();
               liveMetricsService.pauseEpisode();
+              stopTrajectoryTicker();
             });
     Button reset =
         neonButton(
@@ -214,6 +237,7 @@ public final class MainWindow {
             () -> {
               controlService.reset();
               liveMetricsService.resetEpisode();
+              resetTrajectoryEpisode();
             });
 
     VBox panel =
@@ -247,10 +271,10 @@ public final class MainWindow {
             + "-fx-border-radius: 6;"
             + "-fx-background-radius: 6;");
 
-    StackPane viewport = new StackPane();
-    viewport.setAlignment(Pos.CENTER);
-    viewport.setMinHeight(520);
-    viewport.setStyle(
+    mazeViewport = new StackPane();
+    mazeViewport.setAlignment(Pos.CENTER);
+    mazeViewport.setMinHeight(520);
+    mazeViewport.setStyle(
         "-fx-background-color: #0a1329;"
             + "-fx-border-color: #2cf1ff;"
             + "-fx-border-width: 1;"
@@ -267,7 +291,9 @@ public final class MainWindow {
               }
               MazeDefinition maze = mazeCatalogService.byName(selectedName);
               if (maze != null) {
-                mazeViewportRenderer.renderInto(viewport, maze);
+                selectedMaze = maze;
+                mazeViewportRenderer.renderInto(mazeViewport, maze);
+                resetTrajectoryEpisode();
               }
             });
 
@@ -275,11 +301,12 @@ public final class MainWindow {
       mazeSelector.getSelectionModel().selectFirst();
       MazeDefinition firstMaze = mazeCatalogService.byName(mazeSelector.getValue());
       if (firstMaze != null) {
-        mazeViewportRenderer.renderInto(viewport, firstMaze);
+        selectedMaze = firstMaze;
+        mazeViewportRenderer.renderInto(mazeViewport, firstMaze);
       }
     }
 
-    VBox panel = new VBox(12, title, mazeSelector, viewport);
+    VBox panel = new VBox(12, title, mazeSelector, mazeViewport);
     panel.setPadding(new Insets(18));
     panel.setStyle(panelStyle());
     BorderPane.setMargin(panel, new Insets(0, 16, 0, 16));
@@ -432,5 +459,91 @@ public final class MainWindow {
     long minutes = totalSeconds / 60;
     long seconds = totalSeconds % 60;
     return String.format("%02d:%02d", minutes, seconds);
+  }
+
+  private void startTrajectoryEpisode() {
+    if (selectedMaze == null || mazeViewport == null) {
+      return;
+    }
+    synchronized (trajectoryLock) {
+      trajectoryCells.clear();
+      trajectoryCurrent = selectedMaze.start();
+      trajectoryCells.add(trajectoryCurrent);
+    }
+    Platform.runLater(() -> mazeViewportRenderer.renderTrajectory(List.copyOf(trajectoryCells)));
+    stopTrajectoryTicker();
+    trajectoryTicker =
+        trajectoryScheduler.scheduleAtFixedRate(this::advanceTrajectoryOverlay, 120, 120, TimeUnit.MILLISECONDS);
+  }
+
+  private void resetTrajectoryEpisode() {
+    stopTrajectoryTicker();
+    synchronized (trajectoryLock) {
+      trajectoryCells.clear();
+      trajectoryCurrent = null;
+    }
+    Platform.runLater(mazeViewportRenderer::clearTrajectory);
+  }
+
+  private void advanceTrajectoryOverlay() {
+    MazeDefinition maze = selectedMaze;
+    if (maze == null) {
+      return;
+    }
+
+    List<GridPosition> snapshot;
+    synchronized (trajectoryLock) {
+      GridPosition current = trajectoryCurrent == null ? maze.start() : trajectoryCurrent;
+      GridPosition next = chooseNextPosition(current, maze);
+      trajectoryCurrent = next;
+      trajectoryCells.add(next);
+      if (trajectoryCells.size() > 600) {
+        trajectoryCells.remove(0);
+      }
+      snapshot = List.copyOf(trajectoryCells);
+    }
+    Platform.runLater(() -> mazeViewportRenderer.renderTrajectory(snapshot));
+  }
+
+  private GridPosition chooseNextPosition(GridPosition current, MazeDefinition maze) {
+    GridPosition revisitCandidate = null;
+    for (MoveDirection direction : MoveDirection.values()) {
+      GridPosition candidate = current.move(direction);
+      if (!maze.isInside(candidate) || maze.isWall(candidate)) {
+        continue;
+      }
+      if (recentlyVisited(candidate)) {
+        if (revisitCandidate == null) {
+          revisitCandidate = candidate;
+        }
+        continue;
+      }
+      return candidate;
+    }
+    return revisitCandidate == null ? current : revisitCandidate;
+  }
+
+  private boolean recentlyVisited(GridPosition candidate) {
+    int size = trajectoryCells.size();
+    int start = Math.max(0, size - 6);
+    for (int index = start; index < size; index++) {
+      if (trajectoryCells.get(index).equals(candidate)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private synchronized void stopTrajectoryTicker() {
+    if (trajectoryTicker != null) {
+      trajectoryTicker.cancel(false);
+      trajectoryTicker = null;
+    }
+  }
+
+  @PreDestroy
+  public synchronized void shutdownTrajectoryOverlay() {
+    stopTrajectoryTicker();
+    trajectoryScheduler.shutdownNow();
   }
 }

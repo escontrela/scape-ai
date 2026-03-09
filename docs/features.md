@@ -130,6 +130,7 @@
 - Capa visual adicional en el viewport con celdas visitadas en orden temporal.
 - Actualizacion en tiempo real de la trayectoria sin bloqueo del hilo JavaFX.
 - Reinicio limpio del overlay al comenzar un nuevo episodio.
+- Implementacion tecnica: `MazeViewportRenderer` agrega capa `trajectoryLayer` superpuesta y `MainWindow` coordina un ticker dedicado de trayectoria con actualizaciones via `Platform.runLater`.
 
 ### SCAPE-0017 - Control de velocidad de simulacion en UI
 - Objetivo funcional: permitir ajustar la velocidad de ejecucion visual del episodio desde el panel de control.
