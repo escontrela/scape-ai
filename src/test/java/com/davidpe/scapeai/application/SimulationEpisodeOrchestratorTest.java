@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.function.LongSupplier;
 import org.junit.jupiter.api.Test;
 
@@ -37,6 +38,8 @@ class SimulationEpisodeOrchestratorTest {
     assertEquals(-1.0, result.totalReward());
     assertEquals(0, result.collisions());
     assertEquals(0, result.loopEvents());
+    assertEquals(0, result.explorationDecisions());
+    assertTrue(result.exploitationDecisions() > 0);
     assertEquals(0, result.inferenceTraces().size());
     assertTrue(result.elapsedMillis() >= 0);
   }
@@ -147,6 +150,29 @@ class SimulationEpisodeOrchestratorTest {
 
     assertTrue(result.totalSteps() > 0);
     assertEquals(result.totalSteps(), recorder.transitions().size());
+  }
+
+  @Test
+  void shouldCountExplorationDecisionsWhenEpsilonEnabled() {
+    SimulationStepFlow flow = flowWithPolicy(context -> MoveDirection.RIGHT);
+    SimulationEpisodeOrchestrator orchestrator =
+        new SimulationEpisodeOrchestrator(
+            flow,
+            ExperienceTransitionRecorder.noop(),
+            Duration.ofMillis(100),
+            6,
+            new FixedStepTime(0, 20),
+            () -> 1L,
+            () -> new Random(42L),
+            1.0);
+    MazeDefinition maze =
+        new MazeDefinition(1, 4, new boolean[1][4], new GridPosition(0, 0), new GridPosition(0, 3));
+
+    SimulationEpisodeResult result = orchestrator.runEpisode(maze, Duration.ofMillis(100));
+
+    assertTrue(result.totalSteps() > 0);
+    assertTrue(result.explorationDecisions() > 0);
+    assertEquals(0, result.exploitationDecisions());
   }
 
   private SimulationStepFlow flowWithPolicy(MovementPolicy policy) {

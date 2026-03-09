@@ -10,6 +10,8 @@ public record SimulationEpisodeResult(
     double totalReward,
     int collisions,
     int loopEvents,
+    int explorationDecisions,
+    int exploitationDecisions,
     List<PolicyInferenceTrace> inferenceTraces) {
 
   public SimulationEpisodeResult {

@@ -1,5 +1,7 @@
 package com.davidpe.scapeai.application;
 
+import com.davidpe.scapeai.ai.EpsilonGreedyMovementPolicyDecorator;
+import com.davidpe.scapeai.ai.MovementPolicy;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MoveDirection;
@@ -11,7 +13,9 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -24,6 +28,8 @@ public class SimulationEpisodeOrchestrator {
   private final int loopWindow;
   private final LongSupplier currentTimeMillis;
   private final java.util.function.LongSupplier entropySupplier;
+  private final Supplier<Random> randomSupplier;
+  private final double epsilon;
   private final ExperienceTransitionRecorder experienceTransitionRecorder;
 
   @Autowired
@@ -32,14 +38,17 @@ public class SimulationEpisodeOrchestrator {
       ExperienceTransitionRecorder experienceTransitionRecorder,
       SessionRandomSource sessionRandomSource,
       @Value("${scape.simulation.episode-timeout:PT5M}") Duration defaultTimeout,
-      @Value("${scape.simulation.loop-window:8}") int loopWindow) {
+      @Value("${scape.simulation.loop-window:8}") int loopWindow,
+      @Value("${scape.ai.epsilon:0.0}") double epsilon) {
     this(
         simulationStepFlow,
         experienceTransitionRecorder,
         defaultTimeout,
         loopWindow,
         System::currentTimeMillis,
-        () -> sessionRandomSource.random().nextLong());
+        () -> sessionRandomSource.random().nextLong(),
+        sessionRandomSource::random,
+        epsilon);
   }
 
   SimulationEpisodeOrchestrator(
@@ -54,7 +63,9 @@ public class SimulationEpisodeOrchestrator {
         defaultTimeout,
         loopWindow,
         currentTimeMillis,
-        () -> 0L);
+        () -> 0L,
+        () -> new Random(0L),
+        0.0);
   }
 
   SimulationEpisodeOrchestrator(
@@ -63,13 +74,20 @@ public class SimulationEpisodeOrchestrator {
       Duration defaultTimeout,
       int loopWindow,
       LongSupplier currentTimeMillis,
-      java.util.function.LongSupplier entropySupplier) {
+      java.util.function.LongSupplier entropySupplier,
+      Supplier<Random> randomSupplier,
+      double epsilon) {
     this.simulationStepFlow = simulationStepFlow;
     this.defaultTimeout = defaultTimeout;
     this.loopWindow = Math.max(2, loopWindow);
     this.currentTimeMillis = currentTimeMillis;
     this.experienceTransitionRecorder = experienceTransitionRecorder;
     this.entropySupplier = entropySupplier;
+    if (epsilon < 0.0 || epsilon > 1.0) {
+      throw new IllegalArgumentException("scape.ai.epsilon must be in range [0,1]");
+    }
+    this.randomSupplier = randomSupplier;
+    this.epsilon = epsilon;
   }
 
   SimulationEpisodeOrchestrator(
@@ -103,10 +121,11 @@ public class SimulationEpisodeOrchestrator {
     entropySupplier.getAsLong();
     long startedAt = currentTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
+    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy();
     EpisodeExecutionState state =
         EpisodeExecutionState.initial(
             SimulationState.initial(maze.start()), startedAt, deadline, loopWindow);
-    runLoop(maze, state, -1);
+    runLoop(maze, state, policy, -1);
     return state.toResult(currentTimeMillis.getAsLong());
   }
 
@@ -115,10 +134,11 @@ public class SimulationEpisodeOrchestrator {
     entropySupplier.getAsLong();
     long startedAt = currentTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
+    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy();
     EpisodeExecutionState state =
         EpisodeExecutionState.initial(
             SimulationState.initial(maze.start()), startedAt, deadline, loopWindow);
-    runLoop(maze, state, Math.max(0, maxSteps));
+    runLoop(maze, state, policy, Math.max(0, maxSteps));
     return state.toCheckpoint(currentTimeMillis.getAsLong());
   }
 
@@ -126,13 +146,23 @@ public class SimulationEpisodeOrchestrator {
     entropySupplier.getAsLong();
     long resumedAt = currentTimeMillis.getAsLong();
     long deadline = resumedAt + checkpoint.remainingMillis();
+    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy();
     EpisodeExecutionState state =
         EpisodeExecutionState.fromCheckpoint(checkpoint, resumedAt, deadline, loopWindow);
-    runLoop(maze, state, -1);
+    runLoop(maze, state, policy, -1);
     return state.toResult(currentTimeMillis.getAsLong());
   }
 
-  private void runLoop(MazeDefinition maze, EpisodeExecutionState state, int maxSteps) {
+  private EpsilonGreedyMovementPolicyDecorator buildEpisodePolicy() {
+    MovementPolicy basePolicy = simulationStepFlow.activePolicy();
+    return new EpsilonGreedyMovementPolicyDecorator(basePolicy, epsilon, randomSupplier);
+  }
+
+  private void runLoop(
+      MazeDefinition maze,
+      EpisodeExecutionState state,
+      EpsilonGreedyMovementPolicyDecorator policy,
+      int maxSteps) {
     int executed = 0;
     while (!state.currentState.exitReached()
         && currentTimeMillis.getAsLong() < state.deadline
@@ -145,9 +175,19 @@ public class SimulationEpisodeOrchestrator {
       SimulationState previousState = state.currentState;
       var outcome =
           simulationStepFlow.execute(
-              maze, state.currentState, state.previousDirection, state.noProgressStreak, loopDetected);
+              maze,
+              state.currentState,
+              state.previousDirection,
+              state.noProgressStreak,
+              loopDetected,
+              policy);
       state.currentState = outcome.result().state();
       state.previousDirection = outcome.selectedDirection();
+      if (policy.lastDecisionExploration()) {
+        state.explorationDecisions++;
+      } else {
+        state.exploitationDecisions++;
+      }
       int currentDistanceToExit = manhattanDistance(state.currentState.agentPosition(), maze.exit());
       state.noProgressStreak =
           currentDistanceToExit < previousDistanceToExit ? 0 : state.noProgressStreak + 1;
@@ -203,6 +243,8 @@ public class SimulationEpisodeOrchestrator {
     private int totalSteps;
     private int collisions;
     private int loopEvents;
+    private int explorationDecisions;
+    private int exploitationDecisions;
     private double totalReward;
     private long elapsedBeforeSegment;
 
@@ -324,6 +366,8 @@ public class SimulationEpisodeOrchestrator {
           totalReward,
           collisions,
           loopEvents,
+          explorationDecisions,
+          exploitationDecisions,
           List.copyOf(inferenceTraces));
     }
 

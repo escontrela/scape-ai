@@ -45,7 +45,22 @@ public class SimulationStepFlow {
       MoveDirection previousDirection,
       int noProgressStreak,
       boolean loopDetected) {
-    MovementPolicy movementPolicy = movementPolicyService.activePolicy();
+    return execute(
+        maze,
+        currentState,
+        previousDirection,
+        noProgressStreak,
+        loopDetected,
+        movementPolicyService.activePolicy());
+  }
+
+  SimulationStepOutcome execute(
+      MazeDefinition maze,
+      SimulationState currentState,
+      MoveDirection previousDirection,
+      int noProgressStreak,
+      boolean loopDetected,
+      MovementPolicy movementPolicy) {
     var direction =
         movementPolicy.chooseNextMove(
             new SpatialContext(maze, currentState, previousDirection, noProgressStreak));
@@ -56,5 +71,9 @@ public class SimulationStepFlow {
       trace = provider.latestInferenceTrace();
     }
     return new SimulationStepOutcome(direction, result, reward, trace);
+  }
+
+  MovementPolicy activePolicy() {
+    return movementPolicyService.activePolicy();
   }
 }
