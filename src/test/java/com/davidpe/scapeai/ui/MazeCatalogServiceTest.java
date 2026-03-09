@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.davidpe.scapeai.application.TrainingTargetDifficulty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.davidpe.scapeai.persistence.MazeEntity;
 import com.davidpe.scapeai.persistence.repository.MazeRepository;
@@ -77,6 +78,20 @@ class MazeCatalogServiceTest {
     assertNotNull(catalog.byName("Temp Maze"));
     assertFalse(catalog.loadErrors().isEmpty());
     assertTrue(catalog.loadErrors().get(0).contains("Invalid maze file"));
+  }
+
+  @Test
+  void shouldResolveCandidateByTargetDifficultySegment() {
+    MazeCatalogService catalog =
+        new MazeCatalogService(
+            new MazeJsonResourceLoader(new ObjectMapper()),
+            new InMemoryMazeRepository(),
+            new MazeDifficultyScorer(),
+            "classpath:mazes/*.json");
+
+    assertTrue(catalog.findCandidateByDifficulty(TrainingTargetDifficulty.LOW).isPresent());
+    assertTrue(catalog.findCandidateByDifficulty(TrainingTargetDifficulty.MEDIUM).isPresent());
+    assertFalse(catalog.findCandidateByDifficulty(TrainingTargetDifficulty.HIGH).isPresent());
   }
 
   private static final class InMemoryMazeRepository implements MazeRepository {

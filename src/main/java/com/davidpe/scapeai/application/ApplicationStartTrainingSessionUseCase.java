@@ -1,19 +1,30 @@
 package com.davidpe.scapeai.application;
 
+import com.davidpe.scapeai.ui.MazeCatalogService;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ApplicationStartTrainingSessionUseCase implements StartTrainingSessionUseCase {
 
   private final SimulationControlService simulationControlService;
+  private final MazeCatalogService mazeCatalogService;
 
-  public ApplicationStartTrainingSessionUseCase(SimulationControlService simulationControlService) {
+  public ApplicationStartTrainingSessionUseCase(
+      SimulationControlService simulationControlService, MazeCatalogService mazeCatalogService) {
     this.simulationControlService = simulationControlService;
+    this.mazeCatalogService = mazeCatalogService;
   }
 
   @Override
   public StartTrainingSessionResult start(StartTrainingSessionCommand command) {
-    if (command == null || command.maze() == null) {
+    if (command == null) {
+      return StartTrainingSessionResult.validationError("Select a maze before starting.");
+    }
+
+    TrainingTargetDifficulty targetDifficulty =
+        command.targetDifficulty() == null ? TrainingTargetDifficulty.MEDIUM : command.targetDifficulty();
+    var selectedMaze = mazeCatalogService.findCandidateByDifficulty(targetDifficulty).orElse(command.maze());
+    if (selectedMaze == null) {
       return StartTrainingSessionResult.validationError("Select a maze before starting.");
     }
 
@@ -44,7 +55,13 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
       return StartTrainingSessionResult.validationError("Select a training preset before starting.");
     }
 
+    if (mazeCatalogService.findCandidateByDifficulty(targetDifficulty).isEmpty()) {
+      return StartTrainingSessionResult.validationError(
+          "No mazes available for selected difficulty. Choose another level or add more mazes.");
+    }
+
     simulationControlService.start();
-    return StartTrainingSessionResult.ok("TRAINING RUNNING");
+    return StartTrainingSessionResult.ok(
+        "TRAINING RUNNING — TARGET " + targetDifficulty.label().toUpperCase(), selectedMaze);
   }
 }

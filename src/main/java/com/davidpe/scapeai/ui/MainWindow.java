@@ -8,6 +8,7 @@ import com.davidpe.scapeai.application.StartTrainingSessionResult;
 import com.davidpe.scapeai.application.StartTrainingSessionUseCase;
 import com.davidpe.scapeai.application.SimulationSpeed;
 import com.davidpe.scapeai.application.SimulationControlService;
+import com.davidpe.scapeai.application.TrainingTargetDifficulty;
 import com.davidpe.scapeai.application.TrainingTimelineEntry;
 import com.davidpe.scapeai.application.TrainingTimelineStatus;
 import com.davidpe.scapeai.application.TrainingPresetOption;
@@ -270,6 +271,37 @@ public final class MainWindow {
     activeSpeedValue.setFont(Font.font("Consolas", 12));
     updateActiveSpeedLabel();
 
+    Label targetDifficultyLabel = new Label("TARGET DIFFICULTY");
+    targetDifficultyLabel.setTextFill(Color.web("#9db2ff"));
+    targetDifficultyLabel.setFont(Font.font("Consolas", 12));
+    ComboBox<TrainingTargetDifficulty> targetDifficultySelector =
+        new ComboBox<>(FXCollections.observableArrayList(TrainingTargetDifficulty.values()));
+    targetDifficultySelector.getSelectionModel().select(TrainingTargetDifficulty.MEDIUM);
+    targetDifficultySelector.setMaxWidth(Double.MAX_VALUE);
+    targetDifficultySelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    targetDifficultySelector.setCellFactory(
+        ignored ->
+            new javafx.scene.control.ListCell<>() {
+              @Override
+              protected void updateItem(TrainingTargetDifficulty item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.label());
+              }
+            });
+    targetDifficultySelector.setButtonCell(
+        new javafx.scene.control.ListCell<>() {
+          @Override
+          protected void updateItem(TrainingTargetDifficulty item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty || item == null ? null : item.label());
+          }
+        });
+
     Button start =
         neonButton(
             "Start",
@@ -277,12 +309,18 @@ public final class MainWindow {
             () -> {
               TrainingPresetOption selectedPreset = presetSelector.getValue();
               Long selectedPresetId = selectedPreset == null ? null : selectedPreset.id();
+              TrainingTargetDifficulty targetDifficulty = targetDifficultySelector.getValue();
               StartTrainingSessionResult startResult =
                   startTrainingSessionUseCase.start(
-                      new StartTrainingSessionCommand(selectedMaze, selectedPresetId));
+                      new StartTrainingSessionCommand(
+                          selectedMaze, selectedPresetId, targetDifficulty));
               if (!startResult.started()) {
                 updateSystemStatus(startResult.message(), "#ff6b8a");
                 return;
+              }
+              if (startResult.maze() != null) {
+                selectedMaze = startResult.maze();
+                mazeViewportRenderer.renderInto(mazeViewport, startResult.maze());
               }
               updateSystemStatus(startResult.message(), "#89ff9a");
               liveMetricsService.startEpisode();
@@ -324,6 +362,8 @@ public final class MainWindow {
             speedLabel,
             speedSelector,
             activeSpeedValue,
+            targetDifficultyLabel,
+            targetDifficultySelector,
             start,
             pause,
             reset);

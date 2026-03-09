@@ -1,5 +1,6 @@
 package com.davidpe.scapeai.ui;
 
+import com.davidpe.scapeai.application.TrainingTargetDifficulty;
 import com.davidpe.scapeai.persistence.MazeEntity;
 import com.davidpe.scapeai.persistence.repository.MazeRepository;
 import com.davidpe.scapeai.simulation.GridPosition;
@@ -8,6 +9,7 @@ import com.davidpe.scapeai.simulation.MazeDifficultyScorer;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -38,6 +40,42 @@ public class MazeCatalogService {
 
   public List<String> namesByDifficulty(boolean ascending) {
     return mazeRepository.findAllOrderByDifficulty(ascending).stream().map(MazeEntity::name).toList();
+  }
+
+  public Optional<MazeDefinition> findCandidateByDifficulty(TrainingTargetDifficulty target) {
+    if (target == null) {
+      return Optional.empty();
+    }
+    List<MazeEntity> ordered = mazeRepository.findAllOrderByDifficulty(true);
+    if (ordered.isEmpty()) {
+      return Optional.empty();
+    }
+    int segmentSize = (int) Math.ceil(ordered.size() / 3.0);
+    int fromIndex;
+    int toIndex;
+    switch (target) {
+      case LOW -> {
+        fromIndex = 0;
+        toIndex = Math.min(ordered.size(), segmentSize);
+      }
+      case MEDIUM -> {
+        fromIndex = Math.min(ordered.size(), segmentSize);
+        toIndex = Math.min(ordered.size(), segmentSize * 2);
+      }
+      case HIGH -> {
+        fromIndex = Math.min(ordered.size(), segmentSize * 2);
+        toIndex = ordered.size();
+      }
+      default -> {
+        return Optional.empty();
+      }
+    }
+    if (fromIndex >= toIndex) {
+      return Optional.empty();
+    }
+    MazeEntity candidate = ordered.get(fromIndex);
+    MazeEntry entry = mazes.get(candidate.name());
+    return entry == null ? Optional.empty() : Optional.of(entry.maze());
   }
 
   public MazeDefinition byName(String name) {
