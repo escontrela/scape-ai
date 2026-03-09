@@ -8,6 +8,8 @@ import com.davidpe.scapeai.application.StartTrainingSessionResult;
 import com.davidpe.scapeai.application.StartTrainingSessionUseCase;
 import com.davidpe.scapeai.application.SimulationSpeed;
 import com.davidpe.scapeai.application.SimulationControlService;
+import com.davidpe.scapeai.application.TrainingTimelineEntry;
+import com.davidpe.scapeai.application.TrainingTimelineStatus;
 import com.davidpe.scapeai.application.TrainingPresetOption;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
@@ -64,6 +66,7 @@ public final class MainWindow {
   private Label activePresetValue;
   private Label activeSpeedValue;
   private Label systemStatusValue;
+  private VBox timelineEntriesBox;
   private StackPane mazeViewport;
   private MazeDefinition selectedMaze;
   private GridPosition trajectoryCurrent;
@@ -93,6 +96,7 @@ public final class MainWindow {
     root.setCenter(buildMazePanel());
     root.setRight(buildMetricsPanel());
     liveMetricsService.subscribe(this::applyMetrics);
+    liveMetricsService.subscribeTimeline(this::applyTimeline);
 
     Scene scene = new Scene(root, 1200, 760);
     stage.setTitle("Scape AI Control Panel");
@@ -302,6 +306,7 @@ public final class MainWindow {
             "#ff6b8a",
             () -> {
               controlService.reset();
+              liveMetricsService.completeEpisode();
               liveMetricsService.resetEpisode();
               resetTrajectoryEpisode();
             });
@@ -392,7 +397,17 @@ public final class MainWindow {
             metricLine("Reward", "0.0"),
             metricLine("Elapsed", "00:00"));
 
-    VBox panel = new VBox(14, title, metrics);
+    Label timelineTitle = new Label("RECENT EPISODES");
+    timelineTitle.setTextFill(Color.web("#9db2ff"));
+    timelineTitle.setFont(Font.font("Consolas", 12));
+
+    timelineEntriesBox = new VBox(6);
+    timelineEntriesBox
+        .getChildren()
+        .add(
+            timelinePlaceholder("No episodes completed yet."));
+
+    VBox panel = new VBox(14, title, metrics, timelineTitle, timelineEntriesBox);
     panel.setPadding(new Insets(18));
     panel.setMinWidth(240);
     panel.setStyle(panelStyle());
@@ -475,6 +490,57 @@ public final class MainWindow {
             elapsedValue.setText(formatElapsed(metrics.elapsedMillis()));
           }
         });
+  }
+
+  private void applyTimeline(List<TrainingTimelineEntry> entries) {
+    Platform.runLater(
+        () -> {
+          if (timelineEntriesBox == null) {
+            return;
+          }
+          timelineEntriesBox.getChildren().clear();
+          if (entries.isEmpty()) {
+            timelineEntriesBox.getChildren().add(timelinePlaceholder("No episodes completed yet."));
+            return;
+          }
+          for (TrainingTimelineEntry entry : entries) {
+            timelineEntriesBox.getChildren().add(timelineRow(entry));
+          }
+        });
+  }
+
+  private HBox timelineRow(TrainingTimelineEntry entry) {
+    Label status = new Label(entry.status().name());
+    status.setFont(Font.font("Consolas", 12));
+    status.setTextFill(Color.web(statusColor(entry.status())));
+
+    Label reward =
+        new Label(String.format(Locale.US, "R %.1f", entry.reward()));
+    reward.setFont(Font.font("Consolas", 12));
+    reward.setTextFill(Color.web("#b8ffcb"));
+
+    Label elapsed = new Label(formatElapsed(entry.durationMillis()));
+    elapsed.setFont(Font.font("Consolas", 12));
+    elapsed.setTextFill(Color.web("#9db2ff"));
+
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    return new HBox(8, status, spacer, reward, elapsed);
+  }
+
+  private Label timelinePlaceholder(String text) {
+    Label label = new Label(text);
+    label.setFont(Font.font("Consolas", 12));
+    label.setTextFill(Color.web("#5e719f"));
+    return label;
+  }
+
+  private String statusColor(TrainingTimelineStatus status) {
+    return switch (status) {
+      case SUCCESS -> "#89ff9a";
+      case TIMEOUT -> "#ffd166";
+      case COLLISION_STALL -> "#ff6b8a";
+    };
   }
 
   private void selectActiveAlgorithm(ComboBox<MovementPolicyOption> selector) {

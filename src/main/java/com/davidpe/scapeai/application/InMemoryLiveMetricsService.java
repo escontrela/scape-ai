@@ -1,6 +1,8 @@
 package com.davidpe.scapeai.application;
 
 import jakarta.annotation.PreDestroy;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -23,6 +25,9 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
           });
   private final List<java.util.function.Consumer<LiveEpisodeMetrics>> listeners =
       new CopyOnWriteArrayList<>();
+  private final List<java.util.function.Consumer<List<TrainingTimelineEntry>>> timelineListeners =
+      new CopyOnWriteArrayList<>();
+  private final Deque<TrainingTimelineEntry> recentTimeline = new ArrayDeque<>();
   private final AtomicInteger steps = new AtomicInteger(0);
   private final AtomicInteger collisions = new AtomicInteger(0);
   private final AtomicLong elapsedMillis = new AtomicLong(0L);
@@ -30,11 +35,16 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   private volatile long episodeStartedAt = 0L;
   private volatile ScheduledFuture<?> ticker;
   private volatile SimulationSpeed simulationSpeed = SimulationSpeed.NORMAL;
+  private volatile boolean episodeActive;
 
   @Override
   public synchronized void startEpisode() {
+    if (episodeActive && steps.get() > 0) {
+      completeEpisode();
+    }
     resetSnapshot();
     episodeStartedAt = System.currentTimeMillis();
+    episodeActive = true;
     publish(snapshot());
     restartTicker();
   }
@@ -48,8 +58,27 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   @Override
   public synchronized void resetEpisode() {
     stopTicker();
+    episodeActive = false;
     resetSnapshot();
     publish(snapshot());
+  }
+
+  @Override
+  public synchronized void completeEpisode() {
+    if (!episodeActive) {
+      return;
+    }
+    stopTicker();
+    LiveEpisodeMetrics metrics = snapshot();
+    recentTimeline.addFirst(
+        new TrainingTimelineEntry(
+            classifyEpisode(metrics), metrics.accumulatedReward(), metrics.elapsedMillis()));
+    while (recentTimeline.size() > 12) {
+      recentTimeline.removeLast();
+    }
+    episodeActive = false;
+    publish(metrics);
+    publishTimeline();
   }
 
   @Override
@@ -72,6 +101,12 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   public void subscribe(java.util.function.Consumer<LiveEpisodeMetrics> listener) {
     listeners.add(listener);
     listener.accept(snapshot());
+  }
+
+  @Override
+  public void subscribeTimeline(java.util.function.Consumer<List<TrainingTimelineEntry>> listener) {
+    timelineListeners.add(listener);
+    listener.accept(List.copyOf(recentTimeline));
   }
 
   @PreDestroy
@@ -120,5 +155,22 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     for (java.util.function.Consumer<LiveEpisodeMetrics> listener : listeners) {
       listener.accept(metrics);
     }
+  }
+
+  private void publishTimeline() {
+    List<TrainingTimelineEntry> snapshot = List.copyOf(recentTimeline);
+    for (java.util.function.Consumer<List<TrainingTimelineEntry>> listener : timelineListeners) {
+      listener.accept(snapshot);
+    }
+  }
+
+  private TrainingTimelineStatus classifyEpisode(LiveEpisodeMetrics metrics) {
+    if (metrics.collisions() >= Math.max(3, metrics.steps() / 3)) {
+      return TrainingTimelineStatus.COLLISION_STALL;
+    }
+    if (metrics.accumulatedReward() > 0.0) {
+      return TrainingTimelineStatus.SUCCESS;
+    }
+    return TrainingTimelineStatus.TIMEOUT;
   }
 }

@@ -10,9 +10,13 @@ public interface LiveMetricsService {
 
   void resetEpisode();
 
+  void completeEpisode();
+
   void setSimulationSpeed(SimulationSpeed speed);
 
   SimulationSpeed simulationSpeed();
 
   void subscribe(Consumer<LiveEpisodeMetrics> listener);
+
+  void subscribeTimeline(Consumer<java.util.List<TrainingTimelineEntry>> listener);
 }

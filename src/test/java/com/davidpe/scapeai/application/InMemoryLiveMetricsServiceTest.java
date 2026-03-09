@@ -3,6 +3,7 @@ package com.davidpe.scapeai.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class InMemoryLiveMetricsServiceTest {
@@ -29,6 +30,26 @@ class InMemoryLiveMetricsServiceTest {
       assertEquals(0, secondSnapshot.steps());
       assertEquals(0, secondSnapshot.collisions());
       assertEquals(0.0, secondSnapshot.accumulatedReward(), 0.0001);
+    } finally {
+      service.shutdown();
+    }
+  }
+
+  @Test
+  void shouldPublishTimelineEntryWhenEpisodeCompletes() throws Exception {
+    InMemoryLiveMetricsService service = new InMemoryLiveMetricsService();
+    try {
+      service.setSimulationSpeed(SimulationSpeed.FAST);
+      service.startEpisode();
+      Thread.sleep(220);
+      service.completeEpisode();
+
+      List<TrainingTimelineEntry>[] holder = new List[] {List.of()};
+      service.subscribeTimeline(entries -> holder[0] = entries);
+
+      assertEquals(1, holder[0].size());
+      assertTrue(holder[0].get(0).durationMillis() > 0);
+      assertEquals(TrainingTimelineStatus.SUCCESS, holder[0].get(0).status());
     } finally {
       service.shutdown();
     }
