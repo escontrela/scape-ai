@@ -37,6 +37,8 @@ class JdbcPersistenceRepositoriesTest {
           CREATE TABLE training_runs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             maze_id INTEGER NOT NULL,
+            policy_id TEXT,
+            policy_snapshot TEXT,
             success INTEGER NOT NULL,
             steps INTEGER NOT NULL,
             elapsed_millis INTEGER NOT NULL,
@@ -65,8 +67,34 @@ class JdbcPersistenceRepositoriesTest {
       MazeEntity maze = mazeRepository.save(new MazeEntity(null, "Training Maze", 10, 10, "########"));
       assertTrue(maze.id() > 0);
 
-      runRepository.save(new TrainingRunEntity(null, maze.id(), false, 24, 1_500, -3.5, 8, 12, 4, 1000));
-      runRepository.save(new TrainingRunEntity(null, maze.id(), true, 18, 1_000, 4.0, 1, 19, 0, 2000));
+      runRepository.save(
+          new TrainingRunEntity(
+              null,
+              maze.id(),
+              "heuristic-baseline",
+              "{\"policy\":\"heuristic-baseline\",\"seed\":null}",
+              false,
+              24,
+              1_500,
+              -3.5,
+              8,
+              12,
+              4,
+              1000));
+      runRepository.save(
+          new TrainingRunEntity(
+              null,
+              maze.id(),
+              "random-controlled",
+              "{\"policy\":\"random-controlled\",\"seed\":20260309}",
+              true,
+              18,
+              1_000,
+              4.0,
+              1,
+              19,
+              0,
+              2000));
 
       var history = runRepository.findByMazeId(maze.id());
       var latestOnly = runRepository.findRecentByMazeId(maze.id(), 1);
@@ -81,6 +109,8 @@ class JdbcPersistenceRepositoriesTest {
       assertTrue(history.get(0).createdAtEpochMillis() >= history.get(1).createdAtEpochMillis());
       assertEquals(18, history.get(0).steps());
       assertEquals(true, history.get(0).success());
+      assertEquals("random-controlled", history.get(0).policyId());
+      assertEquals("{\"policy\":\"random-controlled\",\"seed\":20260309}", history.get(0).policySnapshot());
       assertEquals(19, history.get(0).discoveredCells());
       assertEquals(0, history.get(0).finalDistanceToExit());
       assertEquals(1, presets.size());

@@ -27,20 +27,22 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
               connection.prepareStatement(
                   """
                   INSERT INTO training_runs(
-                    maze_id, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, created_at_epoch_millis
+                    maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, created_at_epoch_millis
                   )
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                   """,
                   Statement.RETURN_GENERATED_KEYS);
           statement.setLong(1, run.mazeId());
-          statement.setBoolean(2, run.success());
-          statement.setInt(3, run.steps());
-          statement.setLong(4, run.elapsedMillis());
-          statement.setDouble(5, run.totalReward());
-          statement.setInt(6, run.collisions());
-          statement.setInt(7, run.discoveredCells());
-          statement.setInt(8, run.finalDistanceToExit());
-          statement.setLong(9, run.createdAtEpochMillis());
+          statement.setString(2, run.policyId());
+          statement.setString(3, run.policySnapshot());
+          statement.setBoolean(4, run.success());
+          statement.setInt(5, run.steps());
+          statement.setLong(6, run.elapsedMillis());
+          statement.setDouble(7, run.totalReward());
+          statement.setInt(8, run.collisions());
+          statement.setInt(9, run.discoveredCells());
+          statement.setInt(10, run.finalDistanceToExit());
+          statement.setLong(11, run.createdAtEpochMillis());
           return statement;
         },
         keyHolder);
@@ -49,6 +51,8 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
     return new TrainingRunEntity(
         key.longValue(),
         run.mazeId(),
+        run.policyId(),
+        run.policySnapshot(),
         run.success(),
         run.steps(),
         run.elapsedMillis(),
@@ -68,7 +72,7 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
   public List<TrainingRunEntity> findRecentByMazeId(long mazeId, int limit) {
     return jdbcTemplate.query(
         """
-        SELECT id, maze_id, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, created_at_epoch_millis
+        SELECT id, maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, created_at_epoch_millis
         FROM training_runs
         WHERE maze_id = ?
         ORDER BY created_at_epoch_millis DESC
@@ -78,6 +82,8 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
             new TrainingRunEntity(
                 rs.getLong("id"),
                 rs.getLong("maze_id"),
+                rs.getString("policy_id"),
+                rs.getString("policy_snapshot"),
                 rs.getBoolean("success"),
                 rs.getInt("steps"),
                 rs.getLong("elapsed_millis"),

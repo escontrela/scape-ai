@@ -162,6 +162,7 @@
 - Persistencia de identificador de politica y parametros efectivos serializados por corrida.
 - Consulta de snapshots recientes vinculables con metricas historicas por laberinto.
 - Compatibilidad retroactiva con corridas historicas ya persistidas.
+- Implementacion tecnica: `training_runs` incorpora `policy_id` y `policy_snapshot`; `TrainingRunEntity`/`JdbcTrainingRunRepository` leen-escriben snapshot y el esquema incluye migracion idempotente para bases existentes.
 
 ### SCAPE-0021 - Caso de uso unificado Start Training Session
 - Objetivo funcional: centralizar la preparacion y validacion del inicio de entrenamiento en capa de aplicacion.

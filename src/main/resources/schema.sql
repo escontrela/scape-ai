@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS mazes (
 CREATE TABLE IF NOT EXISTS training_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   maze_id INTEGER NOT NULL,
+  policy_id TEXT,
+  policy_snapshot TEXT,
   success INTEGER NOT NULL,
   steps INTEGER NOT NULL,
   elapsed_millis INTEGER NOT NULL,
@@ -19,6 +21,9 @@ CREATE TABLE IF NOT EXISTS training_runs (
   created_at_epoch_millis INTEGER NOT NULL,
   FOREIGN KEY (maze_id) REFERENCES mazes(id)
 );
+
+ALTER TABLE training_runs ADD COLUMN IF NOT EXISTS policy_id TEXT;
+ALTER TABLE training_runs ADD COLUMN IF NOT EXISTS policy_snapshot TEXT;
 
 CREATE TABLE IF NOT EXISTS training_presets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

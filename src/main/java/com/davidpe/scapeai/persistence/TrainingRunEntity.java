@@ -3,6 +3,8 @@ package com.davidpe.scapeai.persistence;
 public record TrainingRunEntity(
     Long id,
     long mazeId,
+    String policyId,
+    String policySnapshot,
     boolean success,
     int steps,
     long elapsedMillis,
