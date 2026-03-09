@@ -119,10 +119,18 @@
 - Mapeo de archivos a modelo de dominio reutilizable por motor y UI.
 - Manejo de errores de formato con mensajes claros sin detener toda la aplicacion.
 
+### SCAPE-0016 - Overlay de trayectoria del agente en el viewport
+- Objetivo funcional: visualizar el recorrido del agente durante el episodio activo para interpretar su estrategia.
+- Alcance introducido:
+- Capa visual adicional en el viewport con celdas visitadas en orden temporal.
+- Actualizacion en tiempo real de la trayectoria sin bloqueo del hilo JavaFX.
+- Reinicio limpio del overlay al comenzar un nuevo episodio.
+
 ## Estado operativo actual
 - WIP objetivo: 1 ticket en `in_progress`.
 - Backlog objetivo: al menos 5 tickets listos.
-- Siguiente foco tecnico: completar `SCAPE-0001` y ejecutar backlog en este orden sugerido `SCAPE-0011` -> `SCAPE-0012` -> `SCAPE-0013` -> `SCAPE-0014` -> `SCAPE-0015`.
+- Ticket activo actual: `SCAPE-0011`.
+- Siguiente foco tecnico de backlog: `SCAPE-0012` -> `SCAPE-0013` -> `SCAPE-0014` -> `SCAPE-0015` -> `SCAPE-0016`.
 - Implementacion tecnica: bootstrap JavaFX con ciclo de vida de contexto Spring Boot y `MainWindow` gestionada como componente Spring.
 - Implementacion tecnica: `MainWindow` con panel de control, viewport de laberinto y panel de metricas; botones `Start/Pause/Reset` publican comandos a la capa de aplicacion.
 - Implementacion tecnica: motor `SingleStepSimulationEngine` con validacion de colisiones, conteo de intentos invalidos, seguimiento de celdas visitadas y deteccion de salida.
