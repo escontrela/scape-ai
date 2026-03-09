@@ -19,3 +19,11 @@ CREATE TABLE IF NOT EXISTS training_runs (
   created_at_epoch_millis INTEGER NOT NULL,
   FOREIGN KEY (maze_id) REFERENCES mazes(id)
 );
+
+CREATE TABLE IF NOT EXISTS training_presets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  episodes INTEGER NOT NULL,
+  timeout_millis INTEGER NOT NULL,
+  policy TEXT NOT NULL,
+  seed INTEGER
+);

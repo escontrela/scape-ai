@@ -13,4 +13,10 @@ public interface SimulationControlService {
   String activeMovementPolicy();
 
   java.util.List<MovementPolicyOption> availableMovementPolicies();
+
+  java.util.List<TrainingPresetOption> availableTrainingPresets();
+
+  void applyTrainingPreset(long presetId);
+
+  Long activeTrainingPresetId();
 }

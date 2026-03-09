@@ -8,11 +8,15 @@ public class ApplicationSimulationControlService implements SimulationControlSer
 
   private final ApplicationEventPublisher publisher;
   private final ActiveMovementPolicyService activeMovementPolicyService;
+  private final TrainingPresetService trainingPresetService;
 
   public ApplicationSimulationControlService(
-      ApplicationEventPublisher publisher, ActiveMovementPolicyService activeMovementPolicyService) {
+      ApplicationEventPublisher publisher,
+      ActiveMovementPolicyService activeMovementPolicyService,
+      TrainingPresetService trainingPresetService) {
     this.publisher = publisher;
     this.activeMovementPolicyService = activeMovementPolicyService;
+    this.trainingPresetService = trainingPresetService;
   }
 
   @Override
@@ -43,6 +47,34 @@ public class ApplicationSimulationControlService implements SimulationControlSer
   @Override
   public java.util.List<MovementPolicyOption> availableMovementPolicies() {
     return activeMovementPolicyService.availablePolicies();
+  }
+
+  @Override
+  public java.util.List<TrainingPresetOption> availableTrainingPresets() {
+    return trainingPresetService.list().stream()
+        .map(
+            preset ->
+                new TrainingPresetOption(
+                    preset.id(),
+                    "Preset #"
+                        + preset.id()
+                        + " - "
+                        + preset.episodes()
+                        + " ep - "
+                        + preset.policy()))
+        .toList();
+  }
+
+  @Override
+  public void applyTrainingPreset(long presetId) {
+    trainingPresetService
+        .apply(presetId)
+        .orElseThrow(() -> new IllegalArgumentException("Preset not found: " + presetId));
+  }
+
+  @Override
+  public Long activeTrainingPresetId() {
+    return trainingPresetService.activePreset().map(TrainingPreset::id).orElse(null);
   }
 
   private void publish(SimulationCommand command) {

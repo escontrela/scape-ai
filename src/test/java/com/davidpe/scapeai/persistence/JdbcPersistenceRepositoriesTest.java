@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.davidpe.scapeai.persistence.repository.JdbcMazeRepository;
+import com.davidpe.scapeai.persistence.repository.JdbcTrainingPresetRepository;
 import com.davidpe.scapeai.persistence.repository.JdbcTrainingRunRepository;
+import com.davidpe.scapeai.persistence.TrainingPresetEntity;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
@@ -45,9 +47,20 @@ class JdbcPersistenceRepositoriesTest {
             created_at_epoch_millis INTEGER NOT NULL
           )
           """);
+      jdbcTemplate.execute(
+          """
+          CREATE TABLE training_presets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            episodes INTEGER NOT NULL,
+            timeout_millis INTEGER NOT NULL,
+            policy TEXT NOT NULL,
+            seed INTEGER
+          )
+          """);
 
       JdbcMazeRepository mazeRepository = new JdbcMazeRepository(jdbcTemplate);
       JdbcTrainingRunRepository runRepository = new JdbcTrainingRunRepository(jdbcTemplate);
+      JdbcTrainingPresetRepository presetRepository = new JdbcTrainingPresetRepository(jdbcTemplate);
 
       MazeEntity maze = mazeRepository.save(new MazeEntity(null, "Training Maze", 10, 10, "########"));
       assertTrue(maze.id() > 0);
@@ -57,6 +70,11 @@ class JdbcPersistenceRepositoriesTest {
 
       var history = runRepository.findByMazeId(maze.id());
       var latestOnly = runRepository.findRecentByMazeId(maze.id(), 1);
+      var preset =
+          presetRepository.save(
+              new TrainingPresetEntity(null, 30, 20_000L, "heuristic-baseline", 20260309L));
+      var presets = presetRepository.findAll();
+      var loadedPreset = presetRepository.findById(preset.id());
 
       assertEquals(2, history.size());
       assertEquals(1, latestOnly.size());
@@ -65,6 +83,10 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals(true, history.get(0).success());
       assertEquals(19, history.get(0).discoveredCells());
       assertEquals(0, history.get(0).finalDistanceToExit());
+      assertEquals(1, presets.size());
+      assertTrue(loadedPreset.isPresent());
+      assertEquals(30, loadedPreset.get().episodes());
+      assertEquals("heuristic-baseline", loadedPreset.get().policy());
     }
 
     Files.deleteIfExists(dbFile);

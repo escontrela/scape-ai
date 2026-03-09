@@ -4,6 +4,7 @@ import com.davidpe.scapeai.application.LiveEpisodeMetrics;
 import com.davidpe.scapeai.application.LiveMetricsService;
 import com.davidpe.scapeai.application.MovementPolicyOption;
 import com.davidpe.scapeai.application.SimulationControlService;
+import com.davidpe.scapeai.application.TrainingPresetOption;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -38,6 +39,7 @@ public final class MainWindow {
   private Label rewardValue;
   private Label elapsedValue;
   private Label activePolicyValue;
+  private Label activePresetValue;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -134,14 +136,68 @@ public final class MainWindow {
     activePolicyValue.setFont(Font.font("Consolas", 12));
     updateActivePolicyLabel();
 
+    Label presetLabel = new Label("TRAINING PRESET");
+    presetLabel.setTextFill(Color.web("#9db2ff"));
+    presetLabel.setFont(Font.font("Consolas", 12));
+    ComboBox<TrainingPresetOption> presetSelector =
+        new ComboBox<>(FXCollections.observableArrayList(controlService.availableTrainingPresets()));
+    presetSelector.setMaxWidth(Double.MAX_VALUE);
+    presetSelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    presetSelector.setCellFactory(
+        ignored ->
+            new javafx.scene.control.ListCell<>() {
+              @Override
+              protected void updateItem(TrainingPresetOption item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.label());
+              }
+            });
+    presetSelector.setButtonCell(
+        new javafx.scene.control.ListCell<>() {
+          @Override
+          protected void updateItem(TrainingPresetOption item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty || item == null ? null : item.label());
+          }
+        });
+    selectActivePreset(presetSelector);
+    presetSelector
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldSelection, selected) -> {
+              if (selected == null || selected.equals(oldSelection)) {
+                return;
+              }
+              controlService.applyTrainingPreset(selected.id());
+              updateActivePolicyLabel();
+              updateActivePresetLabel();
+              selectActiveAlgorithm(algorithmSelector);
+            });
+
+    activePresetValue = new Label();
+    activePresetValue.setTextFill(Color.web("#89ff9a"));
+    activePresetValue.setFont(Font.font("Consolas", 12));
+    updateActivePresetLabel();
+
     Button start =
         neonButton(
             "Start",
             "#22e6ff",
             () -> {
+              TrainingPresetOption selectedPreset = presetSelector.getValue();
+              if (selectedPreset != null) {
+                controlService.applyTrainingPreset(selectedPreset.id());
+              }
               controlService.start();
               liveMetricsService.startEpisode();
               updateActivePolicyLabel();
+              updateActivePresetLabel();
             });
     Button pause =
         neonButton(
@@ -160,7 +216,19 @@ public final class MainWindow {
               liveMetricsService.resetEpisode();
             });
 
-    VBox panel = new VBox(12, title, algorithmLabel, algorithmSelector, activePolicyValue, start, pause, reset);
+    VBox panel =
+        new VBox(
+            12,
+            title,
+            algorithmLabel,
+            algorithmSelector,
+            activePolicyValue,
+            presetLabel,
+            presetSelector,
+            activePresetValue,
+            start,
+            pause,
+            reset);
     panel.setPadding(new Insets(18));
     panel.setMinWidth(220);
     panel.setStyle(panelStyle());
@@ -332,6 +400,31 @@ public final class MainWindow {
       return;
     }
     activePolicyValue.setText("ACTIVE ALGORITHM: " + controlService.activeMovementPolicy().toUpperCase(Locale.ROOT));
+  }
+
+  private void selectActivePreset(ComboBox<TrainingPresetOption> selector) {
+    Long activePresetId = controlService.activeTrainingPresetId();
+    if (activePresetId != null) {
+      for (TrainingPresetOption option : selector.getItems()) {
+        if (option.id() == activePresetId.longValue()) {
+          selector.getSelectionModel().select(option);
+          return;
+        }
+      }
+    }
+    if (!selector.getItems().isEmpty()) {
+      selector.getSelectionModel().selectFirst();
+      controlService.applyTrainingPreset(selector.getValue().id());
+    }
+  }
+
+  private void updateActivePresetLabel() {
+    if (activePresetValue == null) {
+      return;
+    }
+    Long activePresetId = controlService.activeTrainingPresetId();
+    String text = activePresetId == null ? "ACTIVE PRESET: NONE" : "ACTIVE PRESET: #" + activePresetId;
+    activePresetValue.setText(text);
   }
 
   private String formatElapsed(long elapsedMillis) {

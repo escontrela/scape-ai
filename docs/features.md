@@ -114,6 +114,7 @@
 - Entidad `TrainingPreset` con episodios, timeout, politica y semilla opcional.
 - Casos de uso para guardar, listar y cargar presets desde capa de aplicacion.
 - Aplicacion de preset al iniciar nuevas corridas de entrenamiento.
+- Implementacion tecnica: `JdbcTrainingPresetRepository` persiste `training_presets` y `MainWindow` aplica preset seleccionado en `Start`.
 
 ### SCAPE-0015 - Cargador de laberintos desde recursos JSON
 - Objetivo funcional: importar catalogos de laberintos versionables para pruebas repetibles.
