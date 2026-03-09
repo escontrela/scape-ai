@@ -275,7 +275,7 @@
 - Header con metadatos de sesion (`seed` y modo `visual/headless`) visibles durante la corrida.
 - Actualizacion de metadatos al iniciar sesion y limpieza al reset.
 - Integracion no bloqueante con el hilo JavaFX durante Start/Pause/Reset.
-- Implementacion tecnica propuesta: `SessionHudStatusViewModel` alimentado por eventos de inicio/cierre de sesion.
+- Implementacion tecnica: `MainWindow` expone etiquetas HUD `SEED` y `MODE`, actualizadas en `StartTrainingSessionResult` y limpiadas al evento `FINISHED` originado por reset.
 
 ### SCAPE-0035 - Metrica de progreso neto por episodio
 - Objetivo funcional: complementar exito/fallo con una metrica cuantitativa de avance hacia la salida.

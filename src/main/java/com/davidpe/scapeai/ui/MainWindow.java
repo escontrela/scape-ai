@@ -83,6 +83,8 @@ public final class MainWindow {
   private Label activePresetValue;
   private Label activeSpeedValue;
   private Label systemStatusValue;
+  private Label sessionSeedValue;
+  private Label executionModeValue;
   private VBox timelineEntriesBox;
   private VBox recentRunsEntriesBox;
   private StackPane mazeViewport;
@@ -141,10 +143,18 @@ public final class MainWindow {
     systemStatusValue.setFont(Font.font("Consolas", 15));
     systemStatusValue.setTextFill(Color.web("#89ff9a"));
 
+    sessionSeedValue = new Label("SEED: -");
+    sessionSeedValue.setFont(Font.font("Consolas", 13));
+    sessionSeedValue.setTextFill(Color.web("#9db2ff"));
+
+    executionModeValue = new Label("MODE: VISUAL");
+    executionModeValue.setFont(Font.font("Consolas", 13));
+    executionModeValue.setTextFill(Color.web("#9db2ff"));
+
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
 
-    HBox header = new HBox(12, title, spacer, systemStatusValue);
+    HBox header = new HBox(12, title, spacer, sessionSeedValue, executionModeValue, systemStatusValue);
     header.setAlignment(Pos.CENTER_LEFT);
     header.setPadding(new Insets(0, 0, 18, 0));
     return header;
@@ -350,6 +360,7 @@ public final class MainWindow {
                 mazeViewportRenderer.renderInto(mazeViewport, startResult.maze());
               }
               updateSystemStatus(startResult.message(), "#89ff9a");
+              updateSessionHud(startResult.effectiveSeed(), "visual");
               updateActivePolicyLabel();
               updateActivePresetLabel();
             });
@@ -819,6 +830,15 @@ public final class MainWindow {
     systemStatusValue.setTextFill(Color.web(color));
   }
 
+  private void updateSessionHud(Long seed, String mode) {
+    if (sessionSeedValue != null) {
+      sessionSeedValue.setText(seed == null ? "SEED: -" : "SEED: " + seed);
+    }
+    if (executionModeValue != null) {
+      executionModeValue.setText("MODE: " + (mode == null ? "VISUAL" : mode.toUpperCase(Locale.ROOT)));
+    }
+  }
+
   private String formatElapsed(long elapsedMillis) {
     long totalSeconds = elapsedMillis / 1_000;
     long minutes = totalSeconds / 60;
@@ -932,6 +952,9 @@ public final class MainWindow {
             }
             case FINISHED -> {
               resetTrajectoryEpisode();
+              if (event.detail() != null && event.detail().contains("RESET")) {
+                updateSessionHud(null, "visual");
+              }
               updateSystemStatus("TRAINING FINISHED", "#7ef9ff");
             }
             case TIMED_OUT -> {
