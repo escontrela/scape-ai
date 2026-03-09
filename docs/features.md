@@ -260,13 +260,53 @@
 - Reutilizacion de persistencia de metricas existente sin crear almacenamiento duplicado.
 - Implementacion tecnica propuesta: `RecentRunsComparisonViewModel` alimentado por `TrainingRunRepository.findRecentByMazeId`.
 
+### SCAPE-0033 - Router de suscriptores para eventos de entrenamiento
+- Objetivo funcional: reducir acoplamiento entre UI, aplicacion y persistencia en la suscripcion a eventos de ciclo de entrenamiento.
+- Alcance introducido:
+- Registro centralizado de suscriptores por tipo de `TrainingLifecycleEvent`.
+- Enlace de listeners de UI y persistencia mediante router, sin wiring directo modulo-a-modulo.
+- Validacion de suscriptor duplicado para prevenir configuraciones ambiguas.
+- Implementacion tecnica propuesta: `TrainingLifecycleSubscriberRouter` con registro tipado y estrategia fail-fast para duplicados.
+
+### SCAPE-0034 - Indicador HUD de semilla y modo de ejecucion
+- Objetivo funcional: aumentar trazabilidad operativa mostrando en UI la semilla efectiva y el modo activo de ejecucion.
+- Alcance introducido:
+- Header con metadatos de sesion (`seed` y modo `visual/headless`) visibles durante la corrida.
+- Actualizacion de metadatos al iniciar sesion y limpieza al reset.
+- Integracion no bloqueante con el hilo JavaFX durante Start/Pause/Reset.
+- Implementacion tecnica propuesta: `SessionHudStatusViewModel` alimentado por eventos de inicio/cierre de sesion.
+
+### SCAPE-0035 - Metrica de progreso neto por episodio
+- Objetivo funcional: complementar exito/fallo con una metrica cuantitativa de avance hacia la salida.
+- Alcance introducido:
+- Calculo de `netProgress` a partir de distancia inicial/final y mejoras acumuladas por episodio.
+- Exposicion de `netProgress` en `SimulationEpisodeResult` y persistencia de corridas.
+- Ordenacion de comparativas de corridas por `netProgress` sin recalculo pesado en cliente.
+- Implementacion tecnica propuesta: `EpisodeProgressMetricCalculator` integrado al cierre de episodio en orquestador.
+
+### SCAPE-0036 - Muestreador balanceado para experience replay
+- Objetivo funcional: preparar iteraciones de IA con lotes de replay menos sesgados por tipo de resultado.
+- Alcance introducido:
+- Servicio de aplicacion para extraer lotes balanceados entre exito, timeout y colision.
+- Reutilizacion del almacenamiento append-only actual sin romper contratos persistentes.
+- Pruebas unitarias sobre datasets controlados para verificar balance minimo por categoria.
+- Implementacion tecnica propuesta: `BalancedReplaySamplerService` sobre `ExperienceReplayRepository`.
+
+### SCAPE-0037 - Inventario de mazes con estado de cobertura
+- Objetivo funcional: visualizar cobertura de resolucion por maze y politica para priorizar backlog de entrenamiento.
+- Alcance introducido:
+- Persistencia de estado `unsolved/solved` por combinacion de maze + policyId.
+- Actualizacion automatica al cerrar episodios exitosos sin duplicados.
+- Consulta de resumen de cobertura para destacar mazes pendientes en UI.
+- Implementacion tecnica propuesta: `MazeCoverageRepository` y `MazeCoverageSummaryService`.
+
 ## Estado operativo actual
 - WIP objetivo: 1 ticket en `in_progress`.
 - Backlog objetivo: al menos 5 tickets listos.
 - Ticket activo actual: `SCAPE-0022`.
-- Siguiente foco tecnico de backlog: `SCAPE-0028` -> `SCAPE-0029` -> `SCAPE-0030` -> `SCAPE-0031` -> `SCAPE-0032`.
-- Validacion Tasker (2026-03-09): `in_progress=1` (`SCAPE-0022`) y `backlog=5` (`SCAPE-0028`..`SCAPE-0032`).
-- Validacion de repositorio (2026-03-09): sin commits nuevos que demuestren cierre funcional de `SCAPE-0022`; no se aplican transiciones de estado en esta iteracion.
+- Siguiente foco tecnico de backlog: `SCAPE-0033` -> `SCAPE-0034` -> `SCAPE-0035` -> `SCAPE-0036` -> `SCAPE-0037`.
+- Validacion Tasker (2026-03-09): `in_progress=1` (`SCAPE-0022`) y `backlog=5` (`SCAPE-0033`..`SCAPE-0037`).
+- Validacion de repositorio (2026-03-09): no se detectan commits nuevos que demuestren cierre funcional adicional de `SCAPE-0022`; no se aplican transiciones de estado en esta iteracion.
 - Implementacion tecnica: bootstrap JavaFX con ciclo de vida de contexto Spring Boot y `MainWindow` gestionada como componente Spring.
 - Implementacion tecnica: `MainWindow` con panel de control, viewport de laberinto y panel de metricas; botones `Start/Pause/Reset` publican comandos a la capa de aplicacion.
 - Implementacion tecnica: motor `SingleStepSimulationEngine` con validacion de colisiones, conteo de intentos invalidos, seguimiento de celdas visitadas y deteccion de salida.
@@ -311,3 +351,20 @@
 ### Estado MCP tras la ejecucion
 - projectId=5, userId=1.
 - Tickets movidos a `done`: `SCAPE-0028`, `SCAPE-0029`, `SCAPE-0030`, `SCAPE-0031`, `SCAPE-0032`.
+
+## Iteracion PO 2026-03-09 (automation cycle 3)
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- `in_progress=1`: `SCAPE-0022`.
+- `backlog=0` detectado al iniciar iteracion.
+- Se crean tickets de backlog: `SCAPE-0033`, `SCAPE-0034`, `SCAPE-0035`, `SCAPE-0036`, `SCAPE-0037`.
+- Estado final MCP tras creacion: `backlog=5` y `in_progress=1` (WIP objetivo mantenido).
+
+### Validacion de repositorio local
+- Rama activa obligatoria verificada: `features-nightly-20260309`.
+- Sin evidencia en commits locales de cierre funcional adicional de `SCAPE-0022`; no se aplica transicion de estado.
+
+### Resultado de gestion PO
+- Backlog restaurado con 5 tickets verticales y variados (arquitectura, UI, simulacion/metrica, IA/replay, persistencia/cobertura).
+- No se cambian alcances de tickets existentes ni se crean ramas.
