@@ -30,6 +30,8 @@ class SimulationEpisodeOrchestratorTest {
     assertTrue(result.success());
     assertEquals(1, result.totalSteps());
     assertEquals(EpisodeEndReason.EXIT_REACHED, result.endReason());
+    assertEquals(-1.0, result.totalReward());
+    assertEquals(0, result.collisions());
     assertTrue(result.elapsedMillis() >= 0);
   }
 
@@ -46,6 +48,8 @@ class SimulationEpisodeOrchestratorTest {
     assertFalse(result.success());
     assertEquals(EpisodeEndReason.TIMEOUT, result.endReason());
     assertTrue(result.totalSteps() > 0);
+    assertTrue(result.totalReward() <= 0.0);
+    assertTrue(result.collisions() >= 0);
     assertTrue(result.elapsedMillis() >= 60);
   }
 

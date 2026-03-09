@@ -90,6 +90,7 @@
 - Servicio de entrenamiento que encadena N episodios sobre el orquestador existente.
 - Resumen agregado de aprendizaje con tasa de exito, recompensa media y colisiones medias.
 - Cancelacion controlada desde capa de aplicacion sin bloqueo del hilo JavaFX.
+- Implementacion tecnica: `DefaultIterativeEpisodeTrainingService` agrega estadisticas por corrida y `ApplicationTrainingExecutionService` ejecuta/cancela entrenamientos asincronos.
 
 ### SCAPE-0012 - Selector de algoritmo en panel de control
 - Objetivo funcional: permitir seleccionar la politica de movimiento activa antes de simular.

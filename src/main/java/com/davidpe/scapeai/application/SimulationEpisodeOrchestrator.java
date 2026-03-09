@@ -39,18 +39,25 @@ public class SimulationEpisodeOrchestrator {
     long startedAt = currentTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
     int totalSteps = 0;
+    int collisions = 0;
+    double totalReward = 0.0;
     SimulationState currentState = SimulationState.initial(maze.start());
 
     while (!currentState.exitReached() && currentTimeMillis.getAsLong() < deadline) {
       var outcome = simulationStepFlow.execute(maze, currentState);
       currentState = outcome.result().state();
       totalSteps++;
+      totalReward += outcome.reward().value();
+      if (outcome.result().collision()) {
+        collisions++;
+      }
     }
 
     long elapsed = Math.max(0, currentTimeMillis.getAsLong() - startedAt);
     EpisodeEndReason endReason =
         currentState.exitReached() ? EpisodeEndReason.EXIT_REACHED : EpisodeEndReason.TIMEOUT;
 
-    return new SimulationEpisodeResult(currentState.exitReached(), totalSteps, elapsed, endReason);
+    return new SimulationEpisodeResult(
+        currentState.exitReached(), totalSteps, elapsed, endReason, totalReward, collisions);
   }
 }
