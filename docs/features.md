@@ -170,6 +170,7 @@
 - Caso de uso `StartTrainingSession` que valida maze, preset y politica activa antes de arrancar.
 - Delegacion de `MainWindow` hacia este caso de uso para reducir logica distribuida en UI.
 - Resultado de validacion tipado para presentar errores operativos de forma consistente.
+- Implementacion tecnica: `ApplicationStartTrainingSessionUseCase` retorna `StartTrainingSessionResult` tipado y `MainWindow` consume ese resultado para arrancar o mostrar error en el estado del header.
 
 ## Estado operativo actual
 - WIP objetivo: 1 ticket en `in_progress`.

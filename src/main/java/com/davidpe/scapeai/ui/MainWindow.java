@@ -3,6 +3,9 @@ package com.davidpe.scapeai.ui;
 import com.davidpe.scapeai.application.LiveEpisodeMetrics;
 import com.davidpe.scapeai.application.LiveMetricsService;
 import com.davidpe.scapeai.application.MovementPolicyOption;
+import com.davidpe.scapeai.application.StartTrainingSessionCommand;
+import com.davidpe.scapeai.application.StartTrainingSessionResult;
+import com.davidpe.scapeai.application.StartTrainingSessionUseCase;
 import com.davidpe.scapeai.application.SimulationSpeed;
 import com.davidpe.scapeai.application.SimulationControlService;
 import com.davidpe.scapeai.application.TrainingPresetOption;
@@ -40,6 +43,7 @@ import org.springframework.stereotype.Component;
 public final class MainWindow {
 
   private final SimulationControlService controlService;
+  private final StartTrainingSessionUseCase startTrainingSessionUseCase;
   private final LiveMetricsService liveMetricsService;
   private final MazeCatalogService mazeCatalogService;
   private final MazeViewportRenderer mazeViewportRenderer;
@@ -59,6 +63,7 @@ public final class MainWindow {
   private Label activePolicyValue;
   private Label activePresetValue;
   private Label activeSpeedValue;
+  private Label systemStatusValue;
   private StackPane mazeViewport;
   private MazeDefinition selectedMaze;
   private GridPosition trajectoryCurrent;
@@ -67,10 +72,12 @@ public final class MainWindow {
 
   public MainWindow(
       SimulationControlService controlService,
+      StartTrainingSessionUseCase startTrainingSessionUseCase,
       LiveMetricsService liveMetricsService,
       MazeCatalogService mazeCatalogService,
       MazeViewportRenderer mazeViewportRenderer) {
     this.controlService = controlService;
+    this.startTrainingSessionUseCase = startTrainingSessionUseCase;
     this.liveMetricsService = liveMetricsService;
     this.mazeCatalogService = mazeCatalogService;
     this.mazeViewportRenderer = mazeViewportRenderer;
@@ -98,14 +105,14 @@ public final class MainWindow {
     title.setFont(Font.font("Consolas", 26));
     title.setTextFill(Color.web("#7ef9ff"));
 
-    Label status = new Label("SYSTEM READY");
-    status.setFont(Font.font("Consolas", 15));
-    status.setTextFill(Color.web("#89ff9a"));
+    systemStatusValue = new Label("SYSTEM READY");
+    systemStatusValue.setFont(Font.font("Consolas", 15));
+    systemStatusValue.setTextFill(Color.web("#89ff9a"));
 
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
 
-    HBox header = new HBox(12, title, spacer, status);
+    HBox header = new HBox(12, title, spacer, systemStatusValue);
     header.setAlignment(Pos.CENTER_LEFT);
     header.setPadding(new Insets(0, 0, 18, 0));
     return header;
@@ -265,10 +272,15 @@ public final class MainWindow {
             "#22e6ff",
             () -> {
               TrainingPresetOption selectedPreset = presetSelector.getValue();
-              if (selectedPreset != null) {
-                controlService.applyTrainingPreset(selectedPreset.id());
+              Long selectedPresetId = selectedPreset == null ? null : selectedPreset.id();
+              StartTrainingSessionResult startResult =
+                  startTrainingSessionUseCase.start(
+                      new StartTrainingSessionCommand(selectedMaze, selectedPresetId));
+              if (!startResult.started()) {
+                updateSystemStatus(startResult.message(), "#ff6b8a");
+                return;
               }
-              controlService.start();
+              updateSystemStatus(startResult.message(), "#89ff9a");
               liveMetricsService.startEpisode();
               startTrajectoryEpisode();
               updateActivePolicyLabel();
@@ -517,6 +529,14 @@ public final class MainWindow {
     }
     activeSpeedValue.setText(
         "ACTIVE SPEED: " + liveMetricsService.simulationSpeed().name().toUpperCase(Locale.ROOT));
+  }
+
+  private void updateSystemStatus(String text, String color) {
+    if (systemStatusValue == null) {
+      return;
+    }
+    systemStatusValue.setText(text);
+    systemStatusValue.setTextFill(Color.web(color));
   }
 
   private String formatElapsed(long elapsedMillis) {
