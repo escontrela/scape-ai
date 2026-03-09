@@ -55,6 +55,28 @@ class InMemoryLiveMetricsServiceTest {
     }
   }
 
+  @Test
+  void shouldResumeEpisodeWithoutResettingMetrics() throws Exception {
+    InMemoryLiveMetricsService service = new InMemoryLiveMetricsService();
+    try {
+      service.setSimulationSpeed(SimulationSpeed.FAST);
+      service.startEpisode();
+      Thread.sleep(140);
+      service.pauseEpisode();
+      LiveEpisodeMetrics pausedSnapshot = captureLatest(service);
+
+      Thread.sleep(100);
+      service.resumeEpisode();
+      Thread.sleep(140);
+      LiveEpisodeMetrics resumedSnapshot = captureLatest(service);
+
+      assertTrue(resumedSnapshot.steps() >= pausedSnapshot.steps());
+      assertTrue(resumedSnapshot.elapsedMillis() > pausedSnapshot.elapsedMillis());
+    } finally {
+      service.shutdown();
+    }
+  }
+
   private LiveEpisodeMetrics captureLatest(InMemoryLiveMetricsService service) {
     final LiveEpisodeMetrics[] holder = new LiveEpisodeMetrics[1];
     service.subscribe(metrics -> holder[0] = metrics);

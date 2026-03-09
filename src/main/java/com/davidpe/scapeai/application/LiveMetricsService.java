@@ -8,6 +8,8 @@ public interface LiveMetricsService {
 
   void pauseEpisode();
 
+  void resumeEpisode();
+
   void resetEpisode();
 
   void completeEpisode();

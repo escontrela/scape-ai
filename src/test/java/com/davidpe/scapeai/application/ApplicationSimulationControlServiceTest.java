@@ -16,6 +16,7 @@ import org.springframework.context.ApplicationEventPublisher;
 class ApplicationSimulationControlServiceTest {
 
   private CapturingPublisher publisher;
+  private InMemoryTrainingLifecycleEventBus lifecycleEventBus;
   private ActiveMovementPolicyService movementPolicyService;
   private TrainingPresetService trainingPresetService;
   private ApplicationSimulationControlService service;
@@ -29,27 +30,44 @@ class ApplicationSimulationControlServiceTest {
             Map.of("heuristic-baseline", dummyPolicy, "random-controlled", dummyPolicy),
             "heuristic-baseline");
     trainingPresetService = new InMemoryTrainingPresetService();
+    lifecycleEventBus = new InMemoryTrainingLifecycleEventBus();
     service =
         new ApplicationSimulationControlService(
-            publisher, movementPolicyService, trainingPresetService);
+            publisher, movementPolicyService, trainingPresetService, lifecycleEventBus);
   }
 
   @Test
   void shouldPublishStartCommand() {
+    CapturedLifecycleEvents captured = new CapturedLifecycleEvents(lifecycleEventBus);
     service.start();
     assertEquals(SimulationCommand.START, publisher.lastCommand.command());
+    assertEquals(TrainingLifecycleEventType.STARTED, captured.lastType());
   }
 
   @Test
   void shouldPublishPauseCommand() {
+    CapturedLifecycleEvents captured = new CapturedLifecycleEvents(lifecycleEventBus);
     service.pause();
     assertEquals(SimulationCommand.PAUSE, publisher.lastCommand.command());
+    assertEquals(TrainingLifecycleEventType.PAUSED, captured.lastType());
   }
 
   @Test
   void shouldPublishResetCommand() {
+    CapturedLifecycleEvents captured = new CapturedLifecycleEvents(lifecycleEventBus);
     service.reset();
     assertEquals(SimulationCommand.RESET, publisher.lastCommand.command());
+    assertEquals(TrainingLifecycleEventType.FINISHED, captured.lastType());
+  }
+
+  @Test
+  void shouldPublishResumeWhenStartIsCalledAfterPause() {
+    CapturedLifecycleEvents captured = new CapturedLifecycleEvents(lifecycleEventBus);
+    service.start();
+    service.pause();
+    service.start();
+
+    assertEquals(TrainingLifecycleEventType.RESUMED, captured.lastType());
   }
 
   @Test
@@ -110,6 +128,19 @@ class ApplicationSimulationControlServiceTest {
     @Override
     public Optional<TrainingPreset> activePreset() {
       return Optional.ofNullable(active);
+    }
+  }
+
+  private static final class CapturedLifecycleEvents {
+
+    private volatile TrainingLifecycleEventType lastType;
+
+    private CapturedLifecycleEvents(TrainingLifecycleEventBus lifecycleEventBus) {
+      lifecycleEventBus.subscribe(event -> lastType = event.type());
+    }
+
+    private TrainingLifecycleEventType lastType() {
+      return lastType;
     }
   }
 }

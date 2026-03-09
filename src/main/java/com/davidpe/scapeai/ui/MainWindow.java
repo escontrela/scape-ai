@@ -12,6 +12,8 @@ import com.davidpe.scapeai.application.StartTrainingSessionUseCase;
 import com.davidpe.scapeai.application.SimulationSpeed;
 import com.davidpe.scapeai.application.SimulationControlService;
 import com.davidpe.scapeai.application.TrainingTargetDifficulty;
+import com.davidpe.scapeai.application.TrainingLifecycleEvent;
+import com.davidpe.scapeai.application.TrainingLifecycleEventBus;
 import com.davidpe.scapeai.application.TrainingTimelineEntry;
 import com.davidpe.scapeai.application.TrainingTimelineStatus;
 import com.davidpe.scapeai.application.TrainingPresetOption;
@@ -55,6 +57,7 @@ public final class MainWindow {
   private final RecentRunsComparisonService recentRunsComparisonService;
   private final MazeCatalogService mazeCatalogService;
   private final MazeViewportRenderer mazeViewportRenderer;
+  private final TrainingLifecycleEventBus trainingLifecycleEventBus;
   private final ScheduledExecutorService trajectoryScheduler =
       Executors.newSingleThreadScheduledExecutor(
           runnable -> {
@@ -88,6 +91,7 @@ public final class MainWindow {
   private GridPosition trajectoryCurrent;
   private ScheduledFuture<?> trajectoryTicker;
   private volatile boolean trajectoryRunning;
+  private TrainingLifecycleEventBus.Subscription lifecycleSubscription;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -95,13 +99,15 @@ public final class MainWindow {
       LiveMetricsService liveMetricsService,
       RecentRunsComparisonService recentRunsComparisonService,
       MazeCatalogService mazeCatalogService,
-      MazeViewportRenderer mazeViewportRenderer) {
+      MazeViewportRenderer mazeViewportRenderer,
+      TrainingLifecycleEventBus trainingLifecycleEventBus) {
     this.controlService = controlService;
     this.startTrainingSessionUseCase = startTrainingSessionUseCase;
     this.liveMetricsService = liveMetricsService;
     this.recentRunsComparisonService = recentRunsComparisonService;
     this.mazeCatalogService = mazeCatalogService;
     this.mazeViewportRenderer = mazeViewportRenderer;
+    this.trainingLifecycleEventBus = trainingLifecycleEventBus;
   }
 
   public void show(Stage stage) {
@@ -115,6 +121,10 @@ public final class MainWindow {
     root.setRight(buildMetricsPanel());
     liveMetricsService.subscribe(this::applyMetrics);
     liveMetricsService.subscribeTimeline(this::applyTimeline);
+    if (lifecycleSubscription != null) {
+      lifecycleSubscription.unsubscribe();
+    }
+    lifecycleSubscription = trainingLifecycleEventBus.subscribe(this::onTrainingLifecycleEvent);
     refreshRecentRunsAsync();
 
     Scene scene = new Scene(root, 1200, 760);
@@ -341,8 +351,6 @@ public final class MainWindow {
                 mazeViewportRenderer.renderInto(mazeViewport, startResult.maze());
               }
               updateSystemStatus(startResult.message(), "#89ff9a");
-              liveMetricsService.startEpisode();
-              startTrajectoryEpisode();
               updateActivePolicyLabel();
               updateActivePresetLabel();
             });
@@ -352,9 +360,6 @@ public final class MainWindow {
             "#ffd166",
             () -> {
               controlService.pause();
-              liveMetricsService.pauseEpisode();
-              trajectoryRunning = false;
-              stopTrajectoryTicker();
             });
     Button reset =
         neonButton(
@@ -362,9 +367,6 @@ public final class MainWindow {
             "#ff6b8a",
             () -> {
               controlService.reset();
-              liveMetricsService.completeEpisode();
-              liveMetricsService.resetEpisode();
-              resetTrajectoryEpisode();
             });
 
     VBox panel =
@@ -911,8 +913,43 @@ public final class MainWindow {
     trajectoryTicker = trajectoryScheduler.scheduleAtFixedRate(this::advanceTrajectoryOverlay, period, period, TimeUnit.MILLISECONDS);
   }
 
+  private void onTrainingLifecycleEvent(TrainingLifecycleEvent event) {
+    Platform.runLater(
+        () -> {
+          switch (event.type()) {
+            case STARTED -> {
+              startTrajectoryEpisode();
+              updateSystemStatus("TRAINING RUNNING", "#89ff9a");
+            }
+            case PAUSED -> {
+              trajectoryRunning = false;
+              stopTrajectoryTicker();
+              updateSystemStatus("TRAINING PAUSED", "#ffd166");
+            }
+            case RESUMED -> {
+              trajectoryRunning = true;
+              restartTrajectoryTicker();
+              updateSystemStatus("TRAINING RESUMED", "#89ff9a");
+            }
+            case FINISHED -> {
+              resetTrajectoryEpisode();
+              updateSystemStatus("TRAINING FINISHED", "#7ef9ff");
+            }
+            case TIMED_OUT -> {
+              trajectoryRunning = false;
+              stopTrajectoryTicker();
+              updateSystemStatus("TRAINING TIMEOUT", "#ff6b8a");
+            }
+          }
+        });
+  }
+
   @PreDestroy
   public synchronized void shutdownTrajectoryOverlay() {
+    if (lifecycleSubscription != null) {
+      lifecycleSubscription.unsubscribe();
+      lifecycleSubscription = null;
+    }
     stopTrajectoryTicker();
     trajectoryScheduler.shutdownNow();
     recentRunsExecutor.shutdownNow();

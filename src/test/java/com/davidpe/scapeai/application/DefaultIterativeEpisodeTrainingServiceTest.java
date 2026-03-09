@@ -12,6 +12,8 @@ import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SingleStepSimulationEngine;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -51,6 +53,21 @@ class DefaultIterativeEpisodeTrainingServiceTest {
     assertTrue(summary.cancelled());
   }
 
+  @Test
+  void shouldPublishTimeoutAndFinishedEvents() {
+    SimulationEpisodeOrchestrator orchestrator = orchestratorWithPolicy(context -> MoveDirection.RIGHT);
+    CapturingEventBus eventBus = new CapturingEventBus();
+    DefaultIterativeEpisodeTrainingService service =
+        new DefaultIterativeEpisodeTrainingService(orchestrator, eventBus);
+    MazeDefinition maze = new MazeDefinition(1, 4, new boolean[1][4], new GridPosition(0, 0), new GridPosition(0, 3));
+
+    service.train(maze, 1, Duration.ZERO, () -> false);
+
+    assertEquals(
+        List.of(TrainingLifecycleEventType.TIMED_OUT, TrainingLifecycleEventType.FINISHED),
+        eventBus.types());
+  }
+
   private SimulationEpisodeOrchestrator orchestratorWithPolicy(MovementPolicy policy) {
     RewardEvaluator rewardEvaluator = context -> RewardAssessment.of(RewardSignal.POSITIVE);
     ActiveMovementPolicyService policyService =
@@ -59,5 +76,24 @@ class DefaultIterativeEpisodeTrainingServiceTest {
     SimulationStepFlow flow =
         new SimulationStepFlow(policyService, rewardEvaluator, new SingleStepSimulationEngine());
     return new SimulationEpisodeOrchestrator(flow, Duration.ofMinutes(5), System::currentTimeMillis);
+  }
+
+  private static final class CapturingEventBus implements TrainingLifecycleEventBus {
+
+    private final List<TrainingLifecycleEventType> types = new ArrayList<>();
+
+    @Override
+    public void publish(TrainingLifecycleEvent event) {
+      types.add(event.type());
+    }
+
+    @Override
+    public Subscription subscribe(java.util.function.Consumer<TrainingLifecycleEvent> listener) {
+      return () -> {};
+    }
+
+    private List<TrainingLifecycleEventType> types() {
+      return List.copyOf(types);
+    }
   }
 }

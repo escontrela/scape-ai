@@ -56,6 +56,16 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   }
 
   @Override
+  public synchronized void resumeEpisode() {
+    if (!episodeActive || ticker != null) {
+      return;
+    }
+    episodeStartedAt = System.currentTimeMillis() - elapsedMillis.get();
+    restartTicker();
+    publish(snapshot());
+  }
+
+  @Override
   public synchronized void resetEpisode() {
     stopTicker();
     episodeActive = false;

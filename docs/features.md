@@ -178,7 +178,8 @@
 - Contratos de eventos para inicio, pausa, reanudacion, finalizacion y timeout de sesion.
 - Suscripcion de UI y persistencia al flujo de eventos sin dependencias directas entre modulos.
 - Base para telemetria y automatizacion de acciones post-episodio sin tocar el caso de uso principal.
-- Implementacion tecnica: `TrainingLifecycleEventBus` publica `TrainingLifecycleEvent` y `MainWindow`/servicios de aplicacion consumen eventos via handlers registrados.
+- Implementacion tecnica: `TrainingLifecycleEventBus` publica `TrainingLifecycleEvent` tipado (`STARTED`, `PAUSED`, `RESUMED`, `FINISHED`, `TIMED_OUT`) y `MainWindow` consume el flujo para estado visual/overlay sin acoplarse a infraestructura.
+- Integraciones desacopladas: `TrainingLifecycleTelemetrySubscriber` y `TrainingLifecyclePersistenceSubscriber` se registran al bus para reaccionar a ciclo sin cambiar `ApplicationStartTrainingSessionUseCase`.
 
 ### SCAPE-0023 - Reanudar episodio con checkpoint determinista
 - Objetivo funcional: permitir pausar y continuar episodios sin perder consistencia del estado de simulacion.

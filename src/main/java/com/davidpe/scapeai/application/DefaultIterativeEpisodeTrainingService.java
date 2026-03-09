@@ -9,9 +9,17 @@ import org.springframework.stereotype.Service;
 public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeTrainingService {
 
   private final SimulationEpisodeOrchestrator episodeOrchestrator;
+  private final TrainingLifecycleEventBus trainingLifecycleEventBus;
 
   public DefaultIterativeEpisodeTrainingService(SimulationEpisodeOrchestrator episodeOrchestrator) {
+    this(episodeOrchestrator, TrainingLifecycleEventBus.noop());
+  }
+
+  public DefaultIterativeEpisodeTrainingService(
+      SimulationEpisodeOrchestrator episodeOrchestrator,
+      TrainingLifecycleEventBus trainingLifecycleEventBus) {
     this.episodeOrchestrator = episodeOrchestrator;
+    this.trainingLifecycleEventBus = trainingLifecycleEventBus;
   }
 
   @Override
@@ -31,6 +39,10 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
         break;
       }
       SimulationEpisodeResult episode = episodeOrchestrator.runEpisode(maze, timeout);
+      if (episode.endReason() == EpisodeEndReason.TIMEOUT) {
+        trainingLifecycleEventBus.publish(
+            TrainingLifecycleEvent.now(TrainingLifecycleEventType.TIMED_OUT, "Episode timeout"));
+      }
       completed++;
       if (episode.success()) {
         successes++;
@@ -40,6 +52,11 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
     }
 
     boolean cancelled = completed < episodes;
+    if (!cancelled) {
+      trainingLifecycleEventBus.publish(
+          TrainingLifecycleEvent.now(
+              TrainingLifecycleEventType.FINISHED, "Completed " + completed + " episodes"));
+    }
     double divisor = completed == 0 ? 1.0 : completed;
     return new IterativeTrainingSummary(
         episodes,
