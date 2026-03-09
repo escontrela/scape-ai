@@ -122,6 +122,7 @@
 - Parser JSON con validacion estructural (dimensiones, inicio, salida).
 - Mapeo de archivos a modelo de dominio reutilizable por motor y UI.
 - Manejo de errores de formato con mensajes claros sin detener toda la aplicacion.
+- Implementacion tecnica: `MazeJsonResourceLoader` carga `classpath:mazes/*.json` y `MazeCatalogService` expone `loadErrors()` para reportar fallos de parseo sin bloquear UI.
 
 ### SCAPE-0016 - Overlay de trayectoria del agente en el viewport
 - Objetivo funcional: visualizar el recorrido del agente durante el episodio activo para interpretar su estrategia.

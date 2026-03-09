@@ -1,0 +1,16 @@
+{
+  "name": "Circuit Hall",
+  "rows": 7,
+  "cols": 9,
+  "start": {"row": 0, "col": 1},
+  "exit": {"row": 6, "col": 8},
+  "walls": [
+    [false, false, false, false, false, false, false, false, false],
+    [true,  true,  false, true,  true,  false, true,  true,  false],
+    [false, false, false, false, true,  false, false, true,  false],
+    [false, true,  true,  false, true,  true,  false, false, false],
+    [false, false, true,  false, false, false, true,  true,  false],
+    [false, false, false, false, true,  false, false, false, false],
+    [true,  true,  false, false, false, false, true,  false, false]
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Neon Gate",
+  "rows": 6,
+  "cols": 8,
+  "start": {"row": 0, "col": 0},
+  "exit": {"row": 5, "col": 7},
+  "walls": [
+    [false, false, false, false, false, false, false, false],
+    [false, true,  true,  true,  false, true,  true,  false],
+    [false, false, false, true,  false, false, true,  false],
+    [true,  true,  false, true,  true,  false, false, false],
+    [false, false, false, false, true,  true,  true,  false],
+    [false, true,  true,  false, false, false, false, false]
+  ]
+}

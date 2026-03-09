@@ -3,17 +3,24 @@ package com.davidpe.scapeai.ui;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 public class MazeCatalogService {
 
   private final Map<String, MazeDefinition> mazes;
+  private final List<String> loadErrors;
 
-  public MazeCatalogService() {
-    this.mazes = createCatalog();
+  public MazeCatalogService(
+      MazeJsonResourceLoader jsonResourceLoader,
+      @Value("${scape.ui.maze-catalog-pattern:classpath:mazes/*.json}") String mazeCatalogPattern) {
+    var loaded = jsonResourceLoader.load(mazeCatalogPattern);
+    this.mazes = createCatalog(loaded.mazes());
+    this.loadErrors = loaded.errors();
   }
 
   public Set<String> names() {
@@ -24,10 +31,17 @@ public class MazeCatalogService {
     return mazes.get(name);
   }
 
-  private static Map<String, MazeDefinition> createCatalog() {
+  public List<String> loadErrors() {
+    return loadErrors;
+  }
+
+  private static Map<String, MazeDefinition> createCatalog(Map<String, MazeDefinition> loadedMazes) {
     Map<String, MazeDefinition> catalog = new LinkedHashMap<>();
-    catalog.put("Neon Gate", buildNeonGateMaze());
-    catalog.put("Circuit Hall", buildCircuitHallMaze());
+    catalog.putAll(loadedMazes);
+    if (catalog.isEmpty()) {
+      catalog.put("Neon Gate", buildNeonGateMaze());
+      catalog.put("Circuit Hall", buildCircuitHallMaze());
+    }
     return Map.copyOf(catalog);
   }
 
