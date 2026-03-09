@@ -220,12 +220,52 @@
 - Consulta paginada de transiciones recientes para entrenadores iterativos.
 - Implementacion tecnica: `ExperienceTransitionEntity` y `ExperienceReplayRepository` soportan escritura append-only y lectura paginada.
 
+### SCAPE-0028 - Selector de objetivo de entrenamiento por dificultad
+- Objetivo funcional: definir dificultad objetivo para seleccionar automaticamente mazes acordes durante el inicio de entrenamiento.
+- Alcance introducido:
+- Selector UI con niveles `baja`, `media` y `alta` vinculado al caso de uso de inicio de sesion.
+- Filtrado de mazes por `difficultyScore` persistido para elegir candidato valido por nivel.
+- Mensaje operativo en UI cuando no existen mazes disponibles para el objetivo seleccionado.
+- Implementacion tecnica propuesta: extender `StartTrainingSession` con `targetDifficulty` y resolver maze desde `MazeCatalogService` con estrategia de fallback vacio.
+
+### SCAPE-0029 - Contrato de semilla reproducible por sesion
+- Objetivo funcional: garantizar reproducibilidad de corridas usando una semilla efectiva comun para simulacion y politicas.
+- Alcance introducido:
+- Parametro de semilla opcional en configuracion de sesion con autogeneracion cuando no se informa.
+- Fuente de aleatoriedad compartida entre motor de simulacion y politicas para eliminar divergencias.
+- Exposicion de semilla efectiva en el resumen final de sesion para trazabilidad tecnica.
+- Implementacion tecnica propuesta: introducir `TrainingSessionSeedContext` inmutable y propagarlo por `ApplicationTrainingExecutionService`.
+
+### SCAPE-0030 - Modo headless de simulacion por lotes
+- Objetivo funcional: ejecutar lotes de episodios sin inicializar JavaFX para acelerar validaciones de entrenamiento.
+- Alcance introducido:
+- Caso de uso batch con N episodios y resumen agregado reutilizando contratos actuales del dominio.
+- Ejecucion sin renderizado ni dependencias de hilo de UI.
+- Salida agregada con tasa de exito, recompensa media, colisiones medias y tiempo total.
+- Implementacion tecnica propuesta: `HeadlessBatchTrainingUseCase` montado sobre `SimulationEpisodeOrchestrator` y `IterativeEpisodeTrainingService`.
+
+### SCAPE-0031 - Estrategia epsilon-greedy sobre MovementPolicy
+- Objetivo funcional: equilibrar exploracion y explotacion aplicando epsilon configurable sobre politicas existentes.
+- Alcance introducido:
+- Decorador de `MovementPolicy` que alterna entre decision base y movimiento exploratorio controlado.
+- Contadores de decisiones por modo (`exploration`/`exploitation`) incorporados al resultado de episodio.
+- Validacion centralizada del parametro epsilon en rango `[0,1]`.
+- Implementacion tecnica propuesta: `EpsilonGreedyMovementPolicyDecorator` configurable desde `TrainingPreset` y `StartTrainingSession`.
+
+### SCAPE-0032 - Vista comparativa de ultimas corridas
+- Objetivo funcional: comparar rapidamente las ultimas corridas para evaluar tendencia reciente del entrenamiento.
+- Alcance introducido:
+- Tabla compacta en UI con las ultimas 10 corridas y columnas de exito, recompensa, colisiones y duracion.
+- Ordenacion por fecha y recompensa sin bloqueo del hilo JavaFX.
+- Reutilizacion de persistencia de metricas existente sin crear almacenamiento duplicado.
+- Implementacion tecnica propuesta: `RecentRunsComparisonViewModel` alimentado por `TrainingRunRepository.findRecentByMazeId`.
+
 ## Estado operativo actual
 - WIP objetivo: 1 ticket en `in_progress`.
 - Backlog objetivo: al menos 5 tickets listos.
 - Ticket activo actual: `SCAPE-0022`.
-- Siguiente foco tecnico de backlog: `SCAPE-0023` -> `SCAPE-0024` -> `SCAPE-0025` -> `SCAPE-0026` -> `SCAPE-0027`.
-- Validacion Tasker (2026-03-09): `in_progress=1` (`SCAPE-0022`) y `backlog=5` (`SCAPE-0023`..`SCAPE-0027`).
+- Siguiente foco tecnico de backlog: `SCAPE-0028` -> `SCAPE-0029` -> `SCAPE-0030` -> `SCAPE-0031` -> `SCAPE-0032`.
+- Validacion Tasker (2026-03-09): `in_progress=1` (`SCAPE-0022`) y `backlog=5` (`SCAPE-0028`..`SCAPE-0032`).
 - Validacion de repositorio (2026-03-09): sin commits nuevos que demuestren cierre funcional de `SCAPE-0022`; no se aplican transiciones de estado en esta iteracion.
 - Implementacion tecnica: bootstrap JavaFX con ciclo de vida de contexto Spring Boot y `MainWindow` gestionada como componente Spring.
 - Implementacion tecnica: `MainWindow` con panel de control, viewport de laberinto y panel de metricas; botones `Start/Pause/Reset` publican comandos a la capa de aplicacion.
