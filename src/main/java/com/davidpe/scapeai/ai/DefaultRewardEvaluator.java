@@ -13,6 +13,9 @@ public class DefaultRewardEvaluator implements RewardEvaluator {
     if (context.stepResult().collision()) {
       return RewardAssessment.of(RewardSignal.VERY_NEGATIVE);
     }
+    if (context.loopDetected()) {
+      return RewardAssessment.of(RewardSignal.VERY_NEGATIVE);
+    }
     return RewardAssessment.of(RewardSignal.NEGATIVE);
   }
 }

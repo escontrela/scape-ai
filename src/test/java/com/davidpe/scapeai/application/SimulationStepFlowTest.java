@@ -39,6 +39,29 @@ class SimulationStepFlowTest {
     assertEquals(RewardSignal.NEGATIVE, outcome.reward().signal());
   }
 
+  @Test
+  void shouldPassLoopSignalToRewardEvaluator() {
+    MovementPolicy policy = context -> MoveDirection.RIGHT;
+    RewardEvaluator evaluator =
+        context ->
+            context.loopDetected()
+                ? RewardAssessment.of(RewardSignal.VERY_NEGATIVE)
+                : RewardAssessment.of(RewardSignal.NEGATIVE);
+    ActiveMovementPolicyService policyService =
+        new ActiveMovementPolicyService(
+            Map.of("heuristic-baseline", policy, "random-controlled", policy), "heuristic-baseline");
+
+    SimulationStepFlow flow =
+        new SimulationStepFlow(policyService, evaluator, new SingleStepSimulationEngine());
+
+    MazeDefinition maze = new MazeDefinition(3, 3, new boolean[3][3], new GridPosition(2, 2));
+    SimulationState start = SimulationState.initial(new GridPosition(0, 0));
+
+    SimulationStepOutcome outcome = flow.execute(maze, start, true);
+
+    assertEquals(RewardSignal.VERY_NEGATIVE, outcome.reward().signal());
+  }
+
   private RewardAssessment rewardByCollision(RewardContext context) {
     return context.stepResult().collision()
         ? RewardAssessment.of(RewardSignal.VERY_NEGATIVE)

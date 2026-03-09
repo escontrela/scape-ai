@@ -146,6 +146,7 @@
 - Deteccion de bucles cortos dentro de una ventana configurable de posiciones visitadas.
 - Emision de senal negativa adicional consumible por el evaluador de recompensas.
 - Exposicion de contador de eventos de bucle en el resultado de episodio.
+- Implementacion tecnica: `SimulationEpisodeOrchestrator` mantiene ventana deslizante (`scape.simulation.loop-window`) y propaga `loopDetected` en `RewardContext`, persistiendo `loopEvents` en `SimulationEpisodeResult`.
 
 ### SCAPE-0019 - Estado contextual ampliado para politicas IA
 - Objetivo funcional: enriquecer el contexto de decision para politicas de movimiento.

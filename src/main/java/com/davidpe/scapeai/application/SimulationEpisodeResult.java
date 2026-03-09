@@ -6,4 +6,5 @@ public record SimulationEpisodeResult(
     long elapsedMillis,
     EpisodeEndReason endReason,
     double totalReward,
-    int collisions) {}
+    int collisions,
+    int loopEvents) {}

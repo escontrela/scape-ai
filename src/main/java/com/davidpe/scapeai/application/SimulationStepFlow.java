@@ -28,10 +28,15 @@ public class SimulationStepFlow {
   }
 
   public SimulationStepOutcome execute(MazeDefinition maze, SimulationState currentState) {
+    return execute(maze, currentState, false);
+  }
+
+  public SimulationStepOutcome execute(
+      MazeDefinition maze, SimulationState currentState, boolean loopDetected) {
     MovementPolicy movementPolicy = movementPolicyService.activePolicy();
     var direction = movementPolicy.chooseNextMove(new SpatialContext(maze, currentState));
     SimulationStepResult result = simulationEngine.step(currentState, maze, direction);
-    RewardAssessment reward = rewardEvaluator.evaluate(new RewardContext(currentState, result));
+    RewardAssessment reward = rewardEvaluator.evaluate(new RewardContext(currentState, result, loopDetected));
     return new SimulationStepOutcome(direction, result, reward);
   }
 }

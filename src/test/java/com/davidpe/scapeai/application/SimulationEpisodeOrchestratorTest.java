@@ -33,6 +33,7 @@ class SimulationEpisodeOrchestratorTest {
     assertEquals(EpisodeEndReason.EXIT_REACHED, result.endReason());
     assertEquals(-1.0, result.totalReward());
     assertEquals(0, result.collisions());
+    assertEquals(0, result.loopEvents());
     assertTrue(result.elapsedMillis() >= 0);
   }
 
@@ -51,7 +52,28 @@ class SimulationEpisodeOrchestratorTest {
     assertTrue(result.totalSteps() > 0);
     assertTrue(result.totalReward() <= 0.0);
     assertTrue(result.collisions() >= 0);
+    assertEquals(0, result.loopEvents());
     assertTrue(result.elapsedMillis() >= 60);
+  }
+
+  @Test
+  void shouldCountLoopEventsWhenAgentRepeatsWindowPositions() {
+    SimulationStepFlow flow =
+        flowWithPolicy(
+            context ->
+                context.simulationState().agentPosition().col() == 1
+                    ? MoveDirection.LEFT
+                    : MoveDirection.RIGHT);
+    SimulationEpisodeOrchestrator orchestrator =
+        new SimulationEpisodeOrchestrator(flow, Duration.ofMillis(140), 4, new FixedStepTime(0, 20));
+    MazeDefinition maze =
+        new MazeDefinition(1, 4, new boolean[1][4], new GridPosition(0, 1), new GridPosition(0, 3));
+
+    SimulationEpisodeResult result = orchestrator.runEpisode(maze);
+
+    assertFalse(result.success());
+    assertEquals(EpisodeEndReason.TIMEOUT, result.endReason());
+    assertTrue(result.loopEvents() > 0);
   }
 
   private SimulationStepFlow flowWithPolicy(MovementPolicy policy) {
