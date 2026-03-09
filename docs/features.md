@@ -285,3 +285,16 @@
 ### Estado MCP tras la ejecucion
 - projectId=5, userId=1.
 - Tickets movidos a `done`: `SCAPE-0023`, `SCAPE-0024`, `SCAPE-0025`, `SCAPE-0026`, `SCAPE-0027`.
+
+## Iteracion PO 2026-03-09 (seguimiento)
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- `in_progress=1`: `SCAPE-0022`.
+- `backlog=5`: `SCAPE-0028`, `SCAPE-0029`, `SCAPE-0030`, `SCAPE-0031`, `SCAPE-0032`.
+- `done` confirmado para `SCAPE-0000` y `SCAPE-0001`..`SCAPE-0021`, `SCAPE-0023`..`SCAPE-0027`.
+
+### Validacion de repositorio local
+- Rama activa obligatoria verificada: `features-nightly-20260309`.
+- HEAD actual: `1437c59` (`docs: record SCAPE-0028 to SCAPE-0032 backlog scope`).
+- No se detectan commits nuevos que evidencien cierre funcional adicional de `SCAPE-0022`; no se aplican transiciones de estado en esta iteracion.
