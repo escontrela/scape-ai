@@ -20,12 +20,14 @@ CREATE TABLE IF NOT EXISTS training_runs (
   collisions INTEGER NOT NULL,
   discovered_cells INTEGER NOT NULL,
   final_distance_to_exit INTEGER NOT NULL,
+  net_progress REAL NOT NULL DEFAULT 0,
   created_at_epoch_millis INTEGER NOT NULL,
   FOREIGN KEY (maze_id) REFERENCES mazes(id)
 );
 
 ALTER TABLE training_runs ADD COLUMN IF NOT EXISTS policy_id TEXT;
 ALTER TABLE training_runs ADD COLUMN IF NOT EXISTS policy_snapshot TEXT;
+ALTER TABLE training_runs ADD COLUMN IF NOT EXISTS net_progress REAL NOT NULL DEFAULT 0;
 ALTER TABLE mazes ADD COLUMN IF NOT EXISTS difficulty_score REAL NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS training_presets (

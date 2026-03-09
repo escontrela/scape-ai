@@ -725,13 +725,17 @@ public final class MainWindow {
     collisions.setFont(Font.font("Consolas", 11));
     collisions.setTextFill(Color.web("#ffd166"));
 
+    Label netProgress = new Label(String.format(Locale.US, "NP %.1f", row.netProgress()));
+    netProgress.setFont(Font.font("Consolas", 11));
+    netProgress.setTextFill(Color.web("#7ef9ff"));
+
     Label elapsed = new Label(formatElapsed(row.elapsedMillis()));
     elapsed.setFont(Font.font("Consolas", 11));
     elapsed.setTextFill(Color.web("#9db2ff"));
 
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
-    return new HBox(8, status, reward, collisions, spacer, elapsed);
+    return new HBox(8, status, reward, collisions, netProgress, spacer, elapsed);
   }
 
   private HBox timelineRow(TrainingTimelineEntry entry) {

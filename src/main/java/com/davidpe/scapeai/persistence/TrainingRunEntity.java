@@ -12,4 +12,5 @@ public record TrainingRunEntity(
     int collisions,
     int discoveredCells,
     int finalDistanceToExit,
+    double netProgress,
     long createdAtEpochMillis) {}

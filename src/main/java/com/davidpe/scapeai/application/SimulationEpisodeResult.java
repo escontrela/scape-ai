@@ -10,6 +10,7 @@ public record SimulationEpisodeResult(
     double totalReward,
     int collisions,
     int loopEvents,
+    double netProgress,
     int explorationDecisions,
     int exploitationDecisions,
     List<PolicyInferenceTrace> inferenceTraces) {

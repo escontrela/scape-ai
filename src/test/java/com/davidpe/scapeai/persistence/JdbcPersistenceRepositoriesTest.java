@@ -48,6 +48,7 @@ class JdbcPersistenceRepositoriesTest {
             collisions INTEGER NOT NULL,
             discovered_cells INTEGER NOT NULL,
             final_distance_to_exit INTEGER NOT NULL,
+            net_progress REAL NOT NULL DEFAULT 0,
             created_at_epoch_millis INTEGER NOT NULL
           )
           """);
@@ -99,6 +100,7 @@ class JdbcPersistenceRepositoriesTest {
               8,
               12,
               4,
+              -1.0,
               1000));
       runRepository.save(
           new TrainingRunEntity(
@@ -113,6 +115,7 @@ class JdbcPersistenceRepositoriesTest {
               1,
               19,
               0,
+              3.0,
               2000));
 
       var history = runRepository.findByMazeId(maze.id());
@@ -139,6 +142,7 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals("{\"policy\":\"random-controlled\",\"seed\":20260309}", history.get(0).policySnapshot());
       assertEquals(19, history.get(0).discoveredCells());
       assertEquals(0, history.get(0).finalDistanceToExit());
+      assertEquals(3.0, history.get(0).netProgress());
       assertEquals(3, sortedAsc.size());
       assertEquals(easier.name(), sortedAsc.get(0).name());
       assertEquals(harder.name(), sortedDesc.get(0).name());

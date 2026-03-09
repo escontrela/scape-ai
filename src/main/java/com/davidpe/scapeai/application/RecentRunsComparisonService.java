@@ -35,9 +35,12 @@ public class RecentRunsComparisonService {
     }
 
     Comparator<RecentRunComparisonRow> comparator =
-        sortOption == RecentRunsSortOption.BY_REWARD
-            ? Comparator.comparingDouble(RecentRunComparisonRow::reward).reversed()
-            : Comparator.comparingLong(RecentRunComparisonRow::createdAtEpochMillis).reversed();
+        switch (sortOption) {
+          case BY_REWARD -> Comparator.comparingDouble(RecentRunComparisonRow::reward).reversed();
+          case BY_NET_PROGRESS ->
+              Comparator.comparingDouble(RecentRunComparisonRow::netProgress).reversed();
+          case BY_DATE -> Comparator.comparingLong(RecentRunComparisonRow::createdAtEpochMillis).reversed();
+        };
 
     return trainingRunRepository.findRecentByMazeId(maze.get().id(), MAX_RECENT_RUNS).stream()
         .map(
@@ -46,6 +49,7 @@ public class RecentRunsComparisonService {
                     entity.success(),
                     entity.totalReward(),
                     entity.collisions(),
+                    entity.netProgress(),
                     entity.elapsedMillis(),
                     entity.createdAtEpochMillis()))
         .sorted(comparator)

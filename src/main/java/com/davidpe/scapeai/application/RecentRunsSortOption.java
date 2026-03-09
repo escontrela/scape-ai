@@ -2,7 +2,8 @@ package com.davidpe.scapeai.application;
 
 public enum RecentRunsSortOption {
   BY_DATE("Date"),
-  BY_REWARD("Reward");
+  BY_REWARD("Reward"),
+  BY_NET_PROGRESS("Net Progress");
 
   private final String label;
 

@@ -38,6 +38,7 @@ class SimulationEpisodeOrchestratorTest {
     assertEquals(-1.0, result.totalReward());
     assertEquals(0, result.collisions());
     assertEquals(0, result.loopEvents());
+    assertTrue(result.netProgress() > 0.0);
     assertEquals(0, result.explorationDecisions());
     assertTrue(result.exploitationDecisions() > 0);
     assertEquals(0, result.inferenceTraces().size());

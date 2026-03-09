@@ -283,7 +283,7 @@
 - Calculo de `netProgress` a partir de distancia inicial/final y mejoras acumuladas por episodio.
 - Exposicion de `netProgress` en `SimulationEpisodeResult` y persistencia de corridas.
 - Ordenacion de comparativas de corridas por `netProgress` sin recalculo pesado en cliente.
-- Implementacion tecnica propuesta: `EpisodeProgressMetricCalculator` integrado al cierre de episodio en orquestador.
+- Implementacion tecnica: `SimulationEpisodeOrchestrator` calcula `netProgress`, `training_runs` lo persiste en `net_progress` y `RecentRunsComparisonService` habilita orden `BY_NET_PROGRESS`.
 
 ### SCAPE-0036 - Muestreador balanceado para experience replay
 - Objetivo funcional: preparar iteraciones de IA con lotes de replay menos sesgados por tipo de resultado.

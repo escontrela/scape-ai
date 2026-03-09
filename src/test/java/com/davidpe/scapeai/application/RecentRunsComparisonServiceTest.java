@@ -40,6 +40,20 @@ class RecentRunsComparisonServiceTest {
     assertTrue(rows.get(0).reward() >= rows.get(9).reward());
   }
 
+  @Test
+  void shouldAllowSortingByNetProgress() {
+    InMemoryMazeRepository mazeRepository = new InMemoryMazeRepository();
+    InMemoryTrainingRunRepository trainingRunRepository = new InMemoryTrainingRunRepository();
+    RecentRunsComparisonService service =
+        new RecentRunsComparisonService(mazeRepository, trainingRunRepository);
+
+    List<RecentRunComparisonRow> rows =
+        service.recentRuns("Neon Gate", RecentRunsSortOption.BY_NET_PROGRESS);
+
+    assertEquals(10, rows.size());
+    assertTrue(rows.get(0).netProgress() >= rows.get(9).netProgress());
+  }
+
   private static final class InMemoryMazeRepository implements MazeRepository {
 
     @Override
@@ -98,6 +112,7 @@ class RecentRunsComparisonServiceTest {
                 i % 3,
                 5 + i,
                 2,
+                12 - i,
                 1_700_000_000_000L + i));
       }
       generated.sort(

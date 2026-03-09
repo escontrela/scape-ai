@@ -124,7 +124,7 @@ public class SimulationEpisodeOrchestrator {
     EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy();
     EpisodeExecutionState state =
         EpisodeExecutionState.initial(
-            SimulationState.initial(maze.start()), startedAt, deadline, loopWindow);
+            SimulationState.initial(maze.start()), maze.exit(), startedAt, deadline, loopWindow);
     runLoop(maze, state, policy, -1);
     return state.toResult(currentTimeMillis.getAsLong());
   }
@@ -137,7 +137,7 @@ public class SimulationEpisodeOrchestrator {
     EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy();
     EpisodeExecutionState state =
         EpisodeExecutionState.initial(
-            SimulationState.initial(maze.start()), startedAt, deadline, loopWindow);
+            SimulationState.initial(maze.start()), maze.exit(), startedAt, deadline, loopWindow);
     runLoop(maze, state, policy, Math.max(0, maxSteps));
     return state.toCheckpoint(currentTimeMillis.getAsLong());
   }
@@ -148,7 +148,7 @@ public class SimulationEpisodeOrchestrator {
     long deadline = resumedAt + checkpoint.remainingMillis();
     EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy();
     EpisodeExecutionState state =
-        EpisodeExecutionState.fromCheckpoint(checkpoint, resumedAt, deadline, loopWindow);
+        EpisodeExecutionState.fromCheckpoint(checkpoint, maze.exit(), resumedAt, deadline, loopWindow);
     runLoop(maze, state, policy, -1);
     return state.toResult(currentTimeMillis.getAsLong());
   }
@@ -189,6 +189,9 @@ public class SimulationEpisodeOrchestrator {
         state.exploitationDecisions++;
       }
       int currentDistanceToExit = manhattanDistance(state.currentState.agentPosition(), maze.exit());
+      if (currentDistanceToExit < previousDistanceToExit) {
+        state.improvementDistance += previousDistanceToExit - currentDistanceToExit;
+      }
       state.noProgressStreak =
           currentDistanceToExit < previousDistanceToExit ? 0 : state.noProgressStreak + 1;
       rememberPosition(state.currentState.agentPosition(), state.recentPositions, state.positionCounts);
@@ -233,6 +236,8 @@ public class SimulationEpisodeOrchestrator {
 
     private final long startedAt;
     private final long deadline;
+    private final GridPosition mazeExit;
+    private final int initialDistanceToExit;
     private final Deque<GridPosition> recentPositions;
     private final Map<GridPosition, Integer> positionCounts;
     private final List<GridPosition> trajectory;
@@ -245,18 +250,22 @@ public class SimulationEpisodeOrchestrator {
     private int loopEvents;
     private int explorationDecisions;
     private int exploitationDecisions;
+    private double improvementDistance;
     private double totalReward;
     private long elapsedBeforeSegment;
 
     private EpisodeExecutionState(
         long startedAt,
         long deadline,
+        GridPosition mazeExit,
+        int initialDistanceToExit,
         SimulationState currentState,
         MoveDirection previousDirection,
         int noProgressStreak,
         int totalSteps,
         int collisions,
         int loopEvents,
+        double improvementDistance,
         double totalReward,
         long elapsedBeforeSegment,
         Deque<GridPosition> recentPositions,
@@ -265,12 +274,15 @@ public class SimulationEpisodeOrchestrator {
         List<PolicyInferenceTrace> inferenceTraces) {
       this.startedAt = startedAt;
       this.deadline = deadline;
+      this.mazeExit = mazeExit;
+      this.initialDistanceToExit = initialDistanceToExit;
       this.currentState = currentState;
       this.previousDirection = previousDirection;
       this.noProgressStreak = noProgressStreak;
       this.totalSteps = totalSteps;
       this.collisions = collisions;
       this.loopEvents = loopEvents;
+      this.improvementDistance = improvementDistance;
       this.totalReward = totalReward;
       this.elapsedBeforeSegment = elapsedBeforeSegment;
       this.recentPositions = recentPositions;
@@ -280,22 +292,26 @@ public class SimulationEpisodeOrchestrator {
     }
 
     static EpisodeExecutionState initial(
-        SimulationState initialState, long startedAt, long deadline, int loopWindow) {
+        SimulationState initialState, GridPosition mazeExit, long startedAt, long deadline, int loopWindow) {
       Deque<GridPosition> recent = new ArrayDeque<>();
       Map<GridPosition, Integer> counts = new HashMap<>();
       List<GridPosition> trajectory = new ArrayList<>();
       GridPosition position = initialState.agentPosition();
       remember(position, recent, counts, loopWindow);
       trajectory.add(position);
+      int initialDistance = distanceToExit(initialState.agentPosition(), mazeExit);
       return new EpisodeExecutionState(
           startedAt,
           deadline,
+          mazeExit,
+          initialDistance,
           initialState,
           null,
           0,
           0,
           0,
           0,
+          0.0,
           0.0,
           0L,
           recent,
@@ -305,7 +321,7 @@ public class SimulationEpisodeOrchestrator {
     }
 
     static EpisodeExecutionState fromCheckpoint(
-        EpisodeCheckpoint checkpoint, long resumedAt, long deadline, int loopWindow) {
+        EpisodeCheckpoint checkpoint, GridPosition mazeExit, long resumedAt, long deadline, int loopWindow) {
       Deque<GridPosition> recent = new ArrayDeque<>();
       Map<GridPosition, Integer> counts = new HashMap<>();
       List<GridPosition> sourceRecent = checkpoint.recentPositions();
@@ -320,15 +336,21 @@ public class SimulationEpisodeOrchestrator {
       if (trajectory.isEmpty()) {
         trajectory.add(checkpoint.currentState().agentPosition());
       }
+      GridPosition initialPosition =
+          trajectory.isEmpty() ? checkpoint.currentState().agentPosition() : trajectory.get(0);
+      int initialDistance = distanceToExit(initialPosition, mazeExit);
       return new EpisodeExecutionState(
           resumedAt,
           deadline,
+          mazeExit,
+          initialDistance,
           checkpoint.currentState(),
           checkpoint.previousDirection(),
           checkpoint.noProgressStreak(),
           checkpoint.totalSteps(),
           checkpoint.collisions(),
           checkpoint.loopEvents(),
+          0.0,
           checkpoint.totalReward(),
           checkpoint.elapsedMillis(),
           recent,
@@ -358,6 +380,8 @@ public class SimulationEpisodeOrchestrator {
       long elapsed = elapsedMillis(currentTime);
       EpisodeEndReason endReason =
           currentState.exitReached() ? EpisodeEndReason.EXIT_REACHED : EpisodeEndReason.TIMEOUT;
+      int finalDistanceToExit = distanceToExit(currentState.agentPosition(), mazeExit);
+      double netProgress = (initialDistanceToExit - finalDistanceToExit) + improvementDistance;
       return new SimulationEpisodeResult(
           currentState.exitReached(),
           totalSteps,
@@ -366,6 +390,7 @@ public class SimulationEpisodeOrchestrator {
           totalReward,
           collisions,
           loopEvents,
+          netProgress,
           explorationDecisions,
           exploitationDecisions,
           List.copyOf(inferenceTraces));
@@ -391,6 +416,10 @@ public class SimulationEpisodeOrchestrator {
           positionCounts.put(removed, remaining);
         }
       }
+    }
+
+    private static int distanceToExit(GridPosition position, GridPosition mazeExit) {
+      return Math.abs(position.row() - mazeExit.row()) + Math.abs(position.col() - mazeExit.col());
     }
   }
 }
