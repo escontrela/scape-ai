@@ -19,4 +19,5 @@ public record TrainingRunEntity(
     double q4Coverage,
     double leftSideCoverage,
     double rightSideCoverage,
+    double pathEntropy,
     long createdAtEpochMillis) {}

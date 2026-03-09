@@ -66,6 +66,10 @@ public class SqliteSchemaMigrator {
       jdbcTemplate.execute(
           "ALTER TABLE training_runs ADD COLUMN right_side_coverage REAL NOT NULL DEFAULT 0");
     }
+    if (!columns.contains("path_entropy")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN path_entropy REAL NOT NULL DEFAULT 0");
+    }
   }
 
   private boolean tableExists(String tableName) {

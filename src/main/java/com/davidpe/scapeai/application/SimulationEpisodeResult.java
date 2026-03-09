@@ -17,6 +17,7 @@ public record SimulationEpisodeResult(
     double q4Coverage,
     double leftSideCoverage,
     double rightSideCoverage,
+    double pathEntropy,
     int explorationDecisions,
     int exploitationDecisions,
     List<PolicyInferenceTrace> inferenceTraces) {

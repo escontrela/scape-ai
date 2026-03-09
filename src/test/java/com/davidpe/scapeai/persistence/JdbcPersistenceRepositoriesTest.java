@@ -56,6 +56,7 @@ class JdbcPersistenceRepositoriesTest {
             q4_coverage REAL NOT NULL DEFAULT 0,
             left_side_coverage REAL NOT NULL DEFAULT 0,
             right_side_coverage REAL NOT NULL DEFAULT 0,
+            path_entropy REAL NOT NULL DEFAULT 0,
             created_at_epoch_millis INTEGER NOT NULL
           )
           """);
@@ -127,6 +128,7 @@ class JdbcPersistenceRepositoriesTest {
               0.15,
               0.50,
               0.40,
+              0.88,
               1000));
       runRepository.save(
           new TrainingRunEntity(
@@ -148,6 +150,7 @@ class JdbcPersistenceRepositoriesTest {
               0.72,
               0.45,
               0.70,
+              1.32,
               2000));
 
       var history = runRepository.findByMazeId(maze.id());
@@ -177,6 +180,7 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals(0, history.get(0).finalDistanceToExit());
       assertEquals(3.0, history.get(0).netProgress());
       assertEquals(0.70, history.get(0).rightSideCoverage());
+      assertEquals(1.32, history.get(0).pathEntropy());
       assertEquals(3, sortedAsc.size());
       assertEquals(easier.name(), sortedAsc.get(0).name());
       assertEquals(harder.name(), sortedDesc.get(0).name());

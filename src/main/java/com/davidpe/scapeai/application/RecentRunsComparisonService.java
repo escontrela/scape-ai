@@ -6,6 +6,7 @@ import com.davidpe.scapeai.persistence.repository.TrainingRunRepository;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -14,11 +15,16 @@ public class RecentRunsComparisonService {
   private static final int MAX_RECENT_RUNS = 10;
   private final MazeRepository mazeRepository;
   private final TrainingRunRepository trainingRunRepository;
+  private final double pathEntropyAlertThreshold;
 
   public RecentRunsComparisonService(
-      MazeRepository mazeRepository, TrainingRunRepository trainingRunRepository) {
+      MazeRepository mazeRepository,
+      TrainingRunRepository trainingRunRepository,
+      @Value("${scape.metrics.path-entropy-alert-threshold:1.10}")
+          double pathEntropyAlertThreshold) {
     this.mazeRepository = mazeRepository;
     this.trainingRunRepository = trainingRunRepository;
+    this.pathEntropyAlertThreshold = pathEntropyAlertThreshold;
   }
 
   public List<RecentRunComparisonRow> recentRuns(String mazeName, RecentRunsSortOption sortOption) {
@@ -52,6 +58,8 @@ public class RecentRunsComparisonService {
                     entity.netProgress(),
                     entity.leftSideCoverage(),
                     entity.rightSideCoverage(),
+                    entity.pathEntropy(),
+                    entity.pathEntropy() < pathEntropyAlertThreshold,
                     entity.elapsedMillis(),
                     entity.createdAtEpochMillis()))
         .sorted(comparator)

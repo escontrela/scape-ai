@@ -19,7 +19,7 @@ class RecentRunsComparisonServiceTest {
     InMemoryMazeRepository mazeRepository = new InMemoryMazeRepository();
     InMemoryTrainingRunRepository trainingRunRepository = new InMemoryTrainingRunRepository();
     RecentRunsComparisonService service =
-        new RecentRunsComparisonService(mazeRepository, trainingRunRepository);
+        new RecentRunsComparisonService(mazeRepository, trainingRunRepository, 1.10);
 
     List<RecentRunComparisonRow> rows = service.recentRuns("Neon Gate", RecentRunsSortOption.BY_DATE);
 
@@ -32,7 +32,7 @@ class RecentRunsComparisonServiceTest {
     InMemoryMazeRepository mazeRepository = new InMemoryMazeRepository();
     InMemoryTrainingRunRepository trainingRunRepository = new InMemoryTrainingRunRepository();
     RecentRunsComparisonService service =
-        new RecentRunsComparisonService(mazeRepository, trainingRunRepository);
+        new RecentRunsComparisonService(mazeRepository, trainingRunRepository, 1.10);
 
     List<RecentRunComparisonRow> rows = service.recentRuns("Neon Gate", RecentRunsSortOption.BY_REWARD);
 
@@ -45,13 +45,25 @@ class RecentRunsComparisonServiceTest {
     InMemoryMazeRepository mazeRepository = new InMemoryMazeRepository();
     InMemoryTrainingRunRepository trainingRunRepository = new InMemoryTrainingRunRepository();
     RecentRunsComparisonService service =
-        new RecentRunsComparisonService(mazeRepository, trainingRunRepository);
+        new RecentRunsComparisonService(mazeRepository, trainingRunRepository, 1.10);
 
     List<RecentRunComparisonRow> rows =
         service.recentRuns("Neon Gate", RecentRunsSortOption.BY_NET_PROGRESS);
 
     assertEquals(10, rows.size());
     assertTrue(rows.get(0).netProgress() >= rows.get(9).netProgress());
+  }
+
+  @Test
+  void shouldFlagLowEntropyRunsWhenBelowThreshold() {
+    InMemoryMazeRepository mazeRepository = new InMemoryMazeRepository();
+    InMemoryTrainingRunRepository trainingRunRepository = new InMemoryTrainingRunRepository();
+    RecentRunsComparisonService service =
+        new RecentRunsComparisonService(mazeRepository, trainingRunRepository, 1.10);
+
+    List<RecentRunComparisonRow> rows = service.recentRuns("Neon Gate", RecentRunsSortOption.BY_DATE);
+
+    assertTrue(rows.stream().anyMatch(RecentRunComparisonRow::lowEntropyAlert));
   }
 
   private static final class InMemoryMazeRepository implements MazeRepository {
@@ -119,6 +131,7 @@ class RecentRunsComparisonServiceTest {
                 0.10 * i,
                 Math.max(0.0, 0.9 - (0.05 * i)),
                 Math.min(1.0, 0.1 + (0.05 * i)),
+                1.5 - (0.08 * i),
                 1_700_000_000_000L + i));
       }
       generated.sort(

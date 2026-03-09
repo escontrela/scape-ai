@@ -385,3 +385,6 @@
 - SCAPE-0042: nueva suite `CoverageRegressionSuiteTest` headless con semillas fijas (`20260310..20260313`) y ejecucion reproducible.
 - SCAPE-0042: validacion automatica de umbrales minimos de `rightSideCoverage` y maximos de `loopEvents` por episodio.
 - SCAPE-0042: al ejecutarse en `mvn test` (Surefire por defecto), cualquier regresion de cobertura rompe build local/proyecto y bloquea merge.
+- SCAPE-0043: calculo de `pathEntropy` por episodio en `SimulationEpisodeOrchestrator` combinando distribucion de movimientos y frecuencia de celdas visitadas.
+- SCAPE-0043: persistencia de `path_entropy` en `training_runs` (schema + migrador + repositorio JDBC) junto a metricas de corrida.
+- SCAPE-0043: comparativa reciente expone entropia por corrida con alerta visual de baja entropia segun umbral configurable `scape.metrics.path-entropy-alert-threshold`.

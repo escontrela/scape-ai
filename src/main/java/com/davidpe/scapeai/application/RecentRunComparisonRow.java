@@ -7,5 +7,7 @@ public record RecentRunComparisonRow(
     double netProgress,
     double leftSideCoverage,
     double rightSideCoverage,
+    double pathEntropy,
+    boolean lowEntropyAlert,
     long elapsedMillis,
     long createdAtEpochMillis) {}

@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -185,6 +186,7 @@ public class SimulationEpisodeOrchestrator {
               policy);
       state.currentState = outcome.result().state();
       state.previousDirection = outcome.selectedDirection();
+      state.movementCounts.merge(outcome.selectedDirection(), 1, Integer::sum);
       if (policy.lastDecisionExploration()) {
         state.explorationDecisions++;
       } else {
@@ -245,6 +247,7 @@ public class SimulationEpisodeOrchestrator {
     private final List<GridPosition> trajectory;
     private final List<PolicyInferenceTrace> inferenceTraces;
     private final Map<String, Integer> transitionCounts;
+    private final Map<MoveDirection, Integer> movementCounts;
     private SimulationState currentState;
     private MoveDirection previousDirection;
     private int noProgressStreak;
@@ -275,7 +278,8 @@ public class SimulationEpisodeOrchestrator {
         Map<GridPosition, Integer> positionCounts,
         List<GridPosition> trajectory,
         List<PolicyInferenceTrace> inferenceTraces,
-        Map<String, Integer> transitionCounts) {
+        Map<String, Integer> transitionCounts,
+        Map<MoveDirection, Integer> movementCounts) {
       this.startedAt = startedAt;
       this.deadline = deadline;
       this.mazeExit = mazeExit;
@@ -294,6 +298,7 @@ public class SimulationEpisodeOrchestrator {
       this.trajectory = trajectory;
       this.inferenceTraces = inferenceTraces;
       this.transitionCounts = transitionCounts;
+      this.movementCounts = movementCounts;
     }
 
     static EpisodeExecutionState initial(
@@ -323,7 +328,8 @@ public class SimulationEpisodeOrchestrator {
           counts,
           trajectory,
           new ArrayList<>(),
-          new HashMap<>());
+          new HashMap<>(),
+          new EnumMap<>(MoveDirection.class));
     }
 
     static EpisodeExecutionState fromCheckpoint(
@@ -363,7 +369,8 @@ public class SimulationEpisodeOrchestrator {
           counts,
           trajectory,
           new ArrayList<>(),
-          new HashMap<>());
+          new HashMap<>(),
+          new EnumMap<>(MoveDirection.class));
     }
 
     EpisodeCheckpoint toCheckpoint(long currentTime) {
@@ -390,6 +397,7 @@ public class SimulationEpisodeOrchestrator {
       int finalDistanceToExit = distanceToExit(currentState.agentPosition(), mazeExit);
       double netProgress = (initialDistanceToExit - finalDistanceToExit) + improvementDistance;
       MazeQuadrantCoverage coverage = MazeQuadrantCoverage.from(maze, currentState.visitedCells());
+      double pathEntropy = calculatePathEntropy();
       return new SimulationEpisodeResult(
           currentState.exitReached(),
           totalSteps,
@@ -405,6 +413,7 @@ public class SimulationEpisodeOrchestrator {
           coverage.q4Coverage(),
           coverage.leftSideCoverage(),
           coverage.rightSideCoverage(),
+          pathEntropy,
           explorationDecisions,
           exploitationDecisions,
           List.copyOf(inferenceTraces));
@@ -434,6 +443,32 @@ public class SimulationEpisodeOrchestrator {
 
     private static int distanceToExit(GridPosition position, GridPosition mazeExit) {
       return Math.abs(position.row() - mazeExit.row()) + Math.abs(position.col() - mazeExit.col());
+    }
+
+    private double calculatePathEntropy() {
+      double moveEntropy = entropy(movementCounts.values().stream().mapToInt(Integer::intValue).toArray());
+      int[] visitFrequencies = positionCounts.values().stream().mapToInt(Integer::intValue).toArray();
+      double visitEntropy = entropy(visitFrequencies);
+      return (moveEntropy + visitEntropy) / 2.0;
+    }
+
+    private double entropy(int[] frequencies) {
+      int total = 0;
+      for (int frequency : frequencies) {
+        total += Math.max(0, frequency);
+      }
+      if (total <= 0) {
+        return 0.0;
+      }
+      double entropy = 0.0;
+      for (int frequency : frequencies) {
+        if (frequency <= 0) {
+          continue;
+        }
+        double probability = (double) frequency / (double) total;
+        entropy -= probability * (Math.log(probability) / Math.log(2.0));
+      }
+      return entropy;
     }
   }
 }

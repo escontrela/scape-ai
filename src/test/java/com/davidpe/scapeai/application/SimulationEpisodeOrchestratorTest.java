@@ -196,6 +196,7 @@ class SimulationEpisodeOrchestratorTest {
     assertTrue(result.leftSideCoverage() >= 0.0 && result.leftSideCoverage() <= 1.0);
     assertTrue(result.rightSideCoverage() >= 0.0 && result.rightSideCoverage() <= 1.0);
     assertTrue(result.rightSideCoverage() >= result.leftSideCoverage());
+    assertTrue(result.pathEntropy() >= 0.0);
   }
 
   @Test

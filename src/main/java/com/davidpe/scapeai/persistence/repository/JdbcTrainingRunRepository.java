@@ -30,9 +30,9 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
               connection.prepareStatement(
                   """
                   INSERT INTO training_runs(
-                    maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, created_at_epoch_millis
+                    maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, path_entropy, created_at_epoch_millis
                   )
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                   """,
                   Statement.RETURN_GENERATED_KEYS);
           statement.setLong(1, run.mazeId());
@@ -52,7 +52,8 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
           statement.setDouble(15, run.q4Coverage());
           statement.setDouble(16, run.leftSideCoverage());
           statement.setDouble(17, run.rightSideCoverage());
-          statement.setLong(18, run.createdAtEpochMillis());
+          statement.setDouble(18, run.pathEntropy());
+          statement.setLong(19, run.createdAtEpochMillis());
           return statement;
         },
         keyHolder);
@@ -79,6 +80,7 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
         run.q4Coverage(),
         run.leftSideCoverage(),
         run.rightSideCoverage(),
+        run.pathEntropy(),
         run.createdAtEpochMillis());
   }
 
@@ -91,7 +93,7 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
   public List<TrainingRunEntity> findRecentByMazeId(long mazeId, int limit) {
     return jdbcTemplate.query(
         """
-        SELECT id, maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, created_at_epoch_millis
+        SELECT id, maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, path_entropy, created_at_epoch_millis
         FROM training_runs
         WHERE maze_id = ?
         ORDER BY created_at_epoch_millis DESC
@@ -117,6 +119,7 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
                 rs.getDouble("q4_coverage"),
                 rs.getDouble("left_side_coverage"),
                 rs.getDouble("right_side_coverage"),
+                rs.getDouble("path_entropy"),
                 rs.getLong("created_at_epoch_millis")),
         mazeId,
         limit);
