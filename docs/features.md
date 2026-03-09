@@ -172,11 +172,59 @@
 - Resultado de validacion tipado para presentar errores operativos de forma consistente.
 - Implementacion tecnica: `ApplicationStartTrainingSessionUseCase` retorna `StartTrainingSessionResult` tipado y `MainWindow` consume ese resultado para arrancar o mostrar error en el estado del header.
 
+### SCAPE-0022 - Bus de eventos de ciclo de entrenamiento
+- Objetivo funcional: desacoplar la coordinacion del ciclo de entrenamiento mediante eventos de aplicacion tipados.
+- Alcance introducido:
+- Contratos de eventos para inicio, pausa, reanudacion, finalizacion y timeout de sesion.
+- Suscripcion de UI y persistencia al flujo de eventos sin dependencias directas entre modulos.
+- Base para telemetria y automatizacion de acciones post-episodio sin tocar el caso de uso principal.
+- Implementacion tecnica: `TrainingLifecycleEventBus` publica `TrainingLifecycleEvent` y `MainWindow`/servicios de aplicacion consumen eventos via handlers registrados.
+
+### SCAPE-0023 - Reanudar episodio con checkpoint determinista
+- Objetivo funcional: permitir pausar y continuar episodios sin perder consistencia del estado de simulacion.
+- Alcance introducido:
+- Snapshot minimo del episodio activo (posicion, trayectoria, metricas y tiempo restante).
+- Restauracion determinista del estado para continuar el episodio en caliente.
+- Validaciones de invariantes para evitar drift entre pausa y reanudacion.
+- Implementacion tecnica: `EpisodeCheckpoint` encapsula estado serializable y `SimulationEpisodeOrchestrator` incorpora `pause()/resume(checkpoint)`.
+
+### SCAPE-0024 - Trazas de inferencia DJL por decision
+- Objetivo funcional: mejorar observabilidad de decisiones de politica DJL en ejecucion.
+- Alcance introducido:
+- Emision opcional de confianza, latencia y razon de fallback por decision.
+- Contrato de trazas compatible con politicas no-DJL sin romper el flujo actual.
+- Vinculacion de trazas al resultado de episodio para analisis posterior.
+- Implementacion tecnica: `PolicyInferenceTrace` se agrega al pipeline de `DjlMovementPolicyAdapter` y se agrega en `SimulationEpisodeResult`.
+
+### SCAPE-0025 - Timeline visual de entrenamiento en panel UI
+- Objetivo funcional: visualizar episodios recientes en una linea temporal operativa dentro del dashboard.
+- Alcance introducido:
+- Lista cronologica de episodios con estado final, recompensa y duracion.
+- Refresco incremental al cierre de cada episodio sin bloqueo del hilo JavaFX.
+- Codificacion visual diferenciada para exito, timeout y cierre no exitoso.
+- Implementacion tecnica: `TrainingTimelineViewModel` alimenta un componente timeline en `MainWindow` con snapshots de `LiveMetricsService`.
+
+### SCAPE-0026 - Score de dificultad de laberinto persistente
+- Objetivo funcional: priorizar escenarios de entrenamiento en funcion de complejidad estimada.
+- Alcance introducido:
+- Calculo de score de dificultad por maze usando dimensiones, densidad de muros y distancia minima a salida.
+- Persistencia del score en catalogo para reuso entre ejecuciones.
+- Ordenacion de selector de laberintos por dificultad ascendente o descendente.
+- Implementacion tecnica: `MazeDifficultyScorer` calcula score y `MazeCatalogService` expone ordenacion por `difficultyScore`.
+
+### SCAPE-0027 - Buffer de experiencia persistente para entrenamiento
+- Objetivo funcional: almacenar transiciones SARSA para habilitar replay en iteraciones de IA futuras.
+- Alcance introducido:
+- Modelo persistente para transicion estado-accion-recompensa-estado_siguiente.
+- Registro incremental durante episodios sin bloquear simulacion.
+- Consulta paginada de transiciones recientes para entrenadores iterativos.
+- Implementacion tecnica: `ExperienceTransitionEntity` y `ExperienceReplayRepository` soportan escritura append-only y lectura paginada.
+
 ## Estado operativo actual
 - WIP objetivo: 1 ticket en `in_progress`.
 - Backlog objetivo: al menos 5 tickets listos.
-- Ticket activo actual: `SCAPE-0016`.
-- Siguiente foco tecnico de backlog: `SCAPE-0017` -> `SCAPE-0018` -> `SCAPE-0019` -> `SCAPE-0020` -> `SCAPE-0021`.
+- Ticket activo actual: `SCAPE-0022`.
+- Siguiente foco tecnico de backlog: `SCAPE-0023` -> `SCAPE-0024` -> `SCAPE-0025` -> `SCAPE-0026` -> `SCAPE-0027`.
 - Implementacion tecnica: bootstrap JavaFX con ciclo de vida de contexto Spring Boot y `MainWindow` gestionada como componente Spring.
 - Implementacion tecnica: `MainWindow` con panel de control, viewport de laberinto y panel de metricas; botones `Start/Pause/Reset` publican comandos a la capa de aplicacion.
 - Implementacion tecnica: motor `SingleStepSimulationEngine` con validacion de colisiones, conteo de intentos invalidos, seguimiento de celdas visitadas y deteccion de salida.
