@@ -13,6 +13,7 @@ import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SingleStepSimulationEngine;
 import com.davidpe.scapeai.simulation.SimulationState;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class SimulationStepFlowTest {
@@ -21,8 +22,12 @@ class SimulationStepFlowTest {
   void shouldExecuteOneStepUsingPolicyAndRewardContracts() {
     MovementPolicy policy = context -> MoveDirection.RIGHT;
     RewardEvaluator evaluator = this::rewardByCollision;
+    ActiveMovementPolicyService policyService =
+        new ActiveMovementPolicyService(
+            Map.of("heuristic-baseline", policy, "random-controlled", policy), "heuristic-baseline");
 
-    SimulationStepFlow flow = new SimulationStepFlow(policy, evaluator, new SingleStepSimulationEngine());
+    SimulationStepFlow flow =
+        new SimulationStepFlow(policyService, evaluator, new SingleStepSimulationEngine());
 
     MazeDefinition maze = new MazeDefinition(3, 3, new boolean[3][3], new GridPosition(2, 2));
     SimulationState start = SimulationState.initial(new GridPosition(0, 0));

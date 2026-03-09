@@ -13,6 +13,7 @@ import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SingleStepSimulationEngine;
 import java.time.Duration;
+import java.util.Map;
 import java.util.function.LongSupplier;
 import org.junit.jupiter.api.Test;
 
@@ -55,7 +56,10 @@ class SimulationEpisodeOrchestratorTest {
 
   private SimulationStepFlow flowWithPolicy(MovementPolicy policy) {
     RewardEvaluator rewardEvaluator = context -> RewardAssessment.of(RewardSignal.NEGATIVE);
-    return new SimulationStepFlow(policy, rewardEvaluator, new SingleStepSimulationEngine());
+    ActiveMovementPolicyService policyService =
+        new ActiveMovementPolicyService(
+            Map.of("heuristic-baseline", policy, "random-controlled", policy), "heuristic-baseline");
+    return new SimulationStepFlow(policyService, rewardEvaluator, new SingleStepSimulationEngine());
   }
 
   private static final class FixedStepTime implements LongSupplier {

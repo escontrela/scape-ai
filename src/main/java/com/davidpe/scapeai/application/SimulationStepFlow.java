@@ -14,20 +14,21 @@ import org.springframework.stereotype.Component;
 @Component
 public class SimulationStepFlow {
 
-  private final MovementPolicy movementPolicy;
+  private final ActiveMovementPolicyService movementPolicyService;
   private final RewardEvaluator rewardEvaluator;
   private final SingleStepSimulationEngine simulationEngine;
 
   public SimulationStepFlow(
-      MovementPolicy movementPolicy,
+      ActiveMovementPolicyService movementPolicyService,
       RewardEvaluator rewardEvaluator,
       SingleStepSimulationEngine simulationEngine) {
-    this.movementPolicy = movementPolicy;
+    this.movementPolicyService = movementPolicyService;
     this.rewardEvaluator = rewardEvaluator;
     this.simulationEngine = simulationEngine;
   }
 
   public SimulationStepOutcome execute(MazeDefinition maze, SimulationState currentState) {
+    MovementPolicy movementPolicy = movementPolicyService.activePolicy();
     var direction = movementPolicy.chooseNextMove(new SpatialContext(maze, currentState));
     SimulationStepResult result = simulationEngine.step(currentState, maze, direction);
     RewardAssessment reward = rewardEvaluator.evaluate(new RewardContext(currentState, result));

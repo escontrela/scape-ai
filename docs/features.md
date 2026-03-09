@@ -98,6 +98,7 @@
 - Selector UI de algoritmo con opciones baseline heuristica y aleatoria controlada.
 - Propagacion de seleccion a capa de aplicacion para definir politica del siguiente episodio.
 - Indicador visible del algoritmo activo durante la ejecucion.
+- Implementacion tecnica: `ActiveMovementPolicyService` mantiene la politica activa y `MainWindow` incorpora selector + indicador `ACTIVE ALGORITHM`.
 
 ### SCAPE-0013 - Adaptador IA DJL con contrato MovementPolicy
 - Objetivo funcional: habilitar integracion inicial con DJL manteniendo el desacoplamiento por contratos.

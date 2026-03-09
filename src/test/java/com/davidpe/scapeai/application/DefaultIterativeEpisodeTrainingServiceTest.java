@@ -12,6 +12,7 @@ import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SingleStepSimulationEngine;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -52,7 +53,11 @@ class DefaultIterativeEpisodeTrainingServiceTest {
 
   private SimulationEpisodeOrchestrator orchestratorWithPolicy(MovementPolicy policy) {
     RewardEvaluator rewardEvaluator = context -> RewardAssessment.of(RewardSignal.POSITIVE);
-    SimulationStepFlow flow = new SimulationStepFlow(policy, rewardEvaluator, new SingleStepSimulationEngine());
+    ActiveMovementPolicyService policyService =
+        new ActiveMovementPolicyService(
+            Map.of("heuristic-baseline", policy, "random-controlled", policy), "heuristic-baseline");
+    SimulationStepFlow flow =
+        new SimulationStepFlow(policyService, rewardEvaluator, new SingleStepSimulationEngine());
     return new SimulationEpisodeOrchestrator(flow, Duration.ofMinutes(5), System::currentTimeMillis);
   }
 }

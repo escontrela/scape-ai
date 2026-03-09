@@ -7,14 +7,14 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class MovementPolicyConfiguration {
 
-  private static final String BASELINE_POLICY = "heuristic-baseline";
+  @Bean("heuristicBaselineMovementPolicy")
+  public MovementPolicy heuristicBaselineMovementPolicy() {
+    return new SimpleMovementPolicy();
+  }
 
-  @Bean
-  public MovementPolicy movementPolicy(
-      @Value("${scape.ai.policy:heuristic-baseline}") String policyName) {
-    if (BASELINE_POLICY.equals(policyName)) {
-      return new SimpleMovementPolicy();
-    }
-    throw new IllegalArgumentException("Unsupported movement policy: " + policyName);
+  @Bean("randomControlledMovementPolicy")
+  public MovementPolicy randomControlledMovementPolicy(
+      @Value("${scape.ai.random-seed:20260309}") long seed) {
+    return new RandomControlledMovementPolicy(seed);
   }
 }

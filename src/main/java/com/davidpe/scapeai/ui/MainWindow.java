@@ -2,6 +2,7 @@ package com.davidpe.scapeai.ui;
 
 import com.davidpe.scapeai.application.LiveEpisodeMetrics;
 import com.davidpe.scapeai.application.LiveMetricsService;
+import com.davidpe.scapeai.application.MovementPolicyOption;
 import com.davidpe.scapeai.application.SimulationControlService;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import javafx.application.Platform;
@@ -36,6 +37,7 @@ public final class MainWindow {
   private Label collisionsValue;
   private Label rewardValue;
   private Label elapsedValue;
+  private Label activePolicyValue;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -85,6 +87,53 @@ public final class MainWindow {
 
   private VBox buildControlPanel() {
     Label title = panelTitle("Controls");
+    Label algorithmLabel = new Label("ALGORITHM");
+    algorithmLabel.setTextFill(Color.web("#9db2ff"));
+    algorithmLabel.setFont(Font.font("Consolas", 12));
+    ComboBox<MovementPolicyOption> algorithmSelector =
+        new ComboBox<>(FXCollections.observableArrayList(controlService.availableMovementPolicies()));
+    algorithmSelector.setMaxWidth(Double.MAX_VALUE);
+    algorithmSelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    algorithmSelector.setCellFactory(
+        ignored ->
+            new javafx.scene.control.ListCell<>() {
+              @Override
+              protected void updateItem(MovementPolicyOption item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.label());
+              }
+            });
+    algorithmSelector.setButtonCell(
+        new javafx.scene.control.ListCell<>() {
+          @Override
+          protected void updateItem(MovementPolicyOption item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty || item == null ? null : item.label());
+          }
+        });
+    selectActiveAlgorithm(algorithmSelector);
+    algorithmSelector
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldSelection, selected) -> {
+              if (selected == null || selected.equals(oldSelection)) {
+                return;
+              }
+              controlService.selectMovementPolicy(selected.id());
+              updateActivePolicyLabel();
+            });
+
+    activePolicyValue = new Label();
+    activePolicyValue.setTextFill(Color.web("#89ff9a"));
+    activePolicyValue.setFont(Font.font("Consolas", 12));
+    updateActivePolicyLabel();
+
     Button start =
         neonButton(
             "Start",
@@ -92,6 +141,7 @@ public final class MainWindow {
             () -> {
               controlService.start();
               liveMetricsService.startEpisode();
+              updateActivePolicyLabel();
             });
     Button pause =
         neonButton(
@@ -110,7 +160,7 @@ public final class MainWindow {
               liveMetricsService.resetEpisode();
             });
 
-    VBox panel = new VBox(12, title, start, pause, reset);
+    VBox panel = new VBox(12, title, algorithmLabel, algorithmSelector, activePolicyValue, start, pause, reset);
     panel.setPadding(new Insets(18));
     panel.setMinWidth(220);
     panel.setStyle(panelStyle());
@@ -261,6 +311,27 @@ public final class MainWindow {
             elapsedValue.setText(formatElapsed(metrics.elapsedMillis()));
           }
         });
+  }
+
+  private void selectActiveAlgorithm(ComboBox<MovementPolicyOption> selector) {
+    String activePolicy = controlService.activeMovementPolicy();
+    for (MovementPolicyOption option : selector.getItems()) {
+      if (option.id().equals(activePolicy)) {
+        selector.getSelectionModel().select(option);
+        return;
+      }
+    }
+    if (!selector.getItems().isEmpty()) {
+      selector.getSelectionModel().selectFirst();
+      controlService.selectMovementPolicy(selector.getValue().id());
+    }
+  }
+
+  private void updateActivePolicyLabel() {
+    if (activePolicyValue == null) {
+      return;
+    }
+    activePolicyValue.setText("ACTIVE ALGORITHM: " + controlService.activeMovementPolicy().toUpperCase(Locale.ROOT));
   }
 
   private String formatElapsed(long elapsedMillis) {
