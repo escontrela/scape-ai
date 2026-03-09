@@ -1,7 +1,10 @@
 package com.davidpe.scapeai.ui;
 
+import com.davidpe.scapeai.persistence.MazeEntity;
+import com.davidpe.scapeai.persistence.repository.MazeRepository;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
+import com.davidpe.scapeai.simulation.MazeDifficultyScorer;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,14 +15,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class MazeCatalogService {
 
-  private final Map<String, MazeDefinition> mazes;
+  private final Map<String, MazeEntry> mazes;
   private final List<String> loadErrors;
+  private final MazeRepository mazeRepository;
+  private final MazeDifficultyScorer difficultyScorer;
 
   public MazeCatalogService(
       MazeJsonResourceLoader jsonResourceLoader,
+      MazeRepository mazeRepository,
+      MazeDifficultyScorer difficultyScorer,
       @Value("${scape.ui.maze-catalog-pattern:classpath:mazes/*.json}") String mazeCatalogPattern) {
     var loaded = jsonResourceLoader.load(mazeCatalogPattern);
-    this.mazes = createCatalog(loaded.mazes());
+    this.mazeRepository = mazeRepository;
+    this.difficultyScorer = difficultyScorer;
+    this.mazes = createCatalog(loaded.mazes(), mazeRepository, difficultyScorer);
     this.loadErrors = loaded.errors();
   }
 
@@ -27,22 +36,58 @@ public class MazeCatalogService {
     return mazes.keySet();
   }
 
+  public List<String> namesByDifficulty(boolean ascending) {
+    return mazeRepository.findAllOrderByDifficulty(ascending).stream().map(MazeEntity::name).toList();
+  }
+
   public MazeDefinition byName(String name) {
-    return mazes.get(name);
+    MazeEntry entry = mazes.get(name);
+    return entry == null ? null : entry.maze();
+  }
+
+  public double difficultyScore(String name) {
+    MazeEntry entry = mazes.get(name);
+    return entry == null ? 0.0 : entry.difficultyScore();
   }
 
   public List<String> loadErrors() {
     return loadErrors;
   }
 
-  private static Map<String, MazeDefinition> createCatalog(Map<String, MazeDefinition> loadedMazes) {
+  private static Map<String, MazeEntry> createCatalog(
+      Map<String, MazeDefinition> loadedMazes,
+      MazeRepository mazeRepository,
+      MazeDifficultyScorer difficultyScorer) {
     Map<String, MazeDefinition> catalog = new LinkedHashMap<>();
     catalog.putAll(loadedMazes);
     if (catalog.isEmpty()) {
       catalog.put("Neon Gate", buildNeonGateMaze());
       catalog.put("Circuit Hall", buildCircuitHallMaze());
     }
-    return Map.copyOf(catalog);
+    Map<String, MazeEntry> entries = new LinkedHashMap<>();
+    for (Map.Entry<String, MazeDefinition> mazeEntry : catalog.entrySet()) {
+      String name = mazeEntry.getKey();
+      MazeDefinition maze = mazeEntry.getValue();
+      double score = difficultyScorer.score(maze);
+      MazeEntity persisted =
+          mazeRepository.upsertByName(
+              new MazeEntity(null, name, maze.rows(), maze.cols(), encodeLayout(maze), score));
+      entries.put(name, new MazeEntry(maze, persisted.difficultyScore()));
+    }
+    return Map.copyOf(entries);
+  }
+
+  private static String encodeLayout(MazeDefinition maze) {
+    StringBuilder builder = new StringBuilder();
+    for (int row = 0; row < maze.rows(); row++) {
+      for (int col = 0; col < maze.cols(); col++) {
+        builder.append(maze.isWall(new GridPosition(row, col)) ? '#' : '.');
+      }
+      if (row < maze.rows() - 1) {
+        builder.append('\n');
+      }
+    }
+    return builder.toString();
   }
 
   private static MazeDefinition buildNeonGateMaze() {
@@ -84,4 +129,6 @@ public class MazeCatalogService {
   private static void clearCell(boolean[][] walls, int row, int col) {
     walls[row][col] = false;
   }
+
+  private record MazeEntry(MazeDefinition maze, double difficultyScore) {}
 }

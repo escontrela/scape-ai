@@ -26,10 +26,11 @@ class JdbcPersistenceRepositoriesTest {
           """
           CREATE TABLE mazes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
+            name TEXT NOT NULL UNIQUE,
             rows_count INTEGER NOT NULL,
             cols_count INTEGER NOT NULL,
-            layout TEXT NOT NULL
+            layout TEXT NOT NULL,
+            difficulty_score REAL NOT NULL DEFAULT 0
           )
           """);
       jdbcTemplate.execute(
@@ -64,7 +65,12 @@ class JdbcPersistenceRepositoriesTest {
       JdbcTrainingRunRepository runRepository = new JdbcTrainingRunRepository(jdbcTemplate);
       JdbcTrainingPresetRepository presetRepository = new JdbcTrainingPresetRepository(jdbcTemplate);
 
-      MazeEntity maze = mazeRepository.save(new MazeEntity(null, "Training Maze", 10, 10, "########"));
+      MazeEntity maze =
+          mazeRepository.save(new MazeEntity(null, "Training Maze", 10, 10, "########", 42.0));
+      MazeEntity easier =
+          mazeRepository.upsertByName(new MazeEntity(null, "Easy Maze", 6, 6, "......", 18.5));
+      MazeEntity harder =
+          mazeRepository.upsertByName(new MazeEntity(null, "Hard Maze", 20, 20, "######", 91.0));
       assertTrue(maze.id() > 0);
 
       runRepository.save(
@@ -98,6 +104,8 @@ class JdbcPersistenceRepositoriesTest {
 
       var history = runRepository.findByMazeId(maze.id());
       var latestOnly = runRepository.findRecentByMazeId(maze.id(), 1);
+      var sortedAsc = mazeRepository.findAllOrderByDifficulty(true);
+      var sortedDesc = mazeRepository.findAllOrderByDifficulty(false);
       var preset =
           presetRepository.save(
               new TrainingPresetEntity(null, 30, 20_000L, "heuristic-baseline", 20260309L));
@@ -113,6 +121,9 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals("{\"policy\":\"random-controlled\",\"seed\":20260309}", history.get(0).policySnapshot());
       assertEquals(19, history.get(0).discoveredCells());
       assertEquals(0, history.get(0).finalDistanceToExit());
+      assertEquals(3, sortedAsc.size());
+      assertEquals(easier.name(), sortedAsc.get(0).name());
+      assertEquals(harder.name(), sortedDesc.get(0).name());
       assertEquals(1, presets.size());
       assertTrue(loadedPreset.isPresent());
       assertEquals(30, loadedPreset.get().episodes());

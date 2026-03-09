@@ -335,8 +335,22 @@ public final class MainWindow {
 
   private VBox buildMazePanel() {
     Label title = panelTitle("Maze");
+    Label sortLabel = new Label("SORT BY DIFFICULTY");
+    sortLabel.setTextFill(Color.web("#9db2ff"));
+    sortLabel.setFont(Font.font("Consolas", 12));
+    ComboBox<String> sortSelector =
+        new ComboBox<>(FXCollections.observableArrayList("Ascending", "Descending"));
+    sortSelector.getSelectionModel().selectFirst();
+    sortSelector.setMaxWidth(Double.MAX_VALUE);
+    sortSelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+
     ComboBox<String> mazeSelector =
-        new ComboBox<>(FXCollections.observableArrayList(new ArrayList<>(mazeCatalogService.names())));
+        new ComboBox<>(FXCollections.observableArrayList(mazeCatalogService.namesByDifficulty(true)));
     mazeSelector.setMaxWidth(Double.MAX_VALUE);
     mazeSelector.setStyle(
         "-fx-background-color: #101938;"
@@ -344,6 +358,16 @@ public final class MainWindow {
             + "-fx-border-color: #2cf1ff;"
             + "-fx-border-radius: 6;"
             + "-fx-background-radius: 6;");
+    sortSelector
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldSort, selectedSort) -> {
+              if (selectedSort == null || selectedSort.equals(oldSort)) {
+                return;
+              }
+              refreshMazeSelector(mazeSelector, "Ascending".equals(selectedSort));
+            });
 
     mazeViewport = new StackPane();
     mazeViewport.setAlignment(Pos.CENTER);
@@ -380,11 +404,24 @@ public final class MainWindow {
       }
     }
 
-    VBox panel = new VBox(12, title, mazeSelector, mazeViewport);
+    VBox panel = new VBox(12, title, sortLabel, sortSelector, mazeSelector, mazeViewport);
     panel.setPadding(new Insets(18));
     panel.setStyle(panelStyle());
     BorderPane.setMargin(panel, new Insets(0, 16, 0, 16));
     return panel;
+  }
+
+  private void refreshMazeSelector(ComboBox<String> mazeSelector, boolean ascendingDifficulty) {
+    String previousSelection = mazeSelector.getValue();
+    List<String> orderedNames = mazeCatalogService.namesByDifficulty(ascendingDifficulty);
+    mazeSelector.getItems().setAll(orderedNames);
+    if (previousSelection != null && orderedNames.contains(previousSelection)) {
+      mazeSelector.getSelectionModel().select(previousSelection);
+      return;
+    }
+    if (!orderedNames.isEmpty()) {
+      mazeSelector.getSelectionModel().selectFirst();
+    }
   }
 
   private VBox buildMetricsPanel() {
