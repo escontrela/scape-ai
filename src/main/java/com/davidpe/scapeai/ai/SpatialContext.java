@@ -5,6 +5,7 @@ import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SimulationState;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -12,6 +13,7 @@ public record SpatialContext(
     MazeDefinition maze,
     SimulationState simulationState,
     Map<MoveDirection, NeighborCell> localNeighborhood,
+    List<GridPosition> recentPositions,
     MoveDirection previousDirection,
     int noProgressStreak) {
 
@@ -24,10 +26,20 @@ public record SpatialContext(
       SimulationState simulationState,
       MoveDirection previousDirection,
       int noProgressStreak) {
+    this(maze, simulationState, List.of(), previousDirection, noProgressStreak);
+  }
+
+  public SpatialContext(
+      MazeDefinition maze,
+      SimulationState simulationState,
+      List<GridPosition> recentPositions,
+      MoveDirection previousDirection,
+      int noProgressStreak) {
     this(
         maze,
         simulationState,
         resolveLocalNeighborhood(maze, simulationState.agentPosition()),
+        recentPositions,
         previousDirection,
         noProgressStreak);
   }
@@ -36,6 +48,7 @@ public record SpatialContext(
     maze = Objects.requireNonNull(maze, "maze must not be null");
     simulationState = Objects.requireNonNull(simulationState, "simulationState must not be null");
     localNeighborhood = Map.copyOf(Objects.requireNonNull(localNeighborhood, "localNeighborhood must not be null"));
+    recentPositions = List.copyOf(Objects.requireNonNull(recentPositions, "recentPositions must not be null"));
     noProgressStreak = Math.max(0, noProgressStreak);
   }
 

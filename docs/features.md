@@ -376,3 +376,6 @@
 - SCAPE-0039: telemetria de cobertura por cuadrantes (`Q1..Q4`) calculada por episodio en `SimulationEpisodeOrchestrator`, con exposicion adicional de cobertura izquierda/derecha en `SimulationEpisodeResult`.
 - SCAPE-0039: panel de metricas UI ampliado con indicador en vivo `Coverage L/R`, actualizado por `LiveMetricsService` sin bloqueo del hilo JavaFX.
 - SCAPE-0039: persistencia por corrida de cobertura de cuadrantes y lados (`q1_coverage`..`right_side_coverage`) en `training_runs`, incluyendo migracion idempotente y consumo en comparativa reciente.
+- SCAPE-0040: `SimpleMovementPolicy` ahora usa ventana deslizante de posiciones recientes (`SpatialContext.recentPositions`) para castigar repeticiones locales y romper bucles cortos.
+- SCAPE-0040: ante estancamiento (`noProgressStreak`), la politica prioriza movimientos con mayor potencial de cobertura nueva segun balance de lados.
+- SCAPE-0040: benchmark de regresion agregado en `SimulationEpisodeOrchestratorTest` que compara contra baseline legado y valida mejora en `rightSideCoverage` y no incremento de `loopEvents`.

@@ -177,6 +177,7 @@ public class SimulationEpisodeOrchestrator {
           simulationStepFlow.execute(
               maze,
               state.currentState,
+              List.copyOf(state.recentPositions),
               state.previousDirection,
               state.noProgressStreak,
               loopDetected,

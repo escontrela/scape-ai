@@ -8,6 +8,8 @@ import com.davidpe.scapeai.ai.MovementPolicy;
 import com.davidpe.scapeai.ai.RewardAssessment;
 import com.davidpe.scapeai.ai.RewardEvaluator;
 import com.davidpe.scapeai.ai.RewardSignal;
+import com.davidpe.scapeai.ai.SimpleMovementPolicy;
+import com.davidpe.scapeai.ai.SpatialContext;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.LongSupplier;
 import org.junit.jupiter.api.Test;
 
@@ -195,6 +198,41 @@ class SimulationEpisodeOrchestratorTest {
     assertTrue(result.rightSideCoverage() >= result.leftSideCoverage());
   }
 
+  @Test
+  void shouldImproveRightCoverageAndReduceLoopsAgainstLegacyBaseline() {
+    MazeDefinition maze =
+        new MazeDefinition(
+            5,
+            7,
+            new boolean[][] {
+              {true, true, true, true, true, true, true},
+              {true, false, false, true, false, false, true},
+              {true, false, false, false, false, false, true},
+              {true, false, false, true, false, false, true},
+              {true, true, true, true, true, true, true}
+            },
+            new GridPosition(2, 1),
+            new GridPosition(2, 5));
+
+    SimulationEpisodeResult baseline =
+        new SimulationEpisodeOrchestrator(
+                flowWithPolicy(new LegacyBaselineMovementPolicy()),
+                Duration.ofMillis(220),
+                6,
+                new FixedStepTime(0, 20))
+            .runEpisode(maze, Duration.ofMillis(220));
+    SimulationEpisodeResult improved =
+        new SimulationEpisodeOrchestrator(
+                flowWithPolicy(new SimpleMovementPolicy(6)),
+                Duration.ofMillis(220),
+                6,
+                new FixedStepTime(0, 20))
+            .runEpisode(maze, Duration.ofMillis(220));
+
+    assertTrue(improved.rightSideCoverage() >= baseline.rightSideCoverage());
+    assertTrue(improved.loopEvents() <= baseline.loopEvents());
+  }
+
   private SimulationStepFlow flowWithPolicy(MovementPolicy policy) {
     RewardEvaluator rewardEvaluator = context -> RewardAssessment.of(RewardSignal.NEGATIVE);
     ActiveMovementPolicyService policyService =
@@ -253,6 +291,40 @@ class SimulationEpisodeOrchestratorTest {
 
     public List<String> transitions() {
       return transitions;
+    }
+  }
+
+  private static final class LegacyBaselineMovementPolicy implements MovementPolicy {
+
+    private static final List<MoveDirection> ORDER =
+        List.of(MoveDirection.UP, MoveDirection.RIGHT, MoveDirection.DOWN, MoveDirection.LEFT);
+
+    @Override
+    public MoveDirection chooseNextMove(SpatialContext context) {
+      GridPosition current = context.simulationState().agentPosition();
+      Set<GridPosition> recent = context.simulationState().visitedCells();
+      List<MoveDirection> valid =
+          ORDER.stream().filter(direction -> context.canMove(direction)).toList();
+      if (valid.isEmpty()) {
+        return MoveDirection.UP;
+      }
+      List<MoveDirection> preferred =
+          valid.stream().filter(direction -> !recent.contains(current.move(direction))).toList();
+      List<MoveDirection> pool = preferred.isEmpty() ? valid : preferred;
+      MoveDirection best = pool.get(0);
+      int bestDistance = distance(current.move(best), context.maze().exit());
+      for (MoveDirection direction : pool) {
+        int candidate = distance(current.move(direction), context.maze().exit());
+        if (candidate < bestDistance) {
+          bestDistance = candidate;
+          best = direction;
+        }
+      }
+      return best;
+    }
+
+    private int distance(GridPosition from, GridPosition to) {
+      return Math.abs(from.row() - to.row()) + Math.abs(from.col() - to.col());
     }
   }
 }

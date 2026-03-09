@@ -3,8 +3,9 @@ package com.davidpe.scapeai.ai;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MoveDirection;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class SimpleMovementPolicy implements MovementPolicy {
@@ -26,7 +27,12 @@ public class SimpleMovementPolicy implements MovementPolicy {
     var maze = context.maze();
     var state = context.simulationState();
     var current = state.agentPosition();
-    var recentVisited = recentVisited(state.visitedCells());
+    var recentVisited = recentVisited(context.recentPositions());
+    var visitedCells = state.visitedCells();
+    int midCol = maze.cols() / 2;
+    int leftVisited = countVisitedBySide(visitedCells, midCol, true);
+    int rightVisited = countVisitedBySide(visitedCells, midCol, false);
+    boolean stagnated = context.noProgressStreak() >= 2;
 
     List<MoveDirection> validMoves =
         DIRECTION_PRIORITY.stream()
@@ -41,23 +47,78 @@ public class SimpleMovementPolicy implements MovementPolicy {
       return MoveDirection.UP;
     }
 
-    List<MoveDirection> preferred =
-        validMoves.stream()
-            .filter(direction -> !recentVisited.contains(current.move(direction)))
-            .toList();
-
-    List<MoveDirection> evaluationSet = preferred.isEmpty() ? validMoves : preferred;
-    return evaluationSet.stream()
-        .min(
-            Comparator.comparingInt(
-                direction -> distanceToExit(current.move(direction), maze.exit())))
-        .orElse(MoveDirection.UP);
+    MoveDirection bestDirection = validMoves.get(0);
+    double bestScore = Double.NEGATIVE_INFINITY;
+    for (MoveDirection direction : validMoves) {
+      GridPosition next = current.move(direction);
+      if (maze.isExit(next)) {
+        return direction;
+      }
+      double score = 0.0;
+      if (!visitedCells.contains(next)) {
+        score += 3.0;
+      }
+      score -= recentVisited.getOrDefault(next, 0) * 2.5;
+      score -= distanceToExit(next, maze.exit()) * 0.3;
+      if (stagnated) {
+        score += coveragePotential(next, midCol, leftVisited, rightVisited) * 1.6;
+        if (isImmediateBacktrack(direction, context.previousDirection())) {
+          score -= 1.5;
+        }
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestDirection = direction;
+      }
+    }
+    return bestDirection;
   }
 
-  private Set<GridPosition> recentVisited(Set<GridPosition> visitedCells) {
-    List<GridPosition> visited = new ArrayList<>(visitedCells);
-    int fromIndex = Math.max(0, visited.size() - recentHistorySize);
-    return Set.copyOf(visited.subList(fromIndex, visited.size()));
+  private Map<GridPosition, Integer> recentVisited(List<GridPosition> recentPositions) {
+    List<GridPosition> source = recentPositions == null ? List.of() : recentPositions;
+    int fromIndex = Math.max(0, source.size() - recentHistorySize);
+    Map<GridPosition, Integer> counts = new HashMap<>();
+    for (GridPosition position : new ArrayList<>(source).subList(fromIndex, source.size())) {
+      counts.merge(position, 1, Integer::sum);
+    }
+    return counts;
+  }
+
+  private int countVisitedBySide(Set<GridPosition> visitedCells, int midCol, boolean left) {
+    int count = 0;
+    for (GridPosition visited : visitedCells) {
+      boolean isLeft = visited.col() < midCol;
+      if (left == isLeft) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  private double coveragePotential(
+      GridPosition candidate, int midCol, int leftVisited, int rightVisited) {
+    boolean targetLeft = candidate.col() < midCol;
+    int imbalance = leftVisited - rightVisited;
+    if (targetLeft) {
+      return imbalance > 0 ? -1.0 : 1.0;
+    }
+    return imbalance < 0 ? -1.0 : 1.0;
+  }
+
+  private boolean isImmediateBacktrack(MoveDirection candidate, MoveDirection previousDirection) {
+    if (previousDirection == null) {
+      return false;
+    }
+    return opposite(previousDirection) == candidate;
+  }
+
+  private MoveDirection opposite(MoveDirection direction) {
+    return switch (direction) {
+      case UP -> MoveDirection.DOWN;
+      case DOWN -> MoveDirection.UP;
+      case LEFT -> MoveDirection.RIGHT;
+      case RIGHT -> MoveDirection.LEFT;
+    };
   }
 
   private int distanceToExit(GridPosition position, GridPosition exit) {

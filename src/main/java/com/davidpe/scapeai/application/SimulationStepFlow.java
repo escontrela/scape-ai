@@ -11,6 +11,7 @@ import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SingleStepSimulationEngine;
 import com.davidpe.scapeai.simulation.SimulationState;
 import com.davidpe.scapeai.simulation.SimulationStepResult;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
@@ -48,6 +49,24 @@ public class SimulationStepFlow {
     return execute(
         maze,
         currentState,
+        List.of(),
+        previousDirection,
+        noProgressStreak,
+        loopDetected,
+        movementPolicyService.activePolicy());
+  }
+
+  public SimulationStepOutcome execute(
+      MazeDefinition maze,
+      SimulationState currentState,
+      List<com.davidpe.scapeai.simulation.GridPosition> recentPositions,
+      MoveDirection previousDirection,
+      int noProgressStreak,
+      boolean loopDetected) {
+    return execute(
+        maze,
+        currentState,
+        recentPositions,
         previousDirection,
         noProgressStreak,
         loopDetected,
@@ -57,13 +76,15 @@ public class SimulationStepFlow {
   SimulationStepOutcome execute(
       MazeDefinition maze,
       SimulationState currentState,
+      List<com.davidpe.scapeai.simulation.GridPosition> recentPositions,
       MoveDirection previousDirection,
       int noProgressStreak,
       boolean loopDetected,
       MovementPolicy movementPolicy) {
     var direction =
         movementPolicy.chooseNextMove(
-            new SpatialContext(maze, currentState, previousDirection, noProgressStreak));
+            new SpatialContext(
+                maze, currentState, recentPositions, previousDirection, noProgressStreak));
     SimulationStepResult result = simulationEngine.step(currentState, maze, direction);
     RewardAssessment reward = rewardEvaluator.evaluate(new RewardContext(currentState, result, loopDetected));
     Optional<PolicyInferenceTrace> trace = Optional.empty();
