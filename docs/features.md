@@ -232,3 +232,16 @@
 - Implementacion tecnica: motor `SingleStepSimulationEngine` con validacion de colisiones, conteo de intentos invalidos, seguimiento de celdas visitadas y deteccion de salida.
 - Implementacion tecnica: contratos `MovementPolicy` y `RewardEvaluator` con senales `POSITIVE`, `NEGATIVE` y `VERY_NEGATIVE`, consumidos por `SimulationStepFlow` desacoplado de librerias IA concretas.
 - Implementacion tecnica: entidades `MazeEntity` y `TrainingRunEntity` con repositorios JDBC para guardar corridas resumidas y listar historial por laberinto.
+
+## Ejecucion implementador 2026-03-09 (nightly)
+
+### Tickets cerrados en esta ejecucion
+- SCAPE-0023: motor con `EpisodeCheckpoint` para pausa/reanudacion determinista, incluyendo trayectoria, contadores y tiempo restante con pruebas de invariantes.
+- SCAPE-0024: trazas opcionales de inferencia (`PolicyInferenceTrace`) para politicas DJL, integradas por paso y agregadas a `SimulationEpisodeResult`.
+- SCAPE-0025: timeline visual de episodios recientes en UI con estado, recompensa y duracion, actualizada al cerrar episodio sin bloquear JavaFX.
+- SCAPE-0026: score persistente de dificultad de laberinto (`difficulty_score`) calculado por `MazeDifficultyScorer` y ordenacion asc/desc en selector UI.
+- SCAPE-0027: buffer persistente de transiciones SARSA (`experience_transitions`) con escritura asincrona desde orquestador y consulta paginada.
+
+### Estado MCP tras la ejecucion
+- projectId=5, userId=1.
+- Tickets movidos a `done`: `SCAPE-0023`, `SCAPE-0024`, `SCAPE-0025`, `SCAPE-0026`, `SCAPE-0027`.
