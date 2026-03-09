@@ -154,6 +154,7 @@
 - Contrato de contexto extendido con vecindad local, direccion previa y racha sin progreso.
 - Compatibilidad de politicas existentes mediante adaptacion o fallback de contrato.
 - Pruebas de contrato para validar consistencia y estabilidad del nuevo contexto.
+- Implementacion tecnica: `SpatialContext` expone `localNeighborhood`, `previousDirection` y `noProgressStreak`; el orquestador calcula estos campos en cada paso y `SpatialContextTest` valida el contrato.
 
 ### SCAPE-0020 - Persistencia de snapshot de politica por corrida
 - Objetivo funcional: registrar la configuracion efectiva de politica por training run para reproducibilidad.

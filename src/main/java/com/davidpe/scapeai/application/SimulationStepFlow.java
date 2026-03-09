@@ -6,6 +6,7 @@ import com.davidpe.scapeai.ai.RewardContext;
 import com.davidpe.scapeai.ai.RewardEvaluator;
 import com.davidpe.scapeai.ai.SpatialContext;
 import com.davidpe.scapeai.simulation.MazeDefinition;
+import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SingleStepSimulationEngine;
 import com.davidpe.scapeai.simulation.SimulationState;
 import com.davidpe.scapeai.simulation.SimulationStepResult;
@@ -33,8 +34,19 @@ public class SimulationStepFlow {
 
   public SimulationStepOutcome execute(
       MazeDefinition maze, SimulationState currentState, boolean loopDetected) {
+    return execute(maze, currentState, null, 0, loopDetected);
+  }
+
+  public SimulationStepOutcome execute(
+      MazeDefinition maze,
+      SimulationState currentState,
+      MoveDirection previousDirection,
+      int noProgressStreak,
+      boolean loopDetected) {
     MovementPolicy movementPolicy = movementPolicyService.activePolicy();
-    var direction = movementPolicy.chooseNextMove(new SpatialContext(maze, currentState));
+    var direction =
+        movementPolicy.chooseNextMove(
+            new SpatialContext(maze, currentState, previousDirection, noProgressStreak));
     SimulationStepResult result = simulationEngine.step(currentState, maze, direction);
     RewardAssessment reward = rewardEvaluator.evaluate(new RewardContext(currentState, result, loopDetected));
     return new SimulationStepOutcome(direction, result, reward);

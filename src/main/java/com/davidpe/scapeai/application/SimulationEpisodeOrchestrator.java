@@ -2,6 +2,7 @@ package com.davidpe.scapeai.application;
 
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.GridPosition;
+import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SimulationState;
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -57,6 +58,8 @@ public class SimulationEpisodeOrchestrator {
     int loopEvents = 0;
     double totalReward = 0.0;
     SimulationState currentState = SimulationState.initial(maze.start());
+    MoveDirection previousDirection = null;
+    int noProgressStreak = 0;
     Deque<GridPosition> recentPositions = new ArrayDeque<>();
     Map<GridPosition, Integer> positionCounts = new HashMap<>();
     rememberPosition(currentState.agentPosition(), recentPositions, positionCounts);
@@ -66,8 +69,14 @@ public class SimulationEpisodeOrchestrator {
       if (loopDetected) {
         loopEvents++;
       }
-      var outcome = simulationStepFlow.execute(maze, currentState, loopDetected);
+      int previousDistanceToExit = manhattanDistance(currentState.agentPosition(), maze.exit());
+      var outcome =
+          simulationStepFlow.execute(
+              maze, currentState, previousDirection, noProgressStreak, loopDetected);
       currentState = outcome.result().state();
+      previousDirection = outcome.selectedDirection();
+      int currentDistanceToExit = manhattanDistance(currentState.agentPosition(), maze.exit());
+      noProgressStreak = currentDistanceToExit < previousDistanceToExit ? 0 : noProgressStreak + 1;
       rememberPosition(currentState.agentPosition(), recentPositions, positionCounts);
       totalSteps++;
       totalReward += outcome.reward().value();
@@ -102,5 +111,9 @@ public class SimulationEpisodeOrchestrator {
         positionCounts.put(removed, remaining);
       }
     }
+  }
+
+  private int manhattanDistance(GridPosition from, GridPosition to) {
+    return Math.abs(from.row() - to.row()) + Math.abs(from.col() - to.col());
   }
 }
