@@ -84,10 +84,45 @@
 - Reinicio limpio de metricas al comenzar un nuevo episodio.
 - Implementacion tecnica: `InMemoryLiveMetricsService` emite snapshots periodicos y `MainWindow` aplica actualizaciones con `Platform.runLater`.
 
+### SCAPE-0011 - Entrenador iterativo de episodios
+- Objetivo funcional: ejecutar entrenamientos multi-episodio con metricas agregadas por corrida.
+- Alcance introducido:
+- Servicio de entrenamiento que encadena N episodios sobre el orquestador existente.
+- Resumen agregado de aprendizaje con tasa de exito, recompensa media y colisiones medias.
+- Cancelacion controlada desde capa de aplicacion sin bloqueo del hilo JavaFX.
+
+### SCAPE-0012 - Selector de algoritmo en panel de control
+- Objetivo funcional: permitir seleccionar la politica de movimiento activa antes de simular.
+- Alcance introducido:
+- Selector UI de algoritmo con opciones baseline heuristica y aleatoria controlada.
+- Propagacion de seleccion a capa de aplicacion para definir politica del siguiente episodio.
+- Indicador visible del algoritmo activo durante la ejecucion.
+
+### SCAPE-0013 - Adaptador IA DJL con contrato MovementPolicy
+- Objetivo funcional: habilitar integracion inicial con DJL manteniendo el desacoplamiento por contratos.
+- Alcance introducido:
+- Implementacion de `MovementPolicy` mediante adaptador DJL encapsulado en infraestructura IA.
+- Traduccion de contexto espacial a prediccion de movimiento con fallback controlado.
+- Frontera estable para evolucion futura del modelo sin romper simulacion ni UI.
+
+### SCAPE-0014 - Persistencia de configuraciones de entrenamiento
+- Objetivo funcional: guardar y reutilizar presets de entrenamiento reproducibles.
+- Alcance introducido:
+- Entidad `TrainingPreset` con episodios, timeout, politica y semilla opcional.
+- Casos de uso para guardar, listar y cargar presets desde capa de aplicacion.
+- Aplicacion de preset al iniciar nuevas corridas de entrenamiento.
+
+### SCAPE-0015 - Cargador de laberintos desde recursos JSON
+- Objetivo funcional: importar catalogos de laberintos versionables para pruebas repetibles.
+- Alcance introducido:
+- Parser JSON con validacion estructural (dimensiones, inicio, salida).
+- Mapeo de archivos a modelo de dominio reutilizable por motor y UI.
+- Manejo de errores de formato con mensajes claros sin detener toda la aplicacion.
+
 ## Estado operativo actual
 - WIP objetivo: 1 ticket en `in_progress`.
 - Backlog objetivo: al menos 5 tickets listos.
-- Siguiente foco tecnico: completar `SCAPE-0001` y planificar ejecucion en este orden sugerido `SCAPE-0006` -> `SCAPE-0007` -> `SCAPE-0008` -> `SCAPE-0009` -> `SCAPE-0010`.
+- Siguiente foco tecnico: completar `SCAPE-0001` y ejecutar backlog en este orden sugerido `SCAPE-0011` -> `SCAPE-0012` -> `SCAPE-0013` -> `SCAPE-0014` -> `SCAPE-0015`.
 - Implementacion tecnica: bootstrap JavaFX con ciclo de vida de contexto Spring Boot y `MainWindow` gestionada como componente Spring.
 - Implementacion tecnica: `MainWindow` con panel de control, viewport de laberinto y panel de metricas; botones `Start/Pause/Reset` publican comandos a la capa de aplicacion.
 - Implementacion tecnica: motor `SingleStepSimulationEngine` con validacion de colisiones, conteo de intentos invalidos, seguimiento de celdas visitadas y deteccion de salida.
