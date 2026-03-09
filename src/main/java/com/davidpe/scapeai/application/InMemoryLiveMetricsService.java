@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class InMemoryLiveMetricsService implements LiveMetricsService {
 
-  private static final long TICK_MILLIS = 200L;
   private final ScheduledExecutorService scheduler =
       Executors.newSingleThreadScheduledExecutor(
           runnable -> {
@@ -30,14 +29,14 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   private volatile double accumulatedReward = 0.0;
   private volatile long episodeStartedAt = 0L;
   private volatile ScheduledFuture<?> ticker;
+  private volatile SimulationSpeed simulationSpeed = SimulationSpeed.NORMAL;
 
   @Override
   public synchronized void startEpisode() {
     resetSnapshot();
     episodeStartedAt = System.currentTimeMillis();
     publish(snapshot());
-    stopTicker();
-    ticker = scheduler.scheduleAtFixedRate(this::tick, TICK_MILLIS, TICK_MILLIS, TimeUnit.MILLISECONDS);
+    restartTicker();
   }
 
   @Override
@@ -51,6 +50,22 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     stopTicker();
     resetSnapshot();
     publish(snapshot());
+  }
+
+  @Override
+  public synchronized void setSimulationSpeed(SimulationSpeed speed) {
+    if (speed == null || speed == simulationSpeed) {
+      return;
+    }
+    simulationSpeed = speed;
+    if (ticker != null) {
+      restartTicker();
+    }
+  }
+
+  @Override
+  public SimulationSpeed simulationSpeed() {
+    return simulationSpeed;
   }
 
   @Override
@@ -82,6 +97,12 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
       ticker.cancel(false);
       ticker = null;
     }
+  }
+
+  private synchronized void restartTicker() {
+    stopTicker();
+    long period = simulationSpeed.metricsTickMillis();
+    ticker = scheduler.scheduleAtFixedRate(this::tick, period, period, TimeUnit.MILLISECONDS);
   }
 
   private synchronized void resetSnapshot() {

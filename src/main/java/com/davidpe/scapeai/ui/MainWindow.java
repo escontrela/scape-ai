@@ -3,6 +3,7 @@ package com.davidpe.scapeai.ui;
 import com.davidpe.scapeai.application.LiveEpisodeMetrics;
 import com.davidpe.scapeai.application.LiveMetricsService;
 import com.davidpe.scapeai.application.MovementPolicyOption;
+import com.davidpe.scapeai.application.SimulationSpeed;
 import com.davidpe.scapeai.application.SimulationControlService;
 import com.davidpe.scapeai.application.TrainingPresetOption;
 import com.davidpe.scapeai.simulation.GridPosition;
@@ -57,10 +58,12 @@ public final class MainWindow {
   private Label elapsedValue;
   private Label activePolicyValue;
   private Label activePresetValue;
+  private Label activeSpeedValue;
   private StackPane mazeViewport;
   private MazeDefinition selectedMaze;
   private GridPosition trajectoryCurrent;
   private ScheduledFuture<?> trajectoryTicker;
+  private volatile boolean trajectoryRunning;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -206,6 +209,56 @@ public final class MainWindow {
     activePresetValue.setFont(Font.font("Consolas", 12));
     updateActivePresetLabel();
 
+    Label speedLabel = new Label("SIMULATION SPEED");
+    speedLabel.setTextFill(Color.web("#9db2ff"));
+    speedLabel.setFont(Font.font("Consolas", 12));
+    ComboBox<SimulationSpeed> speedSelector =
+        new ComboBox<>(FXCollections.observableArrayList(SimulationSpeed.values()));
+    speedSelector.setMaxWidth(Double.MAX_VALUE);
+    speedSelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    speedSelector.setCellFactory(
+        ignored ->
+            new javafx.scene.control.ListCell<>() {
+              @Override
+              protected void updateItem(SimulationSpeed item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.label());
+              }
+            });
+    speedSelector.setButtonCell(
+        new javafx.scene.control.ListCell<>() {
+          @Override
+          protected void updateItem(SimulationSpeed item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty || item == null ? null : item.label());
+          }
+        });
+    speedSelector.getSelectionModel().select(liveMetricsService.simulationSpeed());
+    speedSelector
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldSelection, selected) -> {
+              if (selected == null || selected == oldSelection) {
+                return;
+              }
+              liveMetricsService.setSimulationSpeed(selected);
+              if (trajectoryRunning) {
+                restartTrajectoryTicker();
+              }
+              updateActiveSpeedLabel();
+            });
+
+    activeSpeedValue = new Label();
+    activeSpeedValue.setTextFill(Color.web("#89ff9a"));
+    activeSpeedValue.setFont(Font.font("Consolas", 12));
+    updateActiveSpeedLabel();
+
     Button start =
         neonButton(
             "Start",
@@ -228,6 +281,7 @@ public final class MainWindow {
             () -> {
               controlService.pause();
               liveMetricsService.pauseEpisode();
+              trajectoryRunning = false;
               stopTrajectoryTicker();
             });
     Button reset =
@@ -250,6 +304,9 @@ public final class MainWindow {
             presetLabel,
             presetSelector,
             activePresetValue,
+            speedLabel,
+            speedSelector,
+            activeSpeedValue,
             start,
             pause,
             reset);
@@ -454,6 +511,14 @@ public final class MainWindow {
     activePresetValue.setText(text);
   }
 
+  private void updateActiveSpeedLabel() {
+    if (activeSpeedValue == null) {
+      return;
+    }
+    activeSpeedValue.setText(
+        "ACTIVE SPEED: " + liveMetricsService.simulationSpeed().name().toUpperCase(Locale.ROOT));
+  }
+
   private String formatElapsed(long elapsedMillis) {
     long totalSeconds = elapsedMillis / 1_000;
     long minutes = totalSeconds / 60;
@@ -471,12 +536,12 @@ public final class MainWindow {
       trajectoryCells.add(trajectoryCurrent);
     }
     Platform.runLater(() -> mazeViewportRenderer.renderTrajectory(List.copyOf(trajectoryCells)));
-    stopTrajectoryTicker();
-    trajectoryTicker =
-        trajectoryScheduler.scheduleAtFixedRate(this::advanceTrajectoryOverlay, 120, 120, TimeUnit.MILLISECONDS);
+    trajectoryRunning = true;
+    restartTrajectoryTicker();
   }
 
   private void resetTrajectoryEpisode() {
+    trajectoryRunning = false;
     stopTrajectoryTicker();
     synchronized (trajectoryLock) {
       trajectoryCells.clear();
@@ -539,6 +604,12 @@ public final class MainWindow {
       trajectoryTicker.cancel(false);
       trajectoryTicker = null;
     }
+  }
+
+  private synchronized void restartTrajectoryTicker() {
+    stopTrajectoryTicker();
+    long period = liveMetricsService.simulationSpeed().trajectoryTickMillis();
+    trajectoryTicker = trajectoryScheduler.scheduleAtFixedRate(this::advanceTrajectoryOverlay, period, period, TimeUnit.MILLISECONDS);
   }
 
   @PreDestroy

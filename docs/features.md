@@ -138,6 +138,7 @@
 - Control UI con niveles de velocidad (lento, normal, rapido) aplicables en tiempo real.
 - Propagacion del factor de velocidad hacia la ejecucion en curso sin reiniciar el episodio.
 - Indicador del nivel activo para mejorar trazabilidad operativa durante pruebas.
+- Implementacion tecnica: `SimulationSpeed` centraliza perfiles de velocidad y `LiveMetricsService` + ticker de trayectoria en `MainWindow` aplican cambios en caliente.
 
 ### SCAPE-0018 - Detector de bucles con senal de penalizacion
 - Objetivo funcional: detectar ciclos de movimiento repetitivo para penalizar exploracion improductiva.

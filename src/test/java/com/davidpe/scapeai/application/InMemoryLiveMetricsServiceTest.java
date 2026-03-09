@@ -11,12 +11,18 @@ class InMemoryLiveMetricsServiceTest {
   void shouldUpdateMetricsWhileEpisodeIsRunningAndResetForNewEpisode() throws Exception {
     InMemoryLiveMetricsService service = new InMemoryLiveMetricsService();
     try {
+      service.setSimulationSpeed(SimulationSpeed.SLOW);
       service.startEpisode();
-      Thread.sleep(450);
+      Thread.sleep(420);
 
       LiveEpisodeMetrics firstSnapshot = captureLatest(service);
       assertTrue(firstSnapshot.steps() > 0);
       assertTrue(firstSnapshot.elapsedMillis() > 0);
+
+      service.setSimulationSpeed(SimulationSpeed.FAST);
+      Thread.sleep(320);
+      LiveEpisodeMetrics speedChangedSnapshot = captureLatest(service);
+      assertTrue(speedChangedSnapshot.steps() > firstSnapshot.steps());
 
       service.startEpisode();
       LiveEpisodeMetrics secondSnapshot = captureLatest(service);
