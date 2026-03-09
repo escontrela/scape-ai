@@ -11,6 +11,12 @@ public record SimulationEpisodeResult(
     int collisions,
     int loopEvents,
     double netProgress,
+    double q1Coverage,
+    double q2Coverage,
+    double q3Coverage,
+    double q4Coverage,
+    double leftSideCoverage,
+    double rightSideCoverage,
     int explorationDecisions,
     int exploitationDecisions,
     List<PolicyInferenceTrace> inferenceTraces) {

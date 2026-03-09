@@ -5,5 +5,7 @@ public record RecentRunComparisonRow(
     double reward,
     int collisions,
     double netProgress,
+    double leftSideCoverage,
+    double rightSideCoverage,
     long elapsedMillis,
     long createdAtEpochMillis) {}

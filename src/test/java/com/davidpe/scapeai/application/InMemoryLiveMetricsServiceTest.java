@@ -19,6 +19,8 @@ class InMemoryLiveMetricsServiceTest {
       LiveEpisodeMetrics firstSnapshot = captureLatest(service);
       assertTrue(firstSnapshot.steps() > 0);
       assertTrue(firstSnapshot.elapsedMillis() > 0);
+      assertTrue(firstSnapshot.leftSideCoverage() >= 0.0);
+      assertTrue(firstSnapshot.rightSideCoverage() >= 0.0);
 
       service.setSimulationSpeed(SimulationSpeed.FAST);
       Thread.sleep(320);
@@ -30,6 +32,8 @@ class InMemoryLiveMetricsServiceTest {
       assertEquals(0, secondSnapshot.steps());
       assertEquals(0, secondSnapshot.collisions());
       assertEquals(0.0, secondSnapshot.accumulatedReward(), 0.0001);
+      assertEquals(0.0, secondSnapshot.leftSideCoverage(), 0.0001);
+      assertEquals(0.0, secondSnapshot.rightSideCoverage(), 0.0001);
     } finally {
       service.shutdown();
     }

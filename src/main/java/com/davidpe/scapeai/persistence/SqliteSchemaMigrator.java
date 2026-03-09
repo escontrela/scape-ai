@@ -42,6 +42,30 @@ public class SqliteSchemaMigrator {
       jdbcTemplate.execute(
           "ALTER TABLE training_runs ADD COLUMN net_progress REAL NOT NULL DEFAULT 0");
     }
+    if (!columns.contains("q1_coverage")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN q1_coverage REAL NOT NULL DEFAULT 0");
+    }
+    if (!columns.contains("q2_coverage")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN q2_coverage REAL NOT NULL DEFAULT 0");
+    }
+    if (!columns.contains("q3_coverage")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN q3_coverage REAL NOT NULL DEFAULT 0");
+    }
+    if (!columns.contains("q4_coverage")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN q4_coverage REAL NOT NULL DEFAULT 0");
+    }
+    if (!columns.contains("left_side_coverage")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN left_side_coverage REAL NOT NULL DEFAULT 0");
+    }
+    if (!columns.contains("right_side_coverage")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN right_side_coverage REAL NOT NULL DEFAULT 0");
+    }
   }
 
   private boolean tableExists(String tableName) {

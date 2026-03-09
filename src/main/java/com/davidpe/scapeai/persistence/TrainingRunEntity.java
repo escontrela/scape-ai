@@ -13,4 +13,10 @@ public record TrainingRunEntity(
     int discoveredCells,
     int finalDistanceToExit,
     double netProgress,
+    double q1Coverage,
+    double q2Coverage,
+    double q3Coverage,
+    double q4Coverage,
+    double leftSideCoverage,
+    double rightSideCoverage,
     long createdAtEpochMillis) {}

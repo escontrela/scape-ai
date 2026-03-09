@@ -113,6 +113,12 @@ class RecentRunsComparisonServiceTest {
                 5 + i,
                 2,
                 12 - i,
+                0.10 * i,
+                0.10 * i,
+                0.10 * i,
+                0.10 * i,
+                Math.max(0.0, 0.9 - (0.05 * i)),
+                Math.min(1.0, 0.1 + (0.05 * i)),
                 1_700_000_000_000L + i));
       }
       generated.sort(

@@ -50,6 +50,8 @@ public class RecentRunsComparisonService {
                     entity.totalReward(),
                     entity.collisions(),
                     entity.netProgress(),
+                    entity.leftSideCoverage(),
+                    entity.rightSideCoverage(),
                     entity.elapsedMillis(),
                     entity.createdAtEpochMillis()))
         .sorted(comparator)

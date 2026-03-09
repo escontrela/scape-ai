@@ -30,9 +30,9 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
               connection.prepareStatement(
                   """
                   INSERT INTO training_runs(
-                    maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, created_at_epoch_millis
+                    maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, created_at_epoch_millis
                   )
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                   """,
                   Statement.RETURN_GENERATED_KEYS);
           statement.setLong(1, run.mazeId());
@@ -46,7 +46,13 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
           statement.setInt(9, run.discoveredCells());
           statement.setInt(10, run.finalDistanceToExit());
           statement.setDouble(11, run.netProgress());
-          statement.setLong(12, run.createdAtEpochMillis());
+          statement.setDouble(12, run.q1Coverage());
+          statement.setDouble(13, run.q2Coverage());
+          statement.setDouble(14, run.q3Coverage());
+          statement.setDouble(15, run.q4Coverage());
+          statement.setDouble(16, run.leftSideCoverage());
+          statement.setDouble(17, run.rightSideCoverage());
+          statement.setLong(18, run.createdAtEpochMillis());
           return statement;
         },
         keyHolder);
@@ -67,6 +73,12 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
         run.discoveredCells(),
         run.finalDistanceToExit(),
         run.netProgress(),
+        run.q1Coverage(),
+        run.q2Coverage(),
+        run.q3Coverage(),
+        run.q4Coverage(),
+        run.leftSideCoverage(),
+        run.rightSideCoverage(),
         run.createdAtEpochMillis());
   }
 
@@ -79,7 +91,7 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
   public List<TrainingRunEntity> findRecentByMazeId(long mazeId, int limit) {
     return jdbcTemplate.query(
         """
-        SELECT id, maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, created_at_epoch_millis
+        SELECT id, maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, created_at_epoch_millis
         FROM training_runs
         WHERE maze_id = ?
         ORDER BY created_at_epoch_millis DESC
@@ -99,6 +111,12 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
                 rs.getInt("discovered_cells"),
                 rs.getInt("final_distance_to_exit"),
                 rs.getDouble("net_progress"),
+                rs.getDouble("q1_coverage"),
+                rs.getDouble("q2_coverage"),
+                rs.getDouble("q3_coverage"),
+                rs.getDouble("q4_coverage"),
+                rs.getDouble("left_side_coverage"),
+                rs.getDouble("right_side_coverage"),
                 rs.getLong("created_at_epoch_millis")),
         mazeId,
         limit);

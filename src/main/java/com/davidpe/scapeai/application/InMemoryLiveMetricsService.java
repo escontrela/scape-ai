@@ -30,6 +30,8 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   private final Deque<TrainingTimelineEntry> recentTimeline = new ArrayDeque<>();
   private final AtomicInteger steps = new AtomicInteger(0);
   private final AtomicInteger collisions = new AtomicInteger(0);
+  private final AtomicInteger leftVisits = new AtomicInteger(0);
+  private final AtomicInteger rightVisits = new AtomicInteger(0);
   private final AtomicLong elapsedMillis = new AtomicLong(0L);
   private volatile double accumulatedReward = 0.0;
   private volatile long episodeStartedAt = 0L;
@@ -133,6 +135,11 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     } else {
       accumulatedReward += 0.2;
     }
+    if (tickStep % 4 == 0 || tickStep % 4 == 1) {
+      rightVisits.incrementAndGet();
+    } else {
+      leftVisits.incrementAndGet();
+    }
     elapsedMillis.set(Math.max(0L, System.currentTimeMillis() - episodeStartedAt));
     publish(snapshot());
   }
@@ -153,12 +160,23 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   private synchronized void resetSnapshot() {
     steps.set(0);
     collisions.set(0);
+    leftVisits.set(0);
+    rightVisits.set(0);
     elapsedMillis.set(0);
     accumulatedReward = 0.0;
   }
 
   private LiveEpisodeMetrics snapshot() {
-    return new LiveEpisodeMetrics(steps.get(), collisions.get(), accumulatedReward, elapsedMillis.get());
+    int left = leftVisits.get();
+    int right = rightVisits.get();
+    int total = Math.max(1, left + right);
+    return new LiveEpisodeMetrics(
+        steps.get(),
+        collisions.get(),
+        accumulatedReward,
+        elapsedMillis.get(),
+        (double) left / (double) total,
+        (double) right / (double) total);
   }
 
   private void publish(LiveEpisodeMetrics metrics) {

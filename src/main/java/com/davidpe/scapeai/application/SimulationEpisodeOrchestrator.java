@@ -126,7 +126,7 @@ public class SimulationEpisodeOrchestrator {
         EpisodeExecutionState.initial(
             SimulationState.initial(maze.start()), maze.exit(), startedAt, deadline, loopWindow);
     runLoop(maze, state, policy, -1);
-    return state.toResult(currentTimeMillis.getAsLong());
+    return state.toResult(currentTimeMillis.getAsLong(), maze);
   }
 
   public EpisodeCheckpoint runEpisodeUntilCheckpoint(
@@ -150,7 +150,7 @@ public class SimulationEpisodeOrchestrator {
     EpisodeExecutionState state =
         EpisodeExecutionState.fromCheckpoint(checkpoint, maze.exit(), resumedAt, deadline, loopWindow);
     runLoop(maze, state, policy, -1);
-    return state.toResult(currentTimeMillis.getAsLong());
+    return state.toResult(currentTimeMillis.getAsLong(), maze);
   }
 
   private EpsilonGreedyMovementPolicyDecorator buildEpisodePolicy() {
@@ -376,12 +376,13 @@ public class SimulationEpisodeOrchestrator {
           List.copyOf(trajectory));
     }
 
-    SimulationEpisodeResult toResult(long currentTime) {
+    SimulationEpisodeResult toResult(long currentTime, MazeDefinition maze) {
       long elapsed = elapsedMillis(currentTime);
       EpisodeEndReason endReason =
           currentState.exitReached() ? EpisodeEndReason.EXIT_REACHED : EpisodeEndReason.TIMEOUT;
       int finalDistanceToExit = distanceToExit(currentState.agentPosition(), mazeExit);
       double netProgress = (initialDistanceToExit - finalDistanceToExit) + improvementDistance;
+      MazeQuadrantCoverage coverage = MazeQuadrantCoverage.from(maze, currentState.visitedCells());
       return new SimulationEpisodeResult(
           currentState.exitReached(),
           totalSteps,
@@ -391,6 +392,12 @@ public class SimulationEpisodeOrchestrator {
           collisions,
           loopEvents,
           netProgress,
+          coverage.q1Coverage(),
+          coverage.q2Coverage(),
+          coverage.q3Coverage(),
+          coverage.q4Coverage(),
+          coverage.leftSideCoverage(),
+          coverage.rightSideCoverage(),
           explorationDecisions,
           exploitationDecisions,
           List.copyOf(inferenceTraces));

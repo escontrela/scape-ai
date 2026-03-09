@@ -369,3 +369,10 @@
 ### Resultado de gestion PO
 - Backlog restaurado con 5 tickets verticales y variados (arquitectura, UI, simulacion/metrica, IA/replay, persistencia/cobertura).
 - No se cambian alcances de tickets existentes ni se crean ramas.
+
+## Ejecucion implementador 2026-03-10 (automation cycle 4)
+
+### Tickets cerrados en esta ejecucion
+- SCAPE-0039: telemetria de cobertura por cuadrantes (`Q1..Q4`) calculada por episodio en `SimulationEpisodeOrchestrator`, con exposicion adicional de cobertura izquierda/derecha en `SimulationEpisodeResult`.
+- SCAPE-0039: panel de metricas UI ampliado con indicador en vivo `Coverage L/R`, actualizado por `LiveMetricsService` sin bloqueo del hilo JavaFX.
+- SCAPE-0039: persistencia por corrida de cobertura de cuadrantes y lados (`q1_coverage`..`right_side_coverage`) en `training_runs`, incluyendo migracion idempotente y consumo en comparativa reciente.

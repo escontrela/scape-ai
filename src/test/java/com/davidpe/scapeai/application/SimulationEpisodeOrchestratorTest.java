@@ -176,6 +176,25 @@ class SimulationEpisodeOrchestratorTest {
     assertEquals(0, result.exploitationDecisions());
   }
 
+  @Test
+  void shouldPublishQuadrantAndSideCoveragePerEpisode() {
+    SimulationStepFlow flow = flowWithPolicy(context -> MoveDirection.RIGHT);
+    SimulationEpisodeOrchestrator orchestrator =
+        new SimulationEpisodeOrchestrator(flow, Duration.ofMillis(120), new FixedStepTime(0, 20));
+    MazeDefinition maze =
+        new MazeDefinition(2, 4, new boolean[2][4], new GridPosition(0, 0), new GridPosition(0, 3));
+
+    SimulationEpisodeResult result = orchestrator.runEpisode(maze, Duration.ofMillis(120));
+
+    assertTrue(result.q1Coverage() >= 0.0 && result.q1Coverage() <= 1.0);
+    assertTrue(result.q2Coverage() >= 0.0 && result.q2Coverage() <= 1.0);
+    assertTrue(result.q3Coverage() >= 0.0 && result.q3Coverage() <= 1.0);
+    assertTrue(result.q4Coverage() >= 0.0 && result.q4Coverage() <= 1.0);
+    assertTrue(result.leftSideCoverage() >= 0.0 && result.leftSideCoverage() <= 1.0);
+    assertTrue(result.rightSideCoverage() >= 0.0 && result.rightSideCoverage() <= 1.0);
+    assertTrue(result.rightSideCoverage() >= result.leftSideCoverage());
+  }
+
   private SimulationStepFlow flowWithPolicy(MovementPolicy policy) {
     RewardEvaluator rewardEvaluator = context -> RewardAssessment.of(RewardSignal.NEGATIVE);
     ActiveMovementPolicyService policyService =

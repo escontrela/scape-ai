@@ -50,6 +50,12 @@ class JdbcPersistenceRepositoriesTest {
             discovered_cells INTEGER NOT NULL,
             final_distance_to_exit INTEGER NOT NULL,
             net_progress REAL NOT NULL DEFAULT 0,
+            q1_coverage REAL NOT NULL DEFAULT 0,
+            q2_coverage REAL NOT NULL DEFAULT 0,
+            q3_coverage REAL NOT NULL DEFAULT 0,
+            q4_coverage REAL NOT NULL DEFAULT 0,
+            left_side_coverage REAL NOT NULL DEFAULT 0,
+            right_side_coverage REAL NOT NULL DEFAULT 0,
             created_at_epoch_millis INTEGER NOT NULL
           )
           """);
@@ -115,6 +121,12 @@ class JdbcPersistenceRepositoriesTest {
               12,
               4,
               -1.0,
+              0.40,
+              0.25,
+              0.10,
+              0.15,
+              0.50,
+              0.40,
               1000));
       runRepository.save(
           new TrainingRunEntity(
@@ -130,6 +142,12 @@ class JdbcPersistenceRepositoriesTest {
               19,
               0,
               3.0,
+              0.55,
+              0.68,
+              0.35,
+              0.72,
+              0.45,
+              0.70,
               2000));
 
       var history = runRepository.findByMazeId(maze.id());
@@ -158,6 +176,7 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals(19, history.get(0).discoveredCells());
       assertEquals(0, history.get(0).finalDistanceToExit());
       assertEquals(3.0, history.get(0).netProgress());
+      assertEquals(0.70, history.get(0).rightSideCoverage());
       assertEquals(3, sortedAsc.size());
       assertEquals(easier.name(), sortedAsc.get(0).name());
       assertEquals(harder.name(), sortedDesc.get(0).name());

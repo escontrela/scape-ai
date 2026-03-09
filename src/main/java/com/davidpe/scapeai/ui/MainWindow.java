@@ -82,6 +82,7 @@ public final class MainWindow {
   private Label collisionsValue;
   private Label rewardValue;
   private Label elapsedValue;
+  private Label sideCoverageValue;
   private Label activePolicyValue;
   private Label activePresetValue;
   private Label activeSpeedValue;
@@ -513,7 +514,8 @@ public final class MainWindow {
             metricLine("Steps", "0"),
             metricLine("Collisions", "0"),
             metricLine("Reward", "0.0"),
-            metricLine("Elapsed", "00:00"));
+            metricLine("Elapsed", "00:00"),
+            metricLine("Coverage L/R", "0% / 0%"));
 
     Label timelineTitle = new Label("RECENT EPISODES");
     timelineTitle.setTextFill(Color.web("#9db2ff"));
@@ -651,6 +653,7 @@ public final class MainWindow {
       case "Collisions" -> collisionsValue = label;
       case "Reward" -> rewardValue = label;
       case "Elapsed" -> elapsedValue = label;
+      case "Coverage L/R" -> sideCoverageValue = label;
       default -> {
       }
     }
@@ -670,6 +673,14 @@ public final class MainWindow {
           }
           if (elapsedValue != null) {
             elapsedValue.setText(formatElapsed(metrics.elapsedMillis()));
+          }
+          if (sideCoverageValue != null) {
+            sideCoverageValue.setText(
+                String.format(
+                    Locale.US,
+                    "%.0f%% / %.0f%%",
+                    metrics.leftSideCoverage() * 100.0,
+                    metrics.rightSideCoverage() * 100.0));
           }
         });
   }
@@ -774,13 +785,23 @@ public final class MainWindow {
     netProgress.setFont(Font.font("Consolas", 11));
     netProgress.setTextFill(Color.web("#7ef9ff"));
 
+    Label sideCoverage =
+        new Label(
+            String.format(
+                Locale.US,
+                "L/R %.0f%%/%.0f%%",
+                row.leftSideCoverage() * 100.0,
+                row.rightSideCoverage() * 100.0));
+    sideCoverage.setFont(Font.font("Consolas", 11));
+    sideCoverage.setTextFill(Color.web("#9db2ff"));
+
     Label elapsed = new Label(formatElapsed(row.elapsedMillis()));
     elapsed.setFont(Font.font("Consolas", 11));
     elapsed.setTextFill(Color.web("#9db2ff"));
 
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
-    return new HBox(8, status, reward, collisions, netProgress, spacer, elapsed);
+    return new HBox(8, status, reward, collisions, netProgress, sideCoverage, spacer, elapsed);
   }
 
   private HBox timelineRow(TrainingTimelineEntry entry) {
