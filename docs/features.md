@@ -225,6 +225,8 @@
 - Backlog objetivo: al menos 5 tickets listos.
 - Ticket activo actual: `SCAPE-0022`.
 - Siguiente foco tecnico de backlog: `SCAPE-0023` -> `SCAPE-0024` -> `SCAPE-0025` -> `SCAPE-0026` -> `SCAPE-0027`.
+- Validacion Tasker (2026-03-09): `in_progress=1` (`SCAPE-0022`) y `backlog=5` (`SCAPE-0023`..`SCAPE-0027`).
+- Validacion de repositorio (2026-03-09): sin commits nuevos que demuestren cierre funcional de `SCAPE-0022`; no se aplican transiciones de estado en esta iteracion.
 - Implementacion tecnica: bootstrap JavaFX con ciclo de vida de contexto Spring Boot y `MainWindow` gestionada como componente Spring.
 - Implementacion tecnica: `MainWindow` con panel de control, viewport de laberinto y panel de metricas; botones `Start/Pause/Reset` publican comandos a la capa de aplicacion.
 - Implementacion tecnica: motor `SingleStepSimulationEngine` con validacion de colisiones, conteo de intentos invalidos, seguimiento de celdas visitadas y deteccion de salida.
