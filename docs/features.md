@@ -131,11 +131,46 @@
 - Actualizacion en tiempo real de la trayectoria sin bloqueo del hilo JavaFX.
 - Reinicio limpio del overlay al comenzar un nuevo episodio.
 
+### SCAPE-0017 - Control de velocidad de simulacion en UI
+- Objetivo funcional: permitir ajustar la velocidad de ejecucion visual del episodio desde el panel de control.
+- Alcance introducido:
+- Control UI con niveles de velocidad (lento, normal, rapido) aplicables en tiempo real.
+- Propagacion del factor de velocidad hacia la ejecucion en curso sin reiniciar el episodio.
+- Indicador del nivel activo para mejorar trazabilidad operativa durante pruebas.
+
+### SCAPE-0018 - Detector de bucles con senal de penalizacion
+- Objetivo funcional: detectar ciclos de movimiento repetitivo para penalizar exploracion improductiva.
+- Alcance introducido:
+- Deteccion de bucles cortos dentro de una ventana configurable de posiciones visitadas.
+- Emision de senal negativa adicional consumible por el evaluador de recompensas.
+- Exposicion de contador de eventos de bucle en el resultado de episodio.
+
+### SCAPE-0019 - Estado contextual ampliado para politicas IA
+- Objetivo funcional: enriquecer el contexto de decision para politicas de movimiento.
+- Alcance introducido:
+- Contrato de contexto extendido con vecindad local, direccion previa y racha sin progreso.
+- Compatibilidad de politicas existentes mediante adaptacion o fallback de contrato.
+- Pruebas de contrato para validar consistencia y estabilidad del nuevo contexto.
+
+### SCAPE-0020 - Persistencia de snapshot de politica por corrida
+- Objetivo funcional: registrar la configuracion efectiva de politica por training run para reproducibilidad.
+- Alcance introducido:
+- Persistencia de identificador de politica y parametros efectivos serializados por corrida.
+- Consulta de snapshots recientes vinculables con metricas historicas por laberinto.
+- Compatibilidad retroactiva con corridas historicas ya persistidas.
+
+### SCAPE-0021 - Caso de uso unificado Start Training Session
+- Objetivo funcional: centralizar la preparacion y validacion del inicio de entrenamiento en capa de aplicacion.
+- Alcance introducido:
+- Caso de uso `StartTrainingSession` que valida maze, preset y politica activa antes de arrancar.
+- Delegacion de `MainWindow` hacia este caso de uso para reducir logica distribuida en UI.
+- Resultado de validacion tipado para presentar errores operativos de forma consistente.
+
 ## Estado operativo actual
 - WIP objetivo: 1 ticket en `in_progress`.
 - Backlog objetivo: al menos 5 tickets listos.
-- Ticket activo actual: `SCAPE-0011`.
-- Siguiente foco tecnico de backlog: `SCAPE-0012` -> `SCAPE-0013` -> `SCAPE-0014` -> `SCAPE-0015` -> `SCAPE-0016`.
+- Ticket activo actual: `SCAPE-0016`.
+- Siguiente foco tecnico de backlog: `SCAPE-0017` -> `SCAPE-0018` -> `SCAPE-0019` -> `SCAPE-0020` -> `SCAPE-0021`.
 - Implementacion tecnica: bootstrap JavaFX con ciclo de vida de contexto Spring Boot y `MainWindow` gestionada como componente Spring.
 - Implementacion tecnica: `MainWindow` con panel de control, viewport de laberinto y panel de metricas; botones `Start/Pause/Reset` publican comandos a la capa de aplicacion.
 - Implementacion tecnica: motor `SingleStepSimulationEngine` con validacion de colisiones, conteo de intentos invalidos, seguimiento de celdas visitadas y deteccion de salida.
