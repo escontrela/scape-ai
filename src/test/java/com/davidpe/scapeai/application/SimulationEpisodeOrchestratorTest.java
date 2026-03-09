@@ -14,6 +14,7 @@ import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SingleStepSimulationEngine;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.LongSupplier;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +35,7 @@ class SimulationEpisodeOrchestratorTest {
     assertEquals(-1.0, result.totalReward());
     assertEquals(0, result.collisions());
     assertEquals(0, result.loopEvents());
+    assertEquals(0, result.inferenceTraces().size());
     assertTrue(result.elapsedMillis() >= 0);
   }
 
@@ -108,6 +110,27 @@ class SimulationEpisodeOrchestratorTest {
     assertTrue(resumed.elapsedMillis() >= checkpoint.elapsedMillis());
   }
 
+  @Test
+  void shouldCollectInferenceTracesWhenPolicyProvidesThem() {
+    TraceablePolicy policy = new TraceablePolicy();
+    RewardEvaluator rewardEvaluator = context -> RewardAssessment.of(RewardSignal.NEGATIVE);
+    ActiveMovementPolicyService policyService =
+        new ActiveMovementPolicyService(
+            Map.of("heuristic-baseline", policy, "random-controlled", policy), "heuristic-baseline");
+    SimulationStepFlow flow =
+        new SimulationStepFlow(policyService, rewardEvaluator, new SingleStepSimulationEngine());
+    SimulationEpisodeOrchestrator orchestrator =
+        new SimulationEpisodeOrchestrator(flow, Duration.ofMillis(80), new FixedStepTime(0, 20));
+    MazeDefinition maze =
+        new MazeDefinition(1, 3, new boolean[1][3], new GridPosition(0, 0), new GridPosition(0, 2));
+
+    SimulationEpisodeResult result = orchestrator.runEpisode(maze, Duration.ofMillis(80));
+
+    assertTrue(result.totalSteps() > 0);
+    assertEquals(result.totalSteps(), result.inferenceTraces().size());
+    assertEquals("traceable-test", result.inferenceTraces().get(0).policyId());
+  }
+
   private SimulationStepFlow flowWithPolicy(MovementPolicy policy) {
     RewardEvaluator rewardEvaluator = context -> RewardAssessment.of(RewardSignal.NEGATIVE);
     ActiveMovementPolicyService policyService =
@@ -131,6 +154,23 @@ class SimulationEpisodeOrchestratorTest {
       long value = current;
       current += step;
       return value;
+    }
+  }
+
+  private static final class TraceablePolicy
+      implements MovementPolicy, com.davidpe.scapeai.ai.InferenceTraceProvider {
+
+    private PolicyInferenceTrace lastTrace;
+
+    @Override
+    public MoveDirection chooseNextMove(com.davidpe.scapeai.ai.SpatialContext context) {
+      lastTrace = new PolicyInferenceTrace("traceable-test", 0.75, 1L, false, null);
+      return MoveDirection.RIGHT;
+    }
+
+    @Override
+    public Optional<PolicyInferenceTrace> latestInferenceTrace() {
+      return Optional.ofNullable(lastTrace);
     }
   }
 }

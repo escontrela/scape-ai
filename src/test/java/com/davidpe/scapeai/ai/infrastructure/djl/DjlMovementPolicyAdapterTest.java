@@ -1,6 +1,7 @@
 package com.davidpe.scapeai.ai.infrastructure.djl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.davidpe.scapeai.ai.MovementPolicy;
 import com.davidpe.scapeai.ai.SpatialContext;
@@ -21,6 +22,11 @@ class DjlMovementPolicyAdapterTest {
     MoveDirection decision = adapter.chooseNextMove(context);
 
     assertEquals(MoveDirection.RIGHT, decision);
+    var trace = adapter.latestInferenceTrace();
+    assertTrue(trace.isPresent());
+    assertEquals("djl-adapter", trace.get().policyId());
+    assertEquals(false, trace.get().fallbackApplied());
+    assertEquals(null, trace.get().fallbackReason());
   }
 
   @Test
@@ -39,6 +45,9 @@ class DjlMovementPolicyAdapterTest {
 
     assertEquals(MoveDirection.DOWN, invalidPredictionAdapter.chooseNextMove(context));
     assertEquals(MoveDirection.DOWN, failingAdapter.chooseNextMove(context));
+    assertEquals("INVALID_MOVE", invalidPredictionAdapter.latestInferenceTrace().orElseThrow().fallbackReason());
+    assertEquals(true, invalidPredictionAdapter.latestInferenceTrace().orElseThrow().fallbackApplied());
+    assertEquals("PREDICTION_FAILURE", failingAdapter.latestInferenceTrace().orElseThrow().fallbackReason());
   }
 
   private SpatialContext contextForOpenMaze() {

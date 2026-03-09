@@ -107,6 +107,7 @@ public class SimulationEpisodeOrchestrator {
       if (outcome.result().collision()) {
         state.collisions++;
       }
+      outcome.inferenceTrace().ifPresent(state.inferenceTraces::add);
       executed++;
     }
   }
@@ -142,6 +143,7 @@ public class SimulationEpisodeOrchestrator {
     private final Deque<GridPosition> recentPositions;
     private final Map<GridPosition, Integer> positionCounts;
     private final List<GridPosition> trajectory;
+    private final List<PolicyInferenceTrace> inferenceTraces;
     private SimulationState currentState;
     private MoveDirection previousDirection;
     private int noProgressStreak;
@@ -164,7 +166,8 @@ public class SimulationEpisodeOrchestrator {
         long elapsedBeforeSegment,
         Deque<GridPosition> recentPositions,
         Map<GridPosition, Integer> positionCounts,
-        List<GridPosition> trajectory) {
+        List<GridPosition> trajectory,
+        List<PolicyInferenceTrace> inferenceTraces) {
       this.startedAt = startedAt;
       this.deadline = deadline;
       this.currentState = currentState;
@@ -178,6 +181,7 @@ public class SimulationEpisodeOrchestrator {
       this.recentPositions = recentPositions;
       this.positionCounts = positionCounts;
       this.trajectory = trajectory;
+      this.inferenceTraces = inferenceTraces;
     }
 
     static EpisodeExecutionState initial(
@@ -201,7 +205,8 @@ public class SimulationEpisodeOrchestrator {
           0L,
           recent,
           counts,
-          trajectory);
+          trajectory,
+          new ArrayList<>());
     }
 
     static EpisodeExecutionState fromCheckpoint(
@@ -233,7 +238,8 @@ public class SimulationEpisodeOrchestrator {
           checkpoint.elapsedMillis(),
           recent,
           counts,
-          trajectory);
+          trajectory,
+          new ArrayList<>());
     }
 
     EpisodeCheckpoint toCheckpoint(long currentTime) {
@@ -264,7 +270,8 @@ public class SimulationEpisodeOrchestrator {
           endReason,
           totalReward,
           collisions,
-          loopEvents);
+          loopEvents,
+          List.copyOf(inferenceTraces));
     }
 
     private long elapsedMillis(long currentTime) {

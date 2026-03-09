@@ -37,6 +37,7 @@ class SimulationStepFlowTest {
     assertEquals(MoveDirection.RIGHT, outcome.selectedDirection());
     assertEquals(new GridPosition(0, 1), outcome.result().state().agentPosition());
     assertEquals(RewardSignal.NEGATIVE, outcome.reward().signal());
+    assertEquals(true, outcome.inferenceTrace().isEmpty());
   }
 
   @Test
