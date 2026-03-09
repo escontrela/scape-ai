@@ -3,6 +3,9 @@ package com.davidpe.scapeai.ui;
 import com.davidpe.scapeai.application.LiveEpisodeMetrics;
 import com.davidpe.scapeai.application.LiveMetricsService;
 import com.davidpe.scapeai.application.MovementPolicyOption;
+import com.davidpe.scapeai.application.RecentRunComparisonRow;
+import com.davidpe.scapeai.application.RecentRunsComparisonService;
+import com.davidpe.scapeai.application.RecentRunsSortOption;
 import com.davidpe.scapeai.application.StartTrainingSessionCommand;
 import com.davidpe.scapeai.application.StartTrainingSessionResult;
 import com.davidpe.scapeai.application.StartTrainingSessionUseCase;
@@ -19,6 +22,7 @@ import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -48,12 +52,20 @@ public final class MainWindow {
   private final SimulationControlService controlService;
   private final StartTrainingSessionUseCase startTrainingSessionUseCase;
   private final LiveMetricsService liveMetricsService;
+  private final RecentRunsComparisonService recentRunsComparisonService;
   private final MazeCatalogService mazeCatalogService;
   private final MazeViewportRenderer mazeViewportRenderer;
   private final ScheduledExecutorService trajectoryScheduler =
       Executors.newSingleThreadScheduledExecutor(
           runnable -> {
             Thread thread = new Thread(runnable, "maze-trajectory-overlay");
+            thread.setDaemon(true);
+            return thread;
+          });
+  private final ExecutorService recentRunsExecutor =
+      Executors.newSingleThreadExecutor(
+          runnable -> {
+            Thread thread = new Thread(runnable, "recent-runs-loader");
             thread.setDaemon(true);
             return thread;
           });
@@ -68,8 +80,11 @@ public final class MainWindow {
   private Label activeSpeedValue;
   private Label systemStatusValue;
   private VBox timelineEntriesBox;
+  private VBox recentRunsEntriesBox;
   private StackPane mazeViewport;
   private MazeDefinition selectedMaze;
+  private String selectedMazeName;
+  private volatile RecentRunsSortOption selectedRecentRunsSort = RecentRunsSortOption.BY_DATE;
   private GridPosition trajectoryCurrent;
   private ScheduledFuture<?> trajectoryTicker;
   private volatile boolean trajectoryRunning;
@@ -78,11 +93,13 @@ public final class MainWindow {
       SimulationControlService controlService,
       StartTrainingSessionUseCase startTrainingSessionUseCase,
       LiveMetricsService liveMetricsService,
+      RecentRunsComparisonService recentRunsComparisonService,
       MazeCatalogService mazeCatalogService,
       MazeViewportRenderer mazeViewportRenderer) {
     this.controlService = controlService;
     this.startTrainingSessionUseCase = startTrainingSessionUseCase;
     this.liveMetricsService = liveMetricsService;
+    this.recentRunsComparisonService = recentRunsComparisonService;
     this.mazeCatalogService = mazeCatalogService;
     this.mazeViewportRenderer = mazeViewportRenderer;
   }
@@ -98,6 +115,7 @@ public final class MainWindow {
     root.setRight(buildMetricsPanel());
     liveMetricsService.subscribe(this::applyMetrics);
     liveMetricsService.subscribeTimeline(this::applyTimeline);
+    refreshRecentRunsAsync();
 
     Scene scene = new Scene(root, 1200, 760);
     stage.setTitle("Scape AI Control Panel");
@@ -429,9 +447,11 @@ public final class MainWindow {
               }
               MazeDefinition maze = mazeCatalogService.byName(selectedName);
               if (maze != null) {
+                selectedMazeName = selectedName;
                 selectedMaze = maze;
                 mazeViewportRenderer.renderInto(mazeViewport, maze);
                 resetTrajectoryEpisode();
+                refreshRecentRunsAsync();
               }
             });
 
@@ -439,8 +459,10 @@ public final class MainWindow {
       mazeSelector.getSelectionModel().selectFirst();
       MazeDefinition firstMaze = mazeCatalogService.byName(mazeSelector.getValue());
       if (firstMaze != null) {
+        selectedMazeName = mazeSelector.getValue();
         selectedMaze = firstMaze;
         mazeViewportRenderer.renderInto(mazeViewport, firstMaze);
+        refreshRecentRunsAsync();
       }
     }
 
@@ -484,7 +506,62 @@ public final class MainWindow {
         .add(
             timelinePlaceholder("No episodes completed yet."));
 
-    VBox panel = new VBox(14, title, metrics, timelineTitle, timelineEntriesBox);
+    Label comparisonTitle = new Label("LAST 10 RUNS");
+    comparisonTitle.setTextFill(Color.web("#9db2ff"));
+    comparisonTitle.setFont(Font.font("Consolas", 12));
+
+    ComboBox<RecentRunsSortOption> comparisonSortSelector =
+        new ComboBox<>(FXCollections.observableArrayList(RecentRunsSortOption.values()));
+    comparisonSortSelector.getSelectionModel().select(RecentRunsSortOption.BY_DATE);
+    comparisonSortSelector.setMaxWidth(Double.MAX_VALUE);
+    comparisonSortSelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    comparisonSortSelector.setCellFactory(
+        ignored ->
+            new javafx.scene.control.ListCell<>() {
+              @Override
+              protected void updateItem(RecentRunsSortOption item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.label());
+              }
+            });
+    comparisonSortSelector.setButtonCell(
+        new javafx.scene.control.ListCell<>() {
+          @Override
+          protected void updateItem(RecentRunsSortOption item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty || item == null ? null : item.label());
+          }
+        });
+    comparisonSortSelector
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldSelection, selected) -> {
+              if (selected == null || selected == oldSelection) {
+                return;
+              }
+              selectedRecentRunsSort = selected;
+              refreshRecentRunsAsync();
+            });
+
+    recentRunsEntriesBox = new VBox(6);
+    recentRunsEntriesBox.getChildren().add(timelinePlaceholder("No training runs stored yet."));
+
+    VBox panel =
+        new VBox(
+            14,
+            title,
+            metrics,
+            timelineTitle,
+            timelineEntriesBox,
+            comparisonTitle,
+            comparisonSortSelector,
+            recentRunsEntriesBox);
     panel.setPadding(new Insets(18));
     panel.setMinWidth(240);
     panel.setStyle(panelStyle());
@@ -584,6 +661,65 @@ public final class MainWindow {
             timelineEntriesBox.getChildren().add(timelineRow(entry));
           }
         });
+  }
+
+  private void refreshRecentRunsAsync() {
+    String mazeName = selectedMazeName;
+    RecentRunsSortOption sort = selectedRecentRunsSort;
+    if (mazeName == null || mazeName.isBlank()) {
+      Platform.runLater(
+          () -> {
+            if (recentRunsEntriesBox != null) {
+              recentRunsEntriesBox.getChildren().setAll(timelinePlaceholder("Select a maze to compare runs."));
+            }
+          });
+      return;
+    }
+    recentRunsExecutor.execute(
+        () -> {
+          List<RecentRunComparisonRow> rows = recentRunsComparisonService.recentRuns(mazeName, sort);
+          Platform.runLater(() -> renderRecentRuns(mazeName, sort, rows));
+        });
+  }
+
+  private void renderRecentRuns(
+      String mazeName, RecentRunsSortOption sort, List<RecentRunComparisonRow> rows) {
+    if (recentRunsEntriesBox == null) {
+      return;
+    }
+    if (!mazeName.equals(selectedMazeName) || sort != selectedRecentRunsSort) {
+      return;
+    }
+    recentRunsEntriesBox.getChildren().clear();
+    if (rows.isEmpty()) {
+      recentRunsEntriesBox.getChildren().add(timelinePlaceholder("No training runs stored yet."));
+      return;
+    }
+    for (RecentRunComparisonRow row : rows) {
+      recentRunsEntriesBox.getChildren().add(recentRunRow(row));
+    }
+  }
+
+  private HBox recentRunRow(RecentRunComparisonRow row) {
+    Label status = new Label(row.success() ? "OK" : "FAIL");
+    status.setFont(Font.font("Consolas", 11));
+    status.setTextFill(Color.web(row.success() ? "#89ff9a" : "#ff6b8a"));
+
+    Label reward = new Label(String.format(Locale.US, "R %.1f", row.reward()));
+    reward.setFont(Font.font("Consolas", 11));
+    reward.setTextFill(Color.web("#b8ffcb"));
+
+    Label collisions = new Label("C " + row.collisions());
+    collisions.setFont(Font.font("Consolas", 11));
+    collisions.setTextFill(Color.web("#ffd166"));
+
+    Label elapsed = new Label(formatElapsed(row.elapsedMillis()));
+    elapsed.setFont(Font.font("Consolas", 11));
+    elapsed.setTextFill(Color.web("#9db2ff"));
+
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    return new HBox(8, status, reward, collisions, spacer, elapsed);
   }
 
   private HBox timelineRow(TrainingTimelineEntry entry) {
@@ -779,5 +915,6 @@ public final class MainWindow {
   public synchronized void shutdownTrajectoryOverlay() {
     stopTrajectoryTicker();
     trajectoryScheduler.shutdownNow();
+    recentRunsExecutor.shutdownNow();
   }
 }

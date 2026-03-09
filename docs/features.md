@@ -298,3 +298,16 @@
 - Rama activa obligatoria verificada: `features-nightly-20260309`.
 - HEAD actual: `1437c59` (`docs: record SCAPE-0028 to SCAPE-0032 backlog scope`).
 - No se detectan commits nuevos que evidencien cierre funcional adicional de `SCAPE-0022`; no se aplican transiciones de estado en esta iteracion.
+
+## Ejecucion implementador 2026-03-09 (automation cycle 2)
+
+### Tickets cerrados en esta ejecucion
+- SCAPE-0028: selector UI de dificultad objetivo (`baja/media/alta`) en panel de control y filtro de maze candidato por terciles de `difficultyScore` desde `MazeCatalogService`, con error accionable cuando no hay candidatos.
+- SCAPE-0029: `StartTrainingSession` acepta semilla opcional, genera semilla efectiva cuando falta, la publica en `StartTrainingSessionResult` y sincroniza fuente aleatoria compartida (`SessionRandomSource`) consumida por simulacion y politicas.
+- SCAPE-0030: nuevo caso de uso `HeadlessBatchTrainingUseCase` para ejecutar N episodios sin JavaFX y devolver agregado (`successRate`, `averageReward`, `averageCollisions`, `totalDurationMillis`).
+- SCAPE-0031: decorador `EpsilonGreedyMovementPolicyDecorator` con epsilon configurable por `application.properties`, validacion de rango `[0,1]` y contadores de exploracion/explotacion en `SimulationEpisodeResult`.
+- SCAPE-0032: vista compacta en UI de ultimas 10 corridas (`RecentRunsComparisonService`) con orden por fecha o recompensa y carga asíncrona (`recentRunsExecutor`) sin bloqueo del hilo JavaFX.
+
+### Estado MCP tras la ejecucion
+- projectId=5, userId=1.
+- Tickets movidos a `done`: `SCAPE-0028`, `SCAPE-0029`, `SCAPE-0030`, `SCAPE-0031`, `SCAPE-0032`.
