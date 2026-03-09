@@ -291,7 +291,7 @@
 - Servicio de aplicacion para extraer lotes balanceados entre exito, timeout y colision.
 - Reutilizacion del almacenamiento append-only actual sin romper contratos persistentes.
 - Pruebas unitarias sobre datasets controlados para verificar balance minimo por categoria.
-- Implementacion tecnica propuesta: `BalancedReplaySamplerService` sobre `ExperienceReplayRepository`.
+- Implementacion tecnica: `BalancedExperienceReplaySampler` clasifica `SUCCESS/TIMEOUT/COLLISION` y arma lotes balanceados reutilizando `ExperienceReplayRepository.findRecent(page,size)`.
 
 ### SCAPE-0037 - Inventario de mazes con estado de cobertura
 - Objetivo funcional: visualizar cobertura de resolucion por maze y politica para priorizar backlog de entrenamiento.
