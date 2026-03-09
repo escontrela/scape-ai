@@ -76,6 +76,38 @@ class SimulationEpisodeOrchestratorTest {
     assertTrue(result.loopEvents() > 0);
   }
 
+  @Test
+  void shouldResumeEpisodeFromCheckpointWithoutLosingCounters() {
+    SimulationStepFlow flow =
+        flowWithPolicy(
+            context ->
+                context.simulationState().agentPosition().col() == 1
+                    ? MoveDirection.LEFT
+                    : MoveDirection.RIGHT);
+    MazeDefinition maze =
+        new MazeDefinition(1, 4, new boolean[1][4], new GridPosition(0, 1), new GridPosition(0, 3));
+
+    SimulationEpisodeOrchestrator fullRunOrchestrator =
+        new SimulationEpisodeOrchestrator(flow, Duration.ofMillis(140), 4, new FixedStepTime(0, 20));
+    SimulationEpisodeResult fullRun = fullRunOrchestrator.runEpisode(maze, Duration.ofMillis(140));
+
+    SimulationEpisodeOrchestrator pauseResumeOrchestrator =
+        new SimulationEpisodeOrchestrator(flow, Duration.ofMillis(140), 4, new FixedStepTime(0, 20));
+    EpisodeCheckpoint checkpoint =
+        pauseResumeOrchestrator.runEpisodeUntilCheckpoint(maze, Duration.ofMillis(140), 2);
+    SimulationEpisodeResult resumed = pauseResumeOrchestrator.resumeEpisode(maze, checkpoint);
+
+    assertFalse(checkpoint.currentState().exitReached());
+    assertEquals(2, checkpoint.totalSteps());
+    assertTrue(checkpoint.remainingMillis() > 0);
+    assertTrue(checkpoint.trajectory().size() >= 3);
+    assertEquals(fullRun.endReason(), resumed.endReason());
+    assertTrue(resumed.totalSteps() > checkpoint.totalSteps());
+    assertTrue(resumed.collisions() >= checkpoint.collisions());
+    assertTrue(resumed.loopEvents() >= checkpoint.loopEvents());
+    assertTrue(resumed.elapsedMillis() >= checkpoint.elapsedMillis());
+  }
+
   private SimulationStepFlow flowWithPolicy(MovementPolicy policy) {
     RewardEvaluator rewardEvaluator = context -> RewardAssessment.of(RewardSignal.NEGATIVE);
     ActiveMovementPolicyService policyService =
