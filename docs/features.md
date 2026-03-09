@@ -379,3 +379,6 @@
 - SCAPE-0040: `SimpleMovementPolicy` ahora usa ventana deslizante de posiciones recientes (`SpatialContext.recentPositions`) para castigar repeticiones locales y romper bucles cortos.
 - SCAPE-0040: ante estancamiento (`noProgressStreak`), la politica prioriza movimientos con mayor potencial de cobertura nueva segun balance de lados.
 - SCAPE-0040: benchmark de regresion agregado en `SimulationEpisodeOrchestratorTest` que compara contra baseline legado y valida mejora en `rightSideCoverage` y no incremento de `loopEvents`.
+- SCAPE-0041: `RewardContext` se amplia con señales de cobertura (`discoveredNewCell`, `movedToUnderExploredSide`) y repeticion de transicion (`transitionRepeatCount`).
+- SCAPE-0041: `DefaultRewardEvaluator` aplica reward shaping espacial con bono por nuevas celdas en zonas poco exploradas y penalizacion incremental por bucles repetidos.
+- SCAPE-0041: pruebas de regresion agregadas para validar mejora de reward orientado a cobertura sin degradar `successRate` base.

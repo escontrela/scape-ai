@@ -178,6 +178,7 @@ public class SimulationEpisodeOrchestrator {
               maze,
               state.currentState,
               List.copyOf(state.recentPositions),
+              state.transitionCounts,
               state.previousDirection,
               state.noProgressStreak,
               loopDetected,
@@ -243,6 +244,7 @@ public class SimulationEpisodeOrchestrator {
     private final Map<GridPosition, Integer> positionCounts;
     private final List<GridPosition> trajectory;
     private final List<PolicyInferenceTrace> inferenceTraces;
+    private final Map<String, Integer> transitionCounts;
     private SimulationState currentState;
     private MoveDirection previousDirection;
     private int noProgressStreak;
@@ -272,7 +274,8 @@ public class SimulationEpisodeOrchestrator {
         Deque<GridPosition> recentPositions,
         Map<GridPosition, Integer> positionCounts,
         List<GridPosition> trajectory,
-        List<PolicyInferenceTrace> inferenceTraces) {
+        List<PolicyInferenceTrace> inferenceTraces,
+        Map<String, Integer> transitionCounts) {
       this.startedAt = startedAt;
       this.deadline = deadline;
       this.mazeExit = mazeExit;
@@ -290,6 +293,7 @@ public class SimulationEpisodeOrchestrator {
       this.positionCounts = positionCounts;
       this.trajectory = trajectory;
       this.inferenceTraces = inferenceTraces;
+      this.transitionCounts = transitionCounts;
     }
 
     static EpisodeExecutionState initial(
@@ -318,7 +322,8 @@ public class SimulationEpisodeOrchestrator {
           recent,
           counts,
           trajectory,
-          new ArrayList<>());
+          new ArrayList<>(),
+          new HashMap<>());
     }
 
     static EpisodeExecutionState fromCheckpoint(
@@ -357,7 +362,8 @@ public class SimulationEpisodeOrchestrator {
           recent,
           counts,
           trajectory,
-          new ArrayList<>());
+          new ArrayList<>(),
+          new HashMap<>());
     }
 
     EpisodeCheckpoint toCheckpoint(long currentTime) {

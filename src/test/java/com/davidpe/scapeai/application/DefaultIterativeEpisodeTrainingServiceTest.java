@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.davidpe.scapeai.ai.MovementPolicy;
+import com.davidpe.scapeai.ai.DefaultRewardEvaluator;
 import com.davidpe.scapeai.ai.RewardAssessment;
 import com.davidpe.scapeai.ai.RewardEvaluator;
 import com.davidpe.scapeai.ai.RewardSignal;
@@ -68,8 +69,31 @@ class DefaultIterativeEpisodeTrainingServiceTest {
         eventBus.types());
   }
 
+  @Test
+  void shouldImproveCoverageWeightedRewardWithoutReducingSuccessRate() {
+    MovementPolicy policy = context -> MoveDirection.RIGHT;
+    MazeDefinition maze = new MazeDefinition(1, 3, new boolean[1][3], new GridPosition(0, 0), new GridPosition(0, 2));
+    DefaultIterativeEpisodeTrainingService legacyService =
+        new DefaultIterativeEpisodeTrainingService(
+            orchestratorWithPolicyAndEvaluator(policy, context -> RewardAssessment.of(RewardSignal.NEGATIVE)));
+    DefaultIterativeEpisodeTrainingService shapedService =
+        new DefaultIterativeEpisodeTrainingService(
+            orchestratorWithPolicyAndEvaluator(policy, new DefaultRewardEvaluator()));
+
+    IterativeTrainingSummary legacy = legacyService.train(maze, 5, Duration.ofMinutes(1), () -> false);
+    IterativeTrainingSummary shaped = shapedService.train(maze, 5, Duration.ofMinutes(1), () -> false);
+
+    assertEquals(legacy.successRate(), shaped.successRate());
+    assertTrue(shaped.averageReward() >= legacy.averageReward());
+  }
+
   private SimulationEpisodeOrchestrator orchestratorWithPolicy(MovementPolicy policy) {
-    RewardEvaluator rewardEvaluator = context -> RewardAssessment.of(RewardSignal.POSITIVE);
+    return orchestratorWithPolicyAndEvaluator(
+        policy, context -> RewardAssessment.of(RewardSignal.POSITIVE));
+  }
+
+  private SimulationEpisodeOrchestrator orchestratorWithPolicyAndEvaluator(
+      MovementPolicy policy, RewardEvaluator rewardEvaluator) {
     ActiveMovementPolicyService policyService =
         new ActiveMovementPolicyService(
             Map.of("heuristic-baseline", policy, "random-controlled", policy), "heuristic-baseline");

@@ -11,7 +11,9 @@ import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SingleStepSimulationEngine;
 import com.davidpe.scapeai.simulation.SimulationState;
 import com.davidpe.scapeai.simulation.SimulationStepResult;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
@@ -50,6 +52,7 @@ public class SimulationStepFlow {
         maze,
         currentState,
         List.of(),
+        new HashMap<>(),
         previousDirection,
         noProgressStreak,
         loopDetected,
@@ -60,6 +63,7 @@ public class SimulationStepFlow {
       MazeDefinition maze,
       SimulationState currentState,
       List<com.davidpe.scapeai.simulation.GridPosition> recentPositions,
+      Map<String, Integer> transitionCounts,
       MoveDirection previousDirection,
       int noProgressStreak,
       boolean loopDetected) {
@@ -67,6 +71,7 @@ public class SimulationStepFlow {
         maze,
         currentState,
         recentPositions,
+        transitionCounts,
         previousDirection,
         noProgressStreak,
         loopDetected,
@@ -77,6 +82,7 @@ public class SimulationStepFlow {
       MazeDefinition maze,
       SimulationState currentState,
       List<com.davidpe.scapeai.simulation.GridPosition> recentPositions,
+      Map<String, Integer> transitionCounts,
       MoveDirection previousDirection,
       int noProgressStreak,
       boolean loopDetected,
@@ -85,8 +91,22 @@ public class SimulationStepFlow {
         movementPolicy.chooseNextMove(
             new SpatialContext(
                 maze, currentState, recentPositions, previousDirection, noProgressStreak));
+    String transitionKey = transitionKey(currentState, direction);
+    int repeatCount = transitionCounts.getOrDefault(transitionKey, 0);
     SimulationStepResult result = simulationEngine.step(currentState, maze, direction);
-    RewardAssessment reward = rewardEvaluator.evaluate(new RewardContext(currentState, result, loopDetected));
+    boolean discoveredNewCell =
+        result.state().visitedCells().size() > currentState.visitedCells().size();
+    boolean movedToUnderExploredSide = movedToUnderExploredSide(maze, currentState, result.state());
+    RewardAssessment reward =
+        rewardEvaluator.evaluate(
+            new RewardContext(
+                currentState,
+                result,
+                loopDetected,
+                discoveredNewCell,
+                movedToUnderExploredSide,
+                repeatCount));
+    transitionCounts.put(transitionKey, repeatCount + 1);
     Optional<PolicyInferenceTrace> trace = Optional.empty();
     if (movementPolicy instanceof InferenceTraceProvider provider) {
       trace = provider.latestInferenceTrace();
@@ -96,5 +116,32 @@ public class SimulationStepFlow {
 
   MovementPolicy activePolicy() {
     return movementPolicyService.activePolicy();
+  }
+
+  private boolean movedToUnderExploredSide(
+      MazeDefinition maze, SimulationState previousState, SimulationState nextState) {
+    int midCol = maze.cols() / 2;
+    int left = 0;
+    int right = 0;
+    for (var visited : previousState.visitedCells()) {
+      if (visited.col() < midCol) {
+        left++;
+      } else {
+        right++;
+      }
+    }
+    boolean movedLeft = nextState.agentPosition().col() < midCol;
+    if (left == right) {
+      return false;
+    }
+    return movedLeft ? left < right : right < left;
+  }
+
+  private String transitionKey(SimulationState state, MoveDirection direction) {
+    return state.agentPosition().row()
+        + ":"
+        + state.agentPosition().col()
+        + "->"
+        + direction.name();
   }
 }
