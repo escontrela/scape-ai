@@ -106,6 +106,7 @@
 - Implementacion de `MovementPolicy` mediante adaptador DJL encapsulado en infraestructura IA.
 - Traduccion de contexto espacial a prediccion de movimiento con fallback controlado.
 - Frontera estable para evolucion futura del modelo sin romper simulacion ni UI.
+- Implementacion tecnica: `DjlMovementPolicyAdapter` delega en `DjlDirectionPredictor` y aplica fallback heuristico ante predicciones invalidas o errores de inferencia.
 
 ### SCAPE-0014 - Persistencia de configuraciones de entrenamiento
 - Objetivo funcional: guardar y reutilizar presets de entrenamiento reproducibles.

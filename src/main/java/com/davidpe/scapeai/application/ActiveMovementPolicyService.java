@@ -14,6 +14,7 @@ public class ActiveMovementPolicyService {
 
   private static final String HEURISTIC_BASELINE = "heuristic-baseline";
   private static final String RANDOM_CONTROLLED = "random-controlled";
+  private static final String DJL_ADAPTER = "djl-adapter";
 
   private final Map<String, MovementPolicy> policiesById;
   private final List<MovementPolicyOption> options;
@@ -22,9 +23,16 @@ public class ActiveMovementPolicyService {
   public ActiveMovementPolicyService(
       @Qualifier("heuristicBaselineMovementPolicy") MovementPolicy heuristicBaseline,
       @Qualifier("randomControlledMovementPolicy") MovementPolicy randomControlled,
+      @Qualifier("djlMovementPolicy") MovementPolicy djlAdapterPolicy,
       @Value("${scape.ai.policy:heuristic-baseline}") String defaultPolicy) {
     this(
-        Map.of(HEURISTIC_BASELINE, heuristicBaseline, RANDOM_CONTROLLED, randomControlled),
+        Map.of(
+            HEURISTIC_BASELINE,
+            heuristicBaseline,
+            RANDOM_CONTROLLED,
+            randomControlled,
+            DJL_ADAPTER,
+            djlAdapterPolicy),
         defaultPolicy);
   }
 
@@ -38,8 +46,12 @@ public class ActiveMovementPolicyService {
     this.policiesById = Map.copyOf(ordered);
     this.options =
         List.of(
-            new MovementPolicyOption(HEURISTIC_BASELINE, "Heuristic baseline"),
-            new MovementPolicyOption(RANDOM_CONTROLLED, "Random controlled"));
+                new MovementPolicyOption(HEURISTIC_BASELINE, "Heuristic baseline"),
+                new MovementPolicyOption(RANDOM_CONTROLLED, "Random controlled"),
+                new MovementPolicyOption(DJL_ADAPTER, "DJL adapter"))
+            .stream()
+            .filter(option -> this.policiesById.containsKey(option.id()))
+            .toList();
 
     String firstAvailable = this.policiesById.keySet().iterator().next();
     String effectiveDefault = this.policiesById.containsKey(defaultPolicy) ? defaultPolicy : firstAvailable;
