@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.davidpe.scapeai.persistence.repository.JdbcMazeRepository;
+import com.davidpe.scapeai.persistence.repository.JdbcMazeCoverageRepository;
 import com.davidpe.scapeai.persistence.repository.JdbcExperienceReplayRepository;
 import com.davidpe.scapeai.persistence.repository.JdbcTrainingPresetRepository;
 import com.davidpe.scapeai.persistence.repository.JdbcTrainingRunRepository;
@@ -73,9 +74,22 @@ class JdbcPersistenceRepositoriesTest {
             created_at_epoch_millis INTEGER NOT NULL
           )
           """);
+      jdbcTemplate.execute(
+          """
+          CREATE TABLE maze_policy_coverage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            maze_id INTEGER NOT NULL,
+            policy_id TEXT NOT NULL,
+            solved INTEGER NOT NULL DEFAULT 0,
+            updated_at_epoch_millis INTEGER NOT NULL,
+            UNIQUE(maze_id, policy_id)
+          )
+          """);
 
       JdbcMazeRepository mazeRepository = new JdbcMazeRepository(jdbcTemplate);
-      JdbcTrainingRunRepository runRepository = new JdbcTrainingRunRepository(jdbcTemplate);
+      JdbcMazeCoverageRepository coverageRepository = new JdbcMazeCoverageRepository(jdbcTemplate);
+      JdbcTrainingRunRepository runRepository =
+          new JdbcTrainingRunRepository(jdbcTemplate, coverageRepository);
       JdbcTrainingPresetRepository presetRepository = new JdbcTrainingPresetRepository(jdbcTemplate);
       JdbcExperienceReplayRepository replayRepository = new JdbcExperienceReplayRepository(jdbcTemplate);
 
@@ -127,6 +141,7 @@ class JdbcPersistenceRepositoriesTest {
       replayRepository.save(new ExperienceTransitionEntity(null, "s2", "UP", -0.1, "s3", 3000));
       var replayPage0 = replayRepository.findRecent(0, 2);
       var replayPage1 = replayRepository.findRecent(1, 2);
+      var pendingCoverage = coverageRepository.findPendingCoverageSummary();
       var preset =
           presetRepository.save(
               new TrainingPresetEntity(null, 30, 20_000L, "heuristic-baseline", 20260309L));
@@ -150,6 +165,9 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals("s2", replayPage0.get(0).stateSummary());
       assertEquals(1, replayPage1.size());
       assertEquals("s0", replayPage1.get(0).stateSummary());
+      assertEquals(1, pendingCoverage.size());
+      assertEquals("Training Maze", pendingCoverage.get(0).mazeName());
+      assertEquals(1L, pendingCoverage.get(0).pendingPolicies());
       assertEquals(1, presets.size());
       assertTrue(loadedPreset.isPresent());
       assertEquals(30, loadedPreset.get().episodes());

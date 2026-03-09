@@ -299,7 +299,7 @@
 - Persistencia de estado `unsolved/solved` por combinacion de maze + policyId.
 - Actualizacion automatica al cerrar episodios exitosos sin duplicados.
 - Consulta de resumen de cobertura para destacar mazes pendientes en UI.
-- Implementacion tecnica propuesta: `MazeCoverageRepository` y `MazeCoverageSummaryService`.
+- Implementacion tecnica: `maze_policy_coverage` + `JdbcMazeCoverageRepository` persisten cobertura por `maze_id+policy_id`; `JdbcTrainingRunRepository` hace upsert automatico y `MainWindow` consulta `MazeCoverageSummaryService` para resaltar pendientes.
 
 ## Estado operativo actual
 - WIP objetivo: 1 ticket en `in_progress`.

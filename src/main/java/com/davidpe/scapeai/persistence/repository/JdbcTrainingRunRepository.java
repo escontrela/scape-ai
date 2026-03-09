@@ -13,9 +13,12 @@ import org.springframework.stereotype.Repository;
 public class JdbcTrainingRunRepository implements TrainingRunRepository {
 
   private final JdbcTemplate jdbcTemplate;
+  private final MazeCoverageRepository mazeCoverageRepository;
 
-  public JdbcTrainingRunRepository(JdbcTemplate jdbcTemplate) {
+  public JdbcTrainingRunRepository(
+      JdbcTemplate jdbcTemplate, MazeCoverageRepository mazeCoverageRepository) {
     this.jdbcTemplate = jdbcTemplate;
+    this.mazeCoverageRepository = mazeCoverageRepository;
   }
 
   @Override
@@ -49,6 +52,8 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
         keyHolder);
 
     Number key = keyHolder.getKey();
+    mazeCoverageRepository.upsertCoverage(
+        run.mazeId(), run.policyId(), run.success(), run.createdAtEpochMillis());
     return new TrainingRunEntity(
         key.longValue(),
         run.mazeId(),

@@ -2,6 +2,8 @@ package com.davidpe.scapeai.ui;
 
 import com.davidpe.scapeai.application.LiveEpisodeMetrics;
 import com.davidpe.scapeai.application.LiveMetricsService;
+import com.davidpe.scapeai.application.MazeCoverageSummaryRow;
+import com.davidpe.scapeai.application.MazeCoverageSummaryService;
 import com.davidpe.scapeai.application.MovementPolicyOption;
 import com.davidpe.scapeai.application.RecentRunComparisonRow;
 import com.davidpe.scapeai.application.RecentRunsComparisonService;
@@ -57,6 +59,7 @@ public final class MainWindow {
   private final StartTrainingSessionUseCase startTrainingSessionUseCase;
   private final LiveMetricsService liveMetricsService;
   private final RecentRunsComparisonService recentRunsComparisonService;
+  private final MazeCoverageSummaryService mazeCoverageSummaryService;
   private final MazeCatalogService mazeCatalogService;
   private final MazeViewportRenderer mazeViewportRenderer;
   private final ScheduledExecutorService trajectoryScheduler =
@@ -87,6 +90,7 @@ public final class MainWindow {
   private Label executionModeValue;
   private VBox timelineEntriesBox;
   private VBox recentRunsEntriesBox;
+  private VBox coverageEntriesBox;
   private StackPane mazeViewport;
   private MazeDefinition selectedMaze;
   private String selectedMazeName;
@@ -100,6 +104,7 @@ public final class MainWindow {
       StartTrainingSessionUseCase startTrainingSessionUseCase,
       LiveMetricsService liveMetricsService,
       RecentRunsComparisonService recentRunsComparisonService,
+      MazeCoverageSummaryService mazeCoverageSummaryService,
       MazeCatalogService mazeCatalogService,
       MazeViewportRenderer mazeViewportRenderer,
       TrainingLifecycleSubscriberRouter trainingLifecycleSubscriberRouter) {
@@ -107,6 +112,7 @@ public final class MainWindow {
     this.startTrainingSessionUseCase = startTrainingSessionUseCase;
     this.liveMetricsService = liveMetricsService;
     this.recentRunsComparisonService = recentRunsComparisonService;
+    this.mazeCoverageSummaryService = mazeCoverageSummaryService;
     this.mazeCatalogService = mazeCatalogService;
     this.mazeViewportRenderer = mazeViewportRenderer;
     trainingLifecycleSubscriberRouter.register(
@@ -127,6 +133,7 @@ public final class MainWindow {
     liveMetricsService.subscribe(this::applyMetrics);
     liveMetricsService.subscribeTimeline(this::applyTimeline);
     refreshRecentRunsAsync();
+    refreshCoverageSummaryAsync();
 
     Scene scene = new Scene(root, 1200, 760);
     stage.setTitle("Scape AI Control Panel");
@@ -564,6 +571,13 @@ public final class MainWindow {
     recentRunsEntriesBox = new VBox(6);
     recentRunsEntriesBox.getChildren().add(timelinePlaceholder("No training runs stored yet."));
 
+    Label coverageTitle = new Label("PENDING COVERAGE");
+    coverageTitle.setTextFill(Color.web("#9db2ff"));
+    coverageTitle.setFont(Font.font("Consolas", 12));
+
+    coverageEntriesBox = new VBox(6);
+    coverageEntriesBox.getChildren().add(timelinePlaceholder("No pending mazes."));
+
     VBox panel =
         new VBox(
             14,
@@ -573,7 +587,9 @@ public final class MainWindow {
             timelineEntriesBox,
             comparisonTitle,
             comparisonSortSelector,
-            recentRunsEntriesBox);
+            recentRunsEntriesBox,
+            coverageTitle,
+            coverageEntriesBox);
     panel.setPadding(new Insets(18));
     panel.setMinWidth(240);
     panel.setStyle(panelStyle());
@@ -694,6 +710,14 @@ public final class MainWindow {
         });
   }
 
+  private void refreshCoverageSummaryAsync() {
+    recentRunsExecutor.execute(
+        () -> {
+          List<MazeCoverageSummaryRow> rows = mazeCoverageSummaryService.pendingCoverage();
+          Platform.runLater(() -> renderCoverageSummary(rows));
+        });
+  }
+
   private void renderRecentRuns(
       String mazeName, RecentRunsSortOption sort, List<RecentRunComparisonRow> rows) {
     if (recentRunsEntriesBox == null) {
@@ -709,6 +733,27 @@ public final class MainWindow {
     }
     for (RecentRunComparisonRow row : rows) {
       recentRunsEntriesBox.getChildren().add(recentRunRow(row));
+    }
+  }
+
+  private void renderCoverageSummary(List<MazeCoverageSummaryRow> rows) {
+    if (coverageEntriesBox == null) {
+      return;
+    }
+    coverageEntriesBox.getChildren().clear();
+    if (rows.isEmpty()) {
+      coverageEntriesBox.getChildren().add(timelinePlaceholder("No pending mazes."));
+      return;
+    }
+    int shown = 0;
+    for (MazeCoverageSummaryRow row : rows) {
+      coverageEntriesBox
+          .getChildren()
+          .add(timelinePlaceholder(row.mazeName() + " -> pending policies: " + row.pendingPolicies()));
+      shown++;
+      if (shown >= 5) {
+        break;
+      }
     }
   }
 

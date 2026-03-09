@@ -46,3 +46,13 @@ CREATE TABLE IF NOT EXISTS experience_transitions (
   next_state_summary TEXT NOT NULL,
   created_at_epoch_millis INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS maze_policy_coverage (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  maze_id INTEGER NOT NULL,
+  policy_id TEXT NOT NULL,
+  solved INTEGER NOT NULL DEFAULT 0,
+  updated_at_epoch_millis INTEGER NOT NULL,
+  FOREIGN KEY (maze_id) REFERENCES mazes(id),
+  UNIQUE(maze_id, policy_id)
+);
