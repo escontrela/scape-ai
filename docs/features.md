@@ -382,3 +382,6 @@
 - SCAPE-0041: `RewardContext` se amplia con señales de cobertura (`discoveredNewCell`, `movedToUnderExploredSide`) y repeticion de transicion (`transitionRepeatCount`).
 - SCAPE-0041: `DefaultRewardEvaluator` aplica reward shaping espacial con bono por nuevas celdas en zonas poco exploradas y penalizacion incremental por bucles repetidos.
 - SCAPE-0041: pruebas de regresion agregadas para validar mejora de reward orientado a cobertura sin degradar `successRate` base.
+- SCAPE-0042: nueva suite `CoverageRegressionSuiteTest` headless con semillas fijas (`20260310..20260313`) y ejecucion reproducible.
+- SCAPE-0042: validacion automatica de umbrales minimos de `rightSideCoverage` y maximos de `loopEvents` por episodio.
+- SCAPE-0042: al ejecutarse en `mvn test` (Surefire por defecto), cualquier regresion de cobertura rompe build local/proyecto y bloquea merge.
