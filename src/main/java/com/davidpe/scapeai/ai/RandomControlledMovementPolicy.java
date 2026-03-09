@@ -4,15 +4,20 @@ import com.davidpe.scapeai.simulation.MoveDirection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.function.Supplier;
 
 public class RandomControlledMovementPolicy implements MovementPolicy {
 
   private static final List<MoveDirection> DIRECTION_PRIORITY =
       List.of(MoveDirection.UP, MoveDirection.RIGHT, MoveDirection.DOWN, MoveDirection.LEFT);
-  private final Random random;
+  private final Supplier<Random> randomSupplier;
 
   public RandomControlledMovementPolicy(long seed) {
-    this.random = new Random(seed);
+    this(() -> new Random(seed));
+  }
+
+  public RandomControlledMovementPolicy(Supplier<Random> randomSupplier) {
+    this.randomSupplier = randomSupplier;
   }
 
   @Override
@@ -31,6 +36,7 @@ public class RandomControlledMovementPolicy implements MovementPolicy {
     if (validMoves.isEmpty()) {
       return MoveDirection.UP;
     }
+    Random random = randomSupplier.get();
     return validMoves.get(random.nextInt(validMoves.size()));
   }
 }

@@ -23,12 +23,14 @@ public class SimulationEpisodeOrchestrator {
   private final Duration defaultTimeout;
   private final int loopWindow;
   private final LongSupplier currentTimeMillis;
+  private final java.util.function.LongSupplier entropySupplier;
   private final ExperienceTransitionRecorder experienceTransitionRecorder;
 
   @Autowired
   public SimulationEpisodeOrchestrator(
       SimulationStepFlow simulationStepFlow,
       ExperienceTransitionRecorder experienceTransitionRecorder,
+      SessionRandomSource sessionRandomSource,
       @Value("${scape.simulation.episode-timeout:PT5M}") Duration defaultTimeout,
       @Value("${scape.simulation.loop-window:8}") int loopWindow) {
     this(
@@ -36,7 +38,8 @@ public class SimulationEpisodeOrchestrator {
         experienceTransitionRecorder,
         defaultTimeout,
         loopWindow,
-        System::currentTimeMillis);
+        System::currentTimeMillis,
+        () -> sessionRandomSource.random().nextLong());
   }
 
   SimulationEpisodeOrchestrator(
@@ -45,11 +48,28 @@ public class SimulationEpisodeOrchestrator {
       Duration defaultTimeout,
       int loopWindow,
       LongSupplier currentTimeMillis) {
+    this(
+        simulationStepFlow,
+        experienceTransitionRecorder,
+        defaultTimeout,
+        loopWindow,
+        currentTimeMillis,
+        () -> 0L);
+  }
+
+  SimulationEpisodeOrchestrator(
+      SimulationStepFlow simulationStepFlow,
+      ExperienceTransitionRecorder experienceTransitionRecorder,
+      Duration defaultTimeout,
+      int loopWindow,
+      LongSupplier currentTimeMillis,
+      java.util.function.LongSupplier entropySupplier) {
     this.simulationStepFlow = simulationStepFlow;
     this.defaultTimeout = defaultTimeout;
     this.loopWindow = Math.max(2, loopWindow);
     this.currentTimeMillis = currentTimeMillis;
     this.experienceTransitionRecorder = experienceTransitionRecorder;
+    this.entropySupplier = entropySupplier;
   }
 
   SimulationEpisodeOrchestrator(
@@ -80,6 +100,7 @@ public class SimulationEpisodeOrchestrator {
   }
 
   public SimulationEpisodeResult runEpisode(MazeDefinition maze, Duration timeout) {
+    entropySupplier.getAsLong();
     long startedAt = currentTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
     EpisodeExecutionState state =
@@ -91,6 +112,7 @@ public class SimulationEpisodeOrchestrator {
 
   public EpisodeCheckpoint runEpisodeUntilCheckpoint(
       MazeDefinition maze, Duration timeout, int maxSteps) {
+    entropySupplier.getAsLong();
     long startedAt = currentTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
     EpisodeExecutionState state =
@@ -101,6 +123,7 @@ public class SimulationEpisodeOrchestrator {
   }
 
   public SimulationEpisodeResult resumeEpisode(MazeDefinition maze, EpisodeCheckpoint checkpoint) {
+    entropySupplier.getAsLong();
     long resumedAt = currentTimeMillis.getAsLong();
     long deadline = resumedAt + checkpoint.remainingMillis();
     EpisodeExecutionState state =

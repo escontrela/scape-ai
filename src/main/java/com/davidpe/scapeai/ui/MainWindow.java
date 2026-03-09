@@ -313,7 +313,7 @@ public final class MainWindow {
               StartTrainingSessionResult startResult =
                   startTrainingSessionUseCase.start(
                       new StartTrainingSessionCommand(
-                          selectedMaze, selectedPresetId, targetDifficulty));
+                          selectedMaze, selectedPresetId, targetDifficulty, null));
               if (!startResult.started()) {
                 updateSystemStatus(startResult.message(), "#ff6b8a");
                 return;

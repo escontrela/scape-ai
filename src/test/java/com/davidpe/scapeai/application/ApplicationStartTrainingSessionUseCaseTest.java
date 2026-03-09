@@ -22,17 +22,19 @@ class ApplicationStartTrainingSessionUseCaseTest {
   void shouldStartWhenMazePolicyAndPresetAreValid() {
     StubSimulationControlService controlService = new StubSimulationControlService();
     StubMazeCatalogService mazeCatalogService = new StubMazeCatalogService();
+    SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
-        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService);
+        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService, randomSource);
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
     StartTrainingSessionResult result =
-        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.LOW));
+        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.LOW, 77L));
 
     assertTrue(result.started());
-    assertEquals("TRAINING RUNNING — TARGET BAJA", result.message());
+    assertEquals("TRAINING RUNNING — TARGET BAJA — SEED 77", result.message());
     assertNotNull(result.maze());
+    assertEquals(Long.valueOf(77L), result.effectiveSeed());
     assertTrue(controlService.started);
     assertEquals(Long.valueOf(1L), controlService.activeTrainingPresetId());
   }
@@ -42,11 +44,12 @@ class ApplicationStartTrainingSessionUseCaseTest {
     StubSimulationControlService controlService = new StubSimulationControlService();
     StubMazeCatalogService mazeCatalogService = new StubMazeCatalogService();
     mazeCatalogService.lowCandidate = Optional.empty();
+    SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
-        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService);
+        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService, randomSource);
 
     StartTrainingSessionResult result =
-        useCase.start(new StartTrainingSessionCommand(null, 1L, TrainingTargetDifficulty.LOW));
+        useCase.start(new StartTrainingSessionCommand(null, 1L, TrainingTargetDifficulty.LOW, null));
 
     assertFalse(result.started());
     assertEquals("Select a maze before starting.", result.message());
@@ -57,13 +60,15 @@ class ApplicationStartTrainingSessionUseCaseTest {
   void shouldReturnValidationErrorWhenPresetDoesNotExist() {
     StubSimulationControlService controlService = new StubSimulationControlService();
     StubMazeCatalogService mazeCatalogService = new StubMazeCatalogService();
+    SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
-        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService);
+        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService, randomSource);
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
     StartTrainingSessionResult result =
-        useCase.start(new StartTrainingSessionCommand(maze, 999L, TrainingTargetDifficulty.MEDIUM));
+        useCase.start(
+            new StartTrainingSessionCommand(maze, 999L, TrainingTargetDifficulty.MEDIUM, null));
 
     assertFalse(result.started());
     assertEquals("Selected preset does not exist.", result.message());
@@ -75,19 +80,38 @@ class ApplicationStartTrainingSessionUseCaseTest {
     StubSimulationControlService controlService = new StubSimulationControlService();
     StubMazeCatalogService mazeCatalogService = new StubMazeCatalogService();
     mazeCatalogService.mediumCandidate = Optional.empty();
+    SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
-        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService);
+        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService, randomSource);
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
     StartTrainingSessionResult result =
-        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.MEDIUM));
+        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.MEDIUM, null));
 
     assertFalse(result.started());
     assertEquals(
         "No mazes available for selected difficulty. Choose another level or add more mazes.",
         result.message());
     assertFalse(controlService.started);
+  }
+
+  @Test
+  void shouldGenerateEffectiveSeedWhenNotProvided() {
+    StubSimulationControlService controlService = new StubSimulationControlService();
+    StubMazeCatalogService mazeCatalogService = new StubMazeCatalogService();
+    SessionRandomSource randomSource = new SessionRandomSource(20260309L);
+    ApplicationStartTrainingSessionUseCase useCase =
+        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService, randomSource);
+    MazeDefinition maze =
+        new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
+
+    StartTrainingSessionResult result =
+        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.HIGH, null));
+
+    assertTrue(result.started());
+    assertNotNull(result.effectiveSeed());
+    assertTrue(result.message().contains("SEED " + result.effectiveSeed()));
   }
 
   private static final class StubSimulationControlService implements SimulationControlService {

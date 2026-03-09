@@ -8,11 +8,15 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
 
   private final SimulationControlService simulationControlService;
   private final MazeCatalogService mazeCatalogService;
+  private final SessionRandomSource sessionRandomSource;
 
   public ApplicationStartTrainingSessionUseCase(
-      SimulationControlService simulationControlService, MazeCatalogService mazeCatalogService) {
+      SimulationControlService simulationControlService,
+      MazeCatalogService mazeCatalogService,
+      SessionRandomSource sessionRandomSource) {
     this.simulationControlService = simulationControlService;
     this.mazeCatalogService = mazeCatalogService;
+    this.sessionRandomSource = sessionRandomSource;
   }
 
   @Override
@@ -60,8 +64,14 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
           "No mazes available for selected difficulty. Choose another level or add more mazes.");
     }
 
+    long effectiveSeed = sessionRandomSource.resolveAndApplySeed(command.sessionSeed());
     simulationControlService.start();
     return StartTrainingSessionResult.ok(
-        "TRAINING RUNNING — TARGET " + targetDifficulty.label().toUpperCase(), selectedMaze);
+        "TRAINING RUNNING — TARGET "
+            + targetDifficulty.label().toUpperCase()
+            + " — SEED "
+            + effectiveSeed,
+        selectedMaze,
+        effectiveSeed);
   }
 }

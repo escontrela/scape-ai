@@ -1,9 +1,9 @@
 package com.davidpe.scapeai.ai;
 
+import com.davidpe.scapeai.application.SessionRandomSource;
 import com.davidpe.scapeai.ai.infrastructure.djl.DjlDirectionPredictor;
 import com.davidpe.scapeai.ai.infrastructure.djl.DjlMovementPolicyAdapter;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,9 +16,8 @@ public class MovementPolicyConfiguration {
   }
 
   @Bean("randomControlledMovementPolicy")
-  public MovementPolicy randomControlledMovementPolicy(
-      @Value("${scape.ai.random-seed:20260309}") long seed) {
-    return new RandomControlledMovementPolicy(seed);
+  public MovementPolicy randomControlledMovementPolicy(SessionRandomSource sessionRandomSource) {
+    return new RandomControlledMovementPolicy(sessionRandomSource::random);
   }
 
   @Bean
