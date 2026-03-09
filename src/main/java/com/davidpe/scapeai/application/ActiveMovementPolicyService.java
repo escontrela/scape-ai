@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class ActiveMovementPolicyService {
   private final List<MovementPolicyOption> options;
   private final AtomicReference<String> activePolicyId;
 
+  @Autowired
   public ActiveMovementPolicyService(
       @Qualifier("heuristicBaselineMovementPolicy") MovementPolicy heuristicBaseline,
       @Qualifier("randomControlledMovementPolicy") MovementPolicy randomControlled,
@@ -54,7 +56,8 @@ public class ActiveMovementPolicyService {
             .toList();
 
     String firstAvailable = this.policiesById.keySet().iterator().next();
-    String effectiveDefault = this.policiesById.containsKey(defaultPolicy) ? defaultPolicy : firstAvailable;
+    String effectiveDefault =
+        this.policiesById.containsKey(defaultPolicy) ? defaultPolicy : firstAvailable;
     this.activePolicyId = new AtomicReference<>(effectiveDefault);
   }
 

@@ -12,8 +12,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 
+@DependsOn("sqliteSchemaMigrator")
 @Component
 public class MazeCatalogService {
 
@@ -39,7 +41,9 @@ public class MazeCatalogService {
   }
 
   public List<String> namesByDifficulty(boolean ascending) {
-    return mazeRepository.findAllOrderByDifficulty(ascending).stream().map(MazeEntity::name).toList();
+    return mazeRepository.findAllOrderByDifficulty(ascending).stream()
+        .map(MazeEntity::name)
+        .toList();
   }
 
   public Optional<MazeDefinition> findCandidateByDifficulty(TrainingTargetDifficulty target) {

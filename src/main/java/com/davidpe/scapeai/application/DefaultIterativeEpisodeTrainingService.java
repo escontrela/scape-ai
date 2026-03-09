@@ -3,6 +3,7 @@ package com.davidpe.scapeai.application;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import java.time.Duration;
 import java.util.function.BooleanSupplier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -11,6 +12,7 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
   private final SimulationEpisodeOrchestrator episodeOrchestrator;
   private final TrainingLifecycleEventBus trainingLifecycleEventBus;
 
+  @Autowired
   public DefaultIterativeEpisodeTrainingService(SimulationEpisodeOrchestrator episodeOrchestrator) {
     this(episodeOrchestrator, TrainingLifecycleEventBus.noop());
   }
