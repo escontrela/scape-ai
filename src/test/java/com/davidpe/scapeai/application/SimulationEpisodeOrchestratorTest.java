@@ -13,6 +13,8 @@ import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SingleStepSimulationEngine;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.LongSupplier;
@@ -131,6 +133,22 @@ class SimulationEpisodeOrchestratorTest {
     assertEquals("traceable-test", result.inferenceTraces().get(0).policyId());
   }
 
+  @Test
+  void shouldRecordExperienceTransitionsDuringEpisode() {
+    RecordingExperienceRecorder recorder = new RecordingExperienceRecorder();
+    SimulationStepFlow flow = flowWithPolicy(context -> MoveDirection.RIGHT);
+    SimulationEpisodeOrchestrator orchestrator =
+        new SimulationEpisodeOrchestrator(
+            flow, recorder, Duration.ofMillis(100), 6, new FixedStepTime(0, 20));
+    MazeDefinition maze =
+        new MazeDefinition(1, 4, new boolean[1][4], new GridPosition(0, 0), new GridPosition(0, 3));
+
+    SimulationEpisodeResult result = orchestrator.runEpisode(maze, Duration.ofMillis(100));
+
+    assertTrue(result.totalSteps() > 0);
+    assertEquals(result.totalSteps(), recorder.transitions().size());
+  }
+
   private SimulationStepFlow flowWithPolicy(MovementPolicy policy) {
     RewardEvaluator rewardEvaluator = context -> RewardAssessment.of(RewardSignal.NEGATIVE);
     ActiveMovementPolicyService policyService =
@@ -171,6 +189,24 @@ class SimulationEpisodeOrchestratorTest {
     @Override
     public Optional<PolicyInferenceTrace> latestInferenceTrace() {
       return Optional.ofNullable(lastTrace);
+    }
+  }
+
+  private static final class RecordingExperienceRecorder implements ExperienceTransitionRecorder {
+
+    private final List<String> transitions = new ArrayList<>();
+
+    @Override
+    public void recordTransition(
+        com.davidpe.scapeai.simulation.SimulationState previousState,
+        MoveDirection action,
+        double reward,
+        com.davidpe.scapeai.simulation.SimulationState nextState) {
+      transitions.add(previousState.agentPosition() + "->" + nextState.agentPosition() + ":" + action);
+    }
+
+    public List<String> transitions() {
+      return transitions;
     }
   }
 }

@@ -23,17 +23,25 @@ public class SimulationEpisodeOrchestrator {
   private final Duration defaultTimeout;
   private final int loopWindow;
   private final LongSupplier currentTimeMillis;
+  private final ExperienceTransitionRecorder experienceTransitionRecorder;
 
   @Autowired
   public SimulationEpisodeOrchestrator(
       SimulationStepFlow simulationStepFlow,
+      ExperienceTransitionRecorder experienceTransitionRecorder,
       @Value("${scape.simulation.episode-timeout:PT5M}") Duration defaultTimeout,
       @Value("${scape.simulation.loop-window:8}") int loopWindow) {
-    this(simulationStepFlow, defaultTimeout, loopWindow, System::currentTimeMillis);
+    this(
+        simulationStepFlow,
+        experienceTransitionRecorder,
+        defaultTimeout,
+        loopWindow,
+        System::currentTimeMillis);
   }
 
   SimulationEpisodeOrchestrator(
       SimulationStepFlow simulationStepFlow,
+      ExperienceTransitionRecorder experienceTransitionRecorder,
       Duration defaultTimeout,
       int loopWindow,
       LongSupplier currentTimeMillis) {
@@ -41,11 +49,30 @@ public class SimulationEpisodeOrchestrator {
     this.defaultTimeout = defaultTimeout;
     this.loopWindow = Math.max(2, loopWindow);
     this.currentTimeMillis = currentTimeMillis;
+    this.experienceTransitionRecorder = experienceTransitionRecorder;
   }
 
   SimulationEpisodeOrchestrator(
       SimulationStepFlow simulationStepFlow, Duration defaultTimeout, LongSupplier currentTimeMillis) {
-    this(simulationStepFlow, defaultTimeout, 8, currentTimeMillis);
+    this(
+        simulationStepFlow,
+        ExperienceTransitionRecorder.noop(),
+        defaultTimeout,
+        8,
+        currentTimeMillis);
+  }
+
+  SimulationEpisodeOrchestrator(
+      SimulationStepFlow simulationStepFlow,
+      Duration defaultTimeout,
+      int loopWindow,
+      LongSupplier currentTimeMillis) {
+    this(
+        simulationStepFlow,
+        ExperienceTransitionRecorder.noop(),
+        defaultTimeout,
+        loopWindow,
+        currentTimeMillis);
   }
 
   public SimulationEpisodeResult runEpisode(MazeDefinition maze) {
@@ -92,6 +119,7 @@ public class SimulationEpisodeOrchestrator {
         state.loopEvents++;
       }
       int previousDistanceToExit = manhattanDistance(state.currentState.agentPosition(), maze.exit());
+      SimulationState previousState = state.currentState;
       var outcome =
           simulationStepFlow.execute(
               maze, state.currentState, state.previousDirection, state.noProgressStreak, loopDetected);
@@ -107,6 +135,8 @@ public class SimulationEpisodeOrchestrator {
       if (outcome.result().collision()) {
         state.collisions++;
       }
+      experienceTransitionRecorder.recordTransition(
+          previousState, outcome.selectedDirection(), outcome.reward().value(), state.currentState);
       outcome.inferenceTrace().ifPresent(state.inferenceTraces::add);
       executed++;
     }

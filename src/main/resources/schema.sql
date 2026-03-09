@@ -35,3 +35,12 @@ CREATE TABLE IF NOT EXISTS training_presets (
   policy TEXT NOT NULL,
   seed INTEGER
 );
+
+CREATE TABLE IF NOT EXISTS experience_transitions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  state_summary TEXT NOT NULL,
+  action TEXT NOT NULL,
+  reward REAL NOT NULL,
+  next_state_summary TEXT NOT NULL,
+  created_at_epoch_millis INTEGER NOT NULL
+);

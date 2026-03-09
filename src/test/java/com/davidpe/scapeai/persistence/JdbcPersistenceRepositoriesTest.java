@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.davidpe.scapeai.persistence.repository.JdbcMazeRepository;
+import com.davidpe.scapeai.persistence.repository.JdbcExperienceReplayRepository;
 import com.davidpe.scapeai.persistence.repository.JdbcTrainingPresetRepository;
 import com.davidpe.scapeai.persistence.repository.JdbcTrainingRunRepository;
 import com.davidpe.scapeai.persistence.TrainingPresetEntity;
@@ -60,10 +61,22 @@ class JdbcPersistenceRepositoriesTest {
             seed INTEGER
           )
           """);
+      jdbcTemplate.execute(
+          """
+          CREATE TABLE experience_transitions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            state_summary TEXT NOT NULL,
+            action TEXT NOT NULL,
+            reward REAL NOT NULL,
+            next_state_summary TEXT NOT NULL,
+            created_at_epoch_millis INTEGER NOT NULL
+          )
+          """);
 
       JdbcMazeRepository mazeRepository = new JdbcMazeRepository(jdbcTemplate);
       JdbcTrainingRunRepository runRepository = new JdbcTrainingRunRepository(jdbcTemplate);
       JdbcTrainingPresetRepository presetRepository = new JdbcTrainingPresetRepository(jdbcTemplate);
+      JdbcExperienceReplayRepository replayRepository = new JdbcExperienceReplayRepository(jdbcTemplate);
 
       MazeEntity maze =
           mazeRepository.save(new MazeEntity(null, "Training Maze", 10, 10, "########", 42.0));
@@ -106,6 +119,11 @@ class JdbcPersistenceRepositoriesTest {
       var latestOnly = runRepository.findRecentByMazeId(maze.id(), 1);
       var sortedAsc = mazeRepository.findAllOrderByDifficulty(true);
       var sortedDesc = mazeRepository.findAllOrderByDifficulty(false);
+      replayRepository.save(new ExperienceTransitionEntity(null, "s0", "RIGHT", 0.2, "s1", 1000));
+      replayRepository.save(new ExperienceTransitionEntity(null, "s1", "RIGHT", 0.3, "s2", 2000));
+      replayRepository.save(new ExperienceTransitionEntity(null, "s2", "UP", -0.1, "s3", 3000));
+      var replayPage0 = replayRepository.findRecent(0, 2);
+      var replayPage1 = replayRepository.findRecent(1, 2);
       var preset =
           presetRepository.save(
               new TrainingPresetEntity(null, 30, 20_000L, "heuristic-baseline", 20260309L));
@@ -124,6 +142,10 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals(3, sortedAsc.size());
       assertEquals(easier.name(), sortedAsc.get(0).name());
       assertEquals(harder.name(), sortedDesc.get(0).name());
+      assertEquals(2, replayPage0.size());
+      assertEquals("s2", replayPage0.get(0).stateSummary());
+      assertEquals(1, replayPage1.size());
+      assertEquals("s0", replayPage1.get(0).stateSummary());
       assertEquals(1, presets.size());
       assertTrue(loadedPreset.isPresent());
       assertEquals(30, loadedPreset.get().episodes());
