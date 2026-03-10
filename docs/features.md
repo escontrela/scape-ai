@@ -481,6 +481,20 @@
 - Configuración `scape.adaptive-difficulty.enabled` permite desactivar la estrategia y mantener comportamiento fijo.
 
 ### SCAPE-0052 - Snapshots de estado del episodio para replay debug
+- Objetivo funcional: capturar snapshots compactos de diagnóstico para reconstrucción determinista de episodios problemáticos.
+- Alcance introducido:
+- `SimulationEpisodeOrchestrator` captura hitos `START`, `MIDPOINT`, `PRE_TIMEOUT` y `FINAL` con posición, contadores principales y semilla efectiva.
+- `SimulationEpisodeResult` expone `debugSnapshots`, `replayMetadata` y serialización compacta JSON para persistencia (`debugSnapshotsJson`, `replayMetadataJson`).
+- Persistencia preparada en `training_runs` con columnas `episode_debug_snapshots` y `replay_debug_metadata` (schema + migrador + JDBC).
+
+### SCAPE-0053 - Índice de salud de entrenamiento persistente
+- Objetivo funcional: consolidar una métrica única de salud por corrida para ordenar resultados y detectar regresiones.
+- Alcance introducido:
+- Fórmula versionada `TrainingHealthIndexFormula` (`v1.0.0`) basada en éxito, cobertura, entropía y `timeoutRatio` reciente.
+- Persistencia de `training_health_index`, `health_index_formula_version` y `timeout_reached` en `training_runs` (schema + migrador + JDBC).
+- Comparativa reciente (`RecentRunsComparisonService`) soporta orden por `BY_HEALTH_INDEX` y marca regresiones frente a ventana histórica previa.
+
+### SCAPE-0052 - Snapshots de estado del episodio para replay debug
 - Objetivo funcional: persistir snapshots ligeros en hitos del episodio para reproducir diagnosticos sin reejecutar el entrenamiento completo.
 - Alcance introducido:
 - Captura compacta por hitos (inicio, mitad, pre-timeout, final) con posicion del agente, metrica clave y semilla efectiva.

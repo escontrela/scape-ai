@@ -29,6 +29,11 @@ CREATE TABLE IF NOT EXISTS training_runs (
   left_side_coverage REAL NOT NULL DEFAULT 0,
   right_side_coverage REAL NOT NULL DEFAULT 0,
   path_entropy REAL NOT NULL DEFAULT 0,
+  episode_debug_snapshots TEXT,
+  replay_debug_metadata TEXT,
+  timeout_reached INTEGER NOT NULL DEFAULT 0,
+  training_health_index REAL NOT NULL DEFAULT 0,
+  health_index_formula_version TEXT NOT NULL DEFAULT 'v1.0.0',
   created_at_epoch_millis INTEGER NOT NULL,
   FOREIGN KEY (maze_id) REFERENCES mazes(id)
 );

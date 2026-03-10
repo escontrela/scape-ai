@@ -58,6 +58,11 @@ class JdbcPersistenceRepositoriesTest {
             left_side_coverage REAL NOT NULL DEFAULT 0,
             right_side_coverage REAL NOT NULL DEFAULT 0,
             path_entropy REAL NOT NULL DEFAULT 0,
+            episode_debug_snapshots TEXT,
+            replay_debug_metadata TEXT,
+            timeout_reached INTEGER NOT NULL DEFAULT 0,
+            training_health_index REAL NOT NULL DEFAULT 0,
+            health_index_formula_version TEXT NOT NULL DEFAULT 'v1.0.0',
             created_at_epoch_millis INTEGER NOT NULL
           )
           """);
@@ -131,6 +136,11 @@ class JdbcPersistenceRepositoriesTest {
               0.50,
               0.40,
               0.88,
+              "[{\"milestone\":\"FINAL\"}]",
+              "{\"seed\":20260309}",
+              true,
+              58.4,
+              "v1.0.0",
               1000));
       runRepository.save(
           new TrainingRunEntity(
@@ -154,6 +164,11 @@ class JdbcPersistenceRepositoriesTest {
               0.45,
               0.70,
               1.32,
+              "[{\"milestone\":\"FINAL\"}]",
+              "{\"seed\":20260310}",
+              false,
+              83.1,
+              "v1.0.0",
               2000));
 
       var history = runRepository.findByMazeId(maze.id());
@@ -185,6 +200,11 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals(0.62, history.get(0).mazeCoverageRatio());
       assertEquals(0.70, history.get(0).rightSideCoverage());
       assertEquals(1.32, history.get(0).pathEntropy());
+      assertEquals("[{\"milestone\":\"FINAL\"}]", history.get(0).episodeDebugSnapshots());
+      assertEquals("{\"seed\":20260310}", history.get(0).replayDebugMetadata());
+      assertEquals(false, history.get(0).timeoutReached());
+      assertEquals(83.1, history.get(0).trainingHealthIndex());
+      assertEquals("v1.0.0", history.get(0).healthIndexFormulaVersion());
       assertEquals(3, sortedAsc.size());
       assertEquals(easier.name(), sortedAsc.get(0).name());
       assertEquals(harder.name(), sortedDesc.get(0).name());

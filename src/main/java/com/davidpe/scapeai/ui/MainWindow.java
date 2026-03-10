@@ -910,13 +910,23 @@ public final class MainWindow {
     entropy.setFont(Font.font("Consolas", 11));
     entropy.setTextFill(Color.web(row.lowEntropyAlert() ? "#ff6b8a" : "#7ef9ff"));
 
+    Label health =
+        new Label(
+            String.format(
+                Locale.US,
+                "THI %.1f%s",
+                row.trainingHealthIndex(),
+                row.healthRegression() ? " !" : ""));
+    health.setFont(Font.font("Consolas", 11));
+    health.setTextFill(Color.web(row.healthRegression() ? "#ff6b8a" : "#89ff9a"));
+
     Label elapsed = new Label(formatElapsed(row.elapsedMillis()));
     elapsed.setFont(Font.font("Consolas", 11));
     elapsed.setTextFill(Color.web("#9db2ff"));
 
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
-    return new HBox(8, status, reward, collisions, netProgress, sideCoverage, entropy, spacer, elapsed);
+    return new HBox(8, status, reward, collisions, netProgress, sideCoverage, entropy, health, spacer, elapsed);
   }
 
   private HBox timelineRow(TrainingTimelineEntry entry) {

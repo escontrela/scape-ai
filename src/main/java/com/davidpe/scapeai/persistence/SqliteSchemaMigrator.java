@@ -75,6 +75,24 @@ public class SqliteSchemaMigrator {
       jdbcTemplate.execute(
           "ALTER TABLE training_runs ADD COLUMN path_entropy REAL NOT NULL DEFAULT 0");
     }
+    if (!columns.contains("episode_debug_snapshots")) {
+      jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN episode_debug_snapshots TEXT");
+    }
+    if (!columns.contains("replay_debug_metadata")) {
+      jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN replay_debug_metadata TEXT");
+    }
+    if (!columns.contains("timeout_reached")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN timeout_reached INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!columns.contains("training_health_index")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN training_health_index REAL NOT NULL DEFAULT 0");
+    }
+    if (!columns.contains("health_index_formula_version")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN health_index_formula_version TEXT NOT NULL DEFAULT 'v1.0.0'");
+    }
   }
 
   private boolean tableExists(String tableName) {

@@ -55,6 +55,20 @@ class RecentRunsComparisonServiceTest {
   }
 
   @Test
+  void shouldAllowSortingByTrainingHealthIndex() {
+    InMemoryMazeRepository mazeRepository = new InMemoryMazeRepository();
+    InMemoryTrainingRunRepository trainingRunRepository = new InMemoryTrainingRunRepository();
+    RecentRunsComparisonService service =
+        new RecentRunsComparisonService(mazeRepository, trainingRunRepository, 1.10);
+
+    List<RecentRunComparisonRow> rows =
+        service.recentRuns("Neon Gate", RecentRunsSortOption.BY_HEALTH_INDEX);
+
+    assertEquals(10, rows.size());
+    assertTrue(rows.get(0).trainingHealthIndex() >= rows.get(9).trainingHealthIndex());
+  }
+
+  @Test
   void shouldFlagLowEntropyRunsWhenBelowThreshold() {
     InMemoryMazeRepository mazeRepository = new InMemoryMazeRepository();
     InMemoryTrainingRunRepository trainingRunRepository = new InMemoryTrainingRunRepository();
@@ -64,6 +78,7 @@ class RecentRunsComparisonServiceTest {
     List<RecentRunComparisonRow> rows = service.recentRuns("Neon Gate", RecentRunsSortOption.BY_DATE);
 
     assertTrue(rows.stream().anyMatch(RecentRunComparisonRow::lowEntropyAlert));
+    assertTrue(rows.stream().anyMatch(RecentRunComparisonRow::healthRegression));
   }
 
   private static final class InMemoryMazeRepository implements MazeRepository {
@@ -133,6 +148,11 @@ class RecentRunsComparisonServiceTest {
                 Math.max(0.0, 0.9 - (0.05 * i)),
                 Math.min(1.0, 0.1 + (0.05 * i)),
                 1.5 - (0.08 * i),
+                "[{\"milestone\":\"FINAL\"}]",
+                "{\"seed\":20260309}",
+                i % 4 == 0,
+                75.0 - (i * 3.2),
+                TrainingHealthIndexFormula.FORMULA_VERSION,
                 1_700_000_000_000L + i));
       }
       generated.sort(

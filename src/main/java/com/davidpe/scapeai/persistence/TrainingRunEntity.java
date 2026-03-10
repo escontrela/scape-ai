@@ -21,4 +21,9 @@ public record TrainingRunEntity(
     double leftSideCoverage,
     double rightSideCoverage,
     double pathEntropy,
+    String episodeDebugSnapshots,
+    String replayDebugMetadata,
+    boolean timeoutReached,
+    double trainingHealthIndex,
+    String healthIndexFormulaVersion,
     long createdAtEpochMillis) {}
