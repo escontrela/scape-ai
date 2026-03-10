@@ -173,6 +173,8 @@ class JdbcPersistenceRepositoriesTest {
 
       var history = runRepository.findByMazeId(maze.id());
       var latestOnly = runRepository.findRecentByMazeId(maze.id(), 1);
+      var byRunId = runRepository.findReplayDiagnosticByTrainingRunId(history.get(0).id());
+      var latestDiagnostics = runRepository.findRecentReplayDiagnostics(2);
       var sortedAsc = mazeRepository.findAllOrderByDifficulty(true);
       var sortedDesc = mazeRepository.findAllOrderByDifficulty(false);
       replayRepository.save(new ExperienceTransitionEntity(null, "s0", "RIGHT", 0.2, "s1", 1000));
@@ -202,6 +204,11 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals(1.32, history.get(0).pathEntropy());
       assertEquals("[{\"milestone\":\"FINAL\"}]", history.get(0).episodeDebugSnapshots());
       assertEquals("{\"seed\":20260310}", history.get(0).replayDebugMetadata());
+      assertTrue(byRunId.isPresent());
+      assertEquals(history.get(0).id(), byRunId.get().trainingRunId());
+      assertEquals("{\"seed\":20260310}", byRunId.get().replayDebugMetadata());
+      assertEquals(2, latestDiagnostics.size());
+      assertEquals(history.get(0).id(), latestDiagnostics.get(0).trainingRunId());
       assertEquals(false, history.get(0).timeoutReached());
       assertEquals(83.1, history.get(0).trainingHealthIndex());
       assertEquals("v1.0.0", history.get(0).healthIndexFormulaVersion());

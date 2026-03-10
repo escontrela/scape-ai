@@ -260,6 +260,10 @@ class SimulationEpisodeOrchestratorTest {
     SimulationEpisodeResult result = orchestrator.runEpisode(maze, Duration.ofMillis(140));
 
     assertEquals(result.effectiveSeed(), result.replayMetadata().effectiveSeed());
+    assertEquals(EpisodeReplayMetadata.CONTRACT_VERSION, result.replayMetadata().contractVersion());
+    assertEquals(result.endReason(), result.replayMetadata().terminationReason());
+    assertEquals(result.loopEvents(), result.replayMetadata().loopEvents());
+    assertEquals(result.mazeCoverageRatio(), result.replayMetadata().mazeCoverageRatio());
     assertEquals(result.totalSteps(), result.replayMetadata().expectedTotalSteps());
     assertEquals(result.endReason(), result.replayMetadata().expectedEndReason());
     assertEquals(

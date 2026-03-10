@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.davidpe.scapeai.persistence.MazeEntity;
 import com.davidpe.scapeai.persistence.TrainingRunEntity;
+import com.davidpe.scapeai.persistence.TrainingRunReplayDiagnosticEntity;
 import com.davidpe.scapeai.persistence.repository.MazeRepository;
 import com.davidpe.scapeai.persistence.repository.TrainingRunRepository;
 import java.util.ArrayList;
@@ -121,6 +122,29 @@ class RecentRunsComparisonServiceTest {
     @Override
     public List<TrainingRunEntity> findRecentByMazeId(long mazeId, int limit) {
       return rows.stream().limit(limit).toList();
+    }
+
+    @Override
+    public Optional<TrainingRunReplayDiagnosticEntity> findReplayDiagnosticByTrainingRunId(
+        long trainingRunId) {
+      return rows.stream()
+          .filter(row -> row.id() == trainingRunId)
+          .findFirst()
+          .map(
+              row ->
+                  new TrainingRunReplayDiagnosticEntity(
+                      row.id(), row.createdAtEpochMillis(), row.replayDebugMetadata()));
+    }
+
+    @Override
+    public List<TrainingRunReplayDiagnosticEntity> findRecentReplayDiagnostics(int limit) {
+      return rows.stream()
+          .limit(limit)
+          .map(
+              row ->
+                  new TrainingRunReplayDiagnosticEntity(
+                      row.id(), row.createdAtEpochMillis(), row.replayDebugMetadata()))
+          .toList();
     }
 
     private static List<TrainingRunEntity> seedRows() {

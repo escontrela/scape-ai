@@ -119,6 +119,7 @@ public class SimulationEpisodeOrchestrator {
     long effectiveSeed = entropySupplier.getAsLong();
     long startedAt = currentTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
+    String policyDescriptor = simulationStepFlow.activePolicy().getClass().getSimpleName();
     EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
     EpisodeExecutionState state =
         EpisodeExecutionState.initial(
@@ -127,7 +128,8 @@ public class SimulationEpisodeOrchestrator {
             startedAt,
             deadline,
             loopWindow,
-            effectiveSeed);
+            effectiveSeed,
+            policyDescriptor);
     runLoop(maze, state, policy, -1);
     return state.toResult(currentTimeMillis.getAsLong(), maze, timeout.toMillis());
   }
@@ -137,6 +139,7 @@ public class SimulationEpisodeOrchestrator {
     long effectiveSeed = entropySupplier.getAsLong();
     long startedAt = currentTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
+    String policyDescriptor = simulationStepFlow.activePolicy().getClass().getSimpleName();
     EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
     EpisodeExecutionState state =
         EpisodeExecutionState.initial(
@@ -145,7 +148,8 @@ public class SimulationEpisodeOrchestrator {
             startedAt,
             deadline,
             loopWindow,
-            effectiveSeed);
+            effectiveSeed,
+            policyDescriptor);
     runLoop(maze, state, policy, Math.max(0, maxSteps));
     return state.toCheckpoint(currentTimeMillis.getAsLong());
   }
@@ -154,10 +158,11 @@ public class SimulationEpisodeOrchestrator {
     long effectiveSeed = entropySupplier.getAsLong();
     long resumedAt = currentTimeMillis.getAsLong();
     long deadline = resumedAt + checkpoint.remainingMillis();
+    String policyDescriptor = simulationStepFlow.activePolicy().getClass().getSimpleName();
     EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
     EpisodeExecutionState state =
         EpisodeExecutionState.fromCheckpoint(
-            checkpoint, maze.exit(), resumedAt, deadline, loopWindow, effectiveSeed);
+            checkpoint, maze.exit(), resumedAt, deadline, loopWindow, effectiveSeed, policyDescriptor);
     runLoop(maze, state, policy, -1);
     return state.toResult(
         currentTimeMillis.getAsLong(), maze, Math.max(0L, checkpoint.elapsedMillis() + checkpoint.remainingMillis()));
@@ -255,6 +260,7 @@ public class SimulationEpisodeOrchestrator {
     private final long deadline;
     private final long effectiveSeed;
     private final GridPosition mazeExit;
+    private final String policyDescriptor;
     private final int initialDistanceToExit;
     private final Deque<GridPosition> recentPositions;
     private final Map<GridPosition, Integer> positionCounts;
@@ -283,6 +289,7 @@ public class SimulationEpisodeOrchestrator {
         long deadline,
         long effectiveSeed,
         GridPosition mazeExit,
+        String policyDescriptor,
         int initialDistanceToExit,
         SimulationState currentState,
         MoveDirection previousDirection,
@@ -304,6 +311,7 @@ public class SimulationEpisodeOrchestrator {
       this.deadline = deadline;
       this.effectiveSeed = effectiveSeed;
       this.mazeExit = mazeExit;
+      this.policyDescriptor = policyDescriptor;
       this.initialDistanceToExit = initialDistanceToExit;
       this.currentState = currentState;
       this.previousDirection = previousDirection;
@@ -329,7 +337,8 @@ public class SimulationEpisodeOrchestrator {
         long startedAt,
         long deadline,
         int loopWindow,
-        long effectiveSeed) {
+        long effectiveSeed,
+        String policyDescriptor) {
       Deque<GridPosition> recent = new ArrayDeque<>();
       Map<GridPosition, Integer> counts = new HashMap<>();
       List<GridPosition> trajectory = new ArrayList<>();
@@ -343,6 +352,7 @@ public class SimulationEpisodeOrchestrator {
           deadline,
           effectiveSeed,
           mazeExit,
+          policyDescriptor,
           initialDistance,
           initialState,
           null,
@@ -370,7 +380,8 @@ public class SimulationEpisodeOrchestrator {
         long resumedAt,
         long deadline,
         int loopWindow,
-        long effectiveSeed) {
+        long effectiveSeed,
+        String policyDescriptor) {
       Deque<GridPosition> recent = new ArrayDeque<>();
       Map<GridPosition, Integer> counts = new HashMap<>();
       List<GridPosition> sourceRecent = checkpoint.recentPositions();
@@ -394,6 +405,7 @@ public class SimulationEpisodeOrchestrator {
           deadline,
           effectiveSeed,
           mazeExit,
+          policyDescriptor,
           initialDistance,
           checkpoint.currentState(),
           checkpoint.previousDirection(),
@@ -466,7 +478,13 @@ public class SimulationEpisodeOrchestrator {
       }
       EpisodeReplayMetadata replayMetadata =
           new EpisodeReplayMetadata(
+              EpisodeReplayMetadata.CONTRACT_VERSION,
+              "rows=" + maze.rows() + ",cols=" + maze.cols() + ",exit=" + maze.exit().row() + ":" + maze.exit().col(),
+              policyDescriptor,
               effectiveSeed,
+              terminationReason,
+              coverage.mazeCoverageRatio(),
+              loopEvents,
               timeoutBudget,
               totalSteps,
               currentState.agentPosition(),

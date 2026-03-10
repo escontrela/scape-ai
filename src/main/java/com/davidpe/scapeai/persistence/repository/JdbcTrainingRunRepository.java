@@ -2,10 +2,12 @@ package com.davidpe.scapeai.persistence.repository;
 
 import com.davidpe.scapeai.application.TrainingHealthIndexFormula;
 import com.davidpe.scapeai.persistence.TrainingRunEntity;
+import com.davidpe.scapeai.persistence.TrainingRunReplayDiagnosticEntity;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -153,6 +155,42 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
                 rs.getLong("created_at_epoch_millis")),
         mazeId,
         limit);
+  }
+
+  @Override
+  public Optional<TrainingRunReplayDiagnosticEntity> findReplayDiagnosticByTrainingRunId(long trainingRunId) {
+    List<TrainingRunReplayDiagnosticEntity> rows =
+        jdbcTemplate.query(
+            """
+            SELECT id, created_at_epoch_millis, replay_debug_metadata
+            FROM training_runs
+            WHERE id = ?
+            """,
+            (rs, rowNum) ->
+                new TrainingRunReplayDiagnosticEntity(
+                    rs.getLong("id"),
+                    rs.getLong("created_at_epoch_millis"),
+                    rs.getString("replay_debug_metadata")),
+            trainingRunId);
+    return rows.stream().findFirst();
+  }
+
+  @Override
+  public List<TrainingRunReplayDiagnosticEntity> findRecentReplayDiagnostics(int limit) {
+    return jdbcTemplate.query(
+        """
+        SELECT id, created_at_epoch_millis, replay_debug_metadata
+        FROM training_runs
+        WHERE replay_debug_metadata IS NOT NULL
+        ORDER BY created_at_epoch_millis DESC
+        LIMIT ?
+        """,
+        (rs, rowNum) ->
+            new TrainingRunReplayDiagnosticEntity(
+                rs.getLong("id"),
+                rs.getLong("created_at_epoch_millis"),
+                rs.getString("replay_debug_metadata")),
+        Math.max(1, limit));
   }
 
   private double computeTimeoutRatio(long mazeId, boolean currentTimeoutReached) {

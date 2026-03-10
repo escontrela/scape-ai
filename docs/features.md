@@ -514,6 +514,7 @@
 - Contrato estable de metadatos (`maze`, `policy`, `seed`, `terminationReason`, `mazeCoverageRatio`, `loopEvents`).
 - Persistencia/consulta por `trainingRunId` para recuperar ultimos diagnosticos reproducibles.
 - Compatibilidad futura garantizada mediante campo de version de contrato.
+- Implementacion tecnica: `EpisodeReplayMetadata` incorpora `contractVersion` explicito (v1) y `SimulationEpisodeResult.replayMetadataJson()` serializa el contrato completo; `TrainingRunRepository` expone `findReplayDiagnosticByTrainingRunId(...)` + `findRecentReplayDiagnostics(...)` con soporte JDBC y pruebas de consulta.
 
 ### SCAPE-0055 - Panel UI de diagnostico de timeout y cobertura
 - Objetivo funcional: concentrar en una sola vista operativa las señales de cierre y cobertura del episodio en curso.
