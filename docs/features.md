@@ -465,3 +465,10 @@
 - `TrainingExecutionService` incorpora `startBatchTraining(...)` y `ApplicationTrainingExecutionService` implementa scheduler secuencial de tandas sobre `IterativeEpisodeTrainingService`.
 - Cada tanda publica eventos `STARTED`/`FINISHED` en `TrainingLifecycleEventBus` con detalle `BATCH i/N`, habilitando observabilidad en timeline sin nuevos tipos de evento.
 - `MainWindow` agrega selector de tandas (`1..5`) y dispara ejecución batch usando preset activo; `Reset` cancela entrenamiento en curso antes de emitir comando de reseteo para evitar sesiones huérfanas.
+
+### SCAPE-0050 - Mini mapa de calor de celdas visitadas
+- Objetivo funcional: visualizar densidad de visitas por celda de forma compacta durante la sesión activa.
+- Alcance introducido:
+- `MainWindow` incorpora bloque `VISIT HEATMAP` en panel de métricas con grilla compacta de celdas.
+- El heatmap se recalcula incrementalmente desde el snapshot de trayectoria en cada tick del episodio sobre `Platform.runLater`, evitando bloqueo del hilo JavaFX.
+- Se agrega toggle `Mini Heatmap: ON/OFF` en controles para ocultar/mostrar la visualización sin reiniciar sesión.

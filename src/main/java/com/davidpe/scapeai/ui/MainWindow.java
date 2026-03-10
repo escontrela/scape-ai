@@ -44,12 +44,14 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import org.springframework.stereotype.Component;
@@ -97,6 +99,7 @@ public final class MainWindow {
   private VBox timelineEntriesBox;
   private VBox recentRunsEntriesBox;
   private VBox coverageEntriesBox;
+  private GridPane miniHeatmapGrid;
   private StackPane mazeViewport;
   private MazeDefinition selectedMaze;
   private String selectedMazeName;
@@ -105,6 +108,7 @@ public final class MainWindow {
   private ScheduledFuture<?> trajectoryTicker;
   private volatile boolean trajectoryRunning;
   private volatile boolean unexploredOverlayEnabled;
+  private volatile boolean miniHeatmapEnabled = true;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -141,6 +145,7 @@ public final class MainWindow {
     root.setLeft(buildControlPanel());
     root.setCenter(buildMazePanel());
     root.setRight(buildMetricsPanel());
+    refreshMiniHeatmap();
     liveMetricsService.subscribe(this::applyMetrics);
     liveMetricsService.subscribeTimeline(this::applyTimeline);
     refreshRecentRunsAsync();
@@ -447,6 +452,17 @@ public final class MainWindow {
               unexploredOverlayEnabled ? "Unexplored Overlay: ON" : "Unexplored Overlay: OFF");
           refreshUnexploredOverlay();
         });
+    Button heatmapToggle =
+        neonButton(
+            "Mini Heatmap: ON",
+            "#9bff9f",
+            () -> {});
+    heatmapToggle.setOnAction(
+        event -> {
+          miniHeatmapEnabled = !miniHeatmapEnabled;
+          heatmapToggle.setText(miniHeatmapEnabled ? "Mini Heatmap: ON" : "Mini Heatmap: OFF");
+          refreshMiniHeatmap();
+        });
 
     VBox panel =
         new VBox(
@@ -466,6 +482,7 @@ public final class MainWindow {
             batchLabel,
             batchSelector,
             overlayToggle,
+            heatmapToggle,
             start,
             pause,
             reset);
@@ -536,6 +553,7 @@ public final class MainWindow {
                 mazeViewportRenderer.renderInto(mazeViewport, maze);
                 resetTrajectoryEpisode();
                 refreshUnexploredOverlay();
+                refreshMiniHeatmap();
                 refreshRecentRunsAsync();
               }
             });
@@ -548,6 +566,7 @@ public final class MainWindow {
         selectedMaze = firstMaze;
         mazeViewportRenderer.renderInto(mazeViewport, firstMaze);
         refreshUnexploredOverlay();
+        refreshMiniHeatmap();
         refreshRecentRunsAsync();
       }
     }
@@ -647,6 +666,19 @@ public final class MainWindow {
     coverageEntriesBox = new VBox(6);
     coverageEntriesBox.getChildren().add(timelinePlaceholder("No pending mazes."));
 
+    Label heatmapTitle = new Label("VISIT HEATMAP");
+    heatmapTitle.setTextFill(Color.web("#9db2ff"));
+    heatmapTitle.setFont(Font.font("Consolas", 12));
+    miniHeatmapGrid = new GridPane();
+    miniHeatmapGrid.setHgap(1.2);
+    miniHeatmapGrid.setVgap(1.2);
+    miniHeatmapGrid.setStyle(
+        "-fx-padding: 6;"
+            + "-fx-background-color: #081124;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+
     VBox panel =
         new VBox(
             14,
@@ -658,7 +690,9 @@ public final class MainWindow {
             comparisonSortSelector,
             recentRunsEntriesBox,
             coverageTitle,
-            coverageEntriesBox);
+            coverageEntriesBox,
+            heatmapTitle,
+            miniHeatmapGrid);
     panel.setPadding(new Insets(18));
     panel.setMinWidth(240);
     panel.setStyle(panelStyle());
@@ -1008,6 +1042,7 @@ public final class MainWindow {
     }
     Platform.runLater(() -> mazeViewportRenderer.renderTrajectory(List.copyOf(trajectoryCells)));
     refreshUnexploredOverlay();
+    refreshMiniHeatmap();
     trajectoryRunning = true;
     restartTrajectoryTicker();
   }
@@ -1021,6 +1056,7 @@ public final class MainWindow {
     }
     Platform.runLater(mazeViewportRenderer::clearTrajectory);
     Platform.runLater(mazeViewportRenderer::clearUnexploredOverlay);
+    refreshMiniHeatmap();
   }
 
   private void advanceTrajectoryOverlay() {
@@ -1045,6 +1081,9 @@ public final class MainWindow {
           mazeViewportRenderer.renderTrajectory(snapshot);
           if (unexploredOverlayEnabled) {
             mazeViewportRenderer.renderUnexploredOverlay(snapshot);
+          }
+          if (miniHeatmapEnabled) {
+            renderMiniHeatmap(snapshot);
           }
         });
   }
@@ -1098,6 +1137,54 @@ public final class MainWindow {
     }
     List<GridPosition> snapshot = trajectorySnapshot();
     Platform.runLater(() -> mazeViewportRenderer.renderUnexploredOverlay(snapshot));
+  }
+
+  private void refreshMiniHeatmap() {
+    List<GridPosition> snapshot = trajectorySnapshot();
+    Platform.runLater(() -> renderMiniHeatmap(snapshot));
+  }
+
+  private void renderMiniHeatmap(List<GridPosition> trajectory) {
+    if (miniHeatmapGrid == null || selectedMaze == null) {
+      return;
+    }
+    miniHeatmapGrid.getChildren().clear();
+    if (!miniHeatmapEnabled) {
+      return;
+    }
+    java.util.Map<GridPosition, Integer> visits = new java.util.HashMap<>();
+    int maxVisits = 1;
+    for (GridPosition position : trajectory) {
+      if (!selectedMaze.isInside(position) || selectedMaze.isWall(position)) {
+        continue;
+      }
+      int value = visits.getOrDefault(position, 0) + 1;
+      visits.put(position, value);
+      if (value > maxVisits) {
+        maxVisits = value;
+      }
+    }
+    for (int row = 0; row < selectedMaze.rows(); row++) {
+      for (int col = 0; col < selectedMaze.cols(); col++) {
+        GridPosition position = new GridPosition(row, col);
+        Rectangle cell = new Rectangle(7.0, 7.0);
+        if (selectedMaze.isWall(position)) {
+          cell.setFill(Color.color(0.08, 0.12, 0.22, 0.95));
+          cell.setStroke(Color.color(0.16, 0.22, 0.36, 0.8));
+        } else {
+          int count = visits.getOrDefault(position, 0);
+          double intensity = count <= 0 ? 0.0 : (double) count / (double) maxVisits;
+          double red = 0.18 + (0.72 * intensity);
+          double green = 0.28 + (0.58 * intensity);
+          double blue = 0.72 - (0.60 * intensity);
+          double alpha = 0.25 + (0.70 * intensity);
+          cell.setFill(Color.color(red, green, blue, alpha));
+          cell.setStroke(Color.color(0.26, 0.88, 1.0, 0.12 + (0.40 * intensity)));
+        }
+        cell.setStrokeWidth(0.3);
+        miniHeatmapGrid.add(cell, col, row);
+      }
+    }
   }
 
   private List<GridPosition> trajectorySnapshot() {
