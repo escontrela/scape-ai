@@ -397,6 +397,9 @@
 - SCAPE-0046: se agrega `EpisodeTerminationResolver` como validador central para garantizar exclusividad entre `EXIT_REACHED`, `TIMEOUT` y `ABORTED`.
 - SCAPE-0046: `SimulationEpisodeResult` pasa a exponer `terminationReason` y `terminatedAtEpochMillis` (con compatibilidad via `endReason()`), dejando trazabilidad terminal unica.
 - SCAPE-0046: pruebas de borde cubren `timeout` en tick limite y salida en tick limite sin terminalidad doble ni ambigua.
+- SCAPE-0047: `MazeViewportRenderer` incorpora capa opcional `unexploredOverlay` con intensidad por aislamiento/distancia respecto a celdas visitadas.
+- SCAPE-0047: `MainWindow` agrega toggle `Unexplored Overlay` en panel de control y aplica activacion/desactivacion inmediata sin reiniciar sesion.
+- SCAPE-0047: la superposicion se refresca en vivo junto al ticker de trayectoria, manteniendo el trabajo en hilo JavaFX via `Platform.runLater`.
 
 ## Iteracion PO 2026-03-10 (automation cycle 7)
 

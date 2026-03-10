@@ -100,6 +100,7 @@ public final class MainWindow {
   private GridPosition trajectoryCurrent;
   private ScheduledFuture<?> trajectoryTicker;
   private volatile boolean trajectoryRunning;
+  private volatile boolean unexploredOverlayEnabled;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -387,6 +388,18 @@ public final class MainWindow {
             () -> {
               controlService.reset();
             });
+    Button overlayToggle =
+        neonButton(
+            "Unexplored Overlay: OFF",
+            "#8fd8ff",
+            () -> {});
+    overlayToggle.setOnAction(
+        event -> {
+          unexploredOverlayEnabled = !unexploredOverlayEnabled;
+          overlayToggle.setText(
+              unexploredOverlayEnabled ? "Unexplored Overlay: ON" : "Unexplored Overlay: OFF");
+          refreshUnexploredOverlay();
+        });
 
     VBox panel =
         new VBox(
@@ -403,6 +416,7 @@ public final class MainWindow {
             activeSpeedValue,
             targetDifficultyLabel,
             targetDifficultySelector,
+            overlayToggle,
             start,
             pause,
             reset);
@@ -472,6 +486,7 @@ public final class MainWindow {
                 selectedMaze = maze;
                 mazeViewportRenderer.renderInto(mazeViewport, maze);
                 resetTrajectoryEpisode();
+                refreshUnexploredOverlay();
                 refreshRecentRunsAsync();
               }
             });
@@ -483,6 +498,7 @@ public final class MainWindow {
         selectedMazeName = mazeSelector.getValue();
         selectedMaze = firstMaze;
         mazeViewportRenderer.renderInto(mazeViewport, firstMaze);
+        refreshUnexploredOverlay();
         refreshRecentRunsAsync();
       }
     }
@@ -942,6 +958,7 @@ public final class MainWindow {
       trajectoryCells.add(trajectoryCurrent);
     }
     Platform.runLater(() -> mazeViewportRenderer.renderTrajectory(List.copyOf(trajectoryCells)));
+    refreshUnexploredOverlay();
     trajectoryRunning = true;
     restartTrajectoryTicker();
   }
@@ -954,6 +971,7 @@ public final class MainWindow {
       trajectoryCurrent = null;
     }
     Platform.runLater(mazeViewportRenderer::clearTrajectory);
+    Platform.runLater(mazeViewportRenderer::clearUnexploredOverlay);
   }
 
   private void advanceTrajectoryOverlay() {
@@ -973,7 +991,13 @@ public final class MainWindow {
       }
       snapshot = List.copyOf(trajectoryCells);
     }
-    Platform.runLater(() -> mazeViewportRenderer.renderTrajectory(snapshot));
+    Platform.runLater(
+        () -> {
+          mazeViewportRenderer.renderTrajectory(snapshot);
+          if (unexploredOverlayEnabled) {
+            mazeViewportRenderer.renderUnexploredOverlay(snapshot);
+          }
+        });
   }
 
   private GridPosition chooseNextPosition(GridPosition current, MazeDefinition maze) {
@@ -1016,6 +1040,21 @@ public final class MainWindow {
     stopTrajectoryTicker();
     long period = liveMetricsService.simulationSpeed().trajectoryTickMillis();
     trajectoryTicker = trajectoryScheduler.scheduleAtFixedRate(this::advanceTrajectoryOverlay, period, period, TimeUnit.MILLISECONDS);
+  }
+
+  private void refreshUnexploredOverlay() {
+    if (!unexploredOverlayEnabled) {
+      Platform.runLater(mazeViewportRenderer::clearUnexploredOverlay);
+      return;
+    }
+    List<GridPosition> snapshot = trajectorySnapshot();
+    Platform.runLater(() -> mazeViewportRenderer.renderUnexploredOverlay(snapshot));
+  }
+
+  private List<GridPosition> trajectorySnapshot() {
+    synchronized (trajectoryLock) {
+      return List.copyOf(trajectoryCells);
+    }
   }
 
   private void onTrainingLifecycleEvent(TrainingLifecycleEvent event) {

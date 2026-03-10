@@ -2,7 +2,9 @@ package com.davidpe.scapeai.ui;
 
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
@@ -22,6 +24,7 @@ public class MazeViewportRenderer {
       "-fx-fill: #1f4f35; -fx-stroke: #63ffb1; -fx-stroke-width: 1.4;";
   private static final String EXIT_STYLE =
       "-fx-fill: #4b2f17; -fx-stroke: #ffcf57; -fx-stroke-width: 1.4;";
+  private Pane unexploredOverlayLayer;
   private Pane trajectoryLayer;
   private MazeDefinition activeMaze;
 
@@ -38,12 +41,17 @@ public class MazeViewportRenderer {
       }
     }
 
+    unexploredOverlayLayer = new Pane();
+    unexploredOverlayLayer.setManaged(false);
+    unexploredOverlayLayer.setMouseTransparent(true);
+    unexploredOverlayLayer.setPrefSize(maze.cols() * CELL_SIZE, maze.rows() * CELL_SIZE);
+
     trajectoryLayer = new Pane();
     trajectoryLayer.setManaged(false);
     trajectoryLayer.setMouseTransparent(true);
     trajectoryLayer.setPrefSize(maze.cols() * CELL_SIZE, maze.rows() * CELL_SIZE);
 
-    container.getChildren().setAll(grid, trajectoryLayer);
+    container.getChildren().setAll(grid, unexploredOverlayLayer, trajectoryLayer);
   }
 
   public void renderTrajectory(List<GridPosition> trajectory) {
@@ -74,6 +82,58 @@ public class MazeViewportRenderer {
     if (trajectoryLayer != null) {
       trajectoryLayer.getChildren().clear();
     }
+  }
+
+  public void renderUnexploredOverlay(List<GridPosition> visitedCells) {
+    if (unexploredOverlayLayer == null || activeMaze == null) {
+      return;
+    }
+    unexploredOverlayLayer.getChildren().clear();
+    Set<GridPosition> visited =
+        visitedCells == null ? Set.of() : new HashSet<>(visitedCells);
+    int maxDistance = Math.max(1, activeMaze.rows() + activeMaze.cols());
+
+    for (int row = 0; row < activeMaze.rows(); row++) {
+      for (int col = 0; col < activeMaze.cols(); col++) {
+        GridPosition position = new GridPosition(row, col);
+        if (activeMaze.isWall(position) || visited.contains(position)) {
+          continue;
+        }
+        int nearestVisitedDistance = nearestVisitedDistance(position, visited, maxDistance);
+        double isolation = Math.min(1.0, (double) nearestVisitedDistance / (double) maxDistance);
+        double alpha = 0.20 + (0.45 * isolation);
+        Rectangle marker = new Rectangle(CELL_SIZE * 0.78, CELL_SIZE * 0.78);
+        marker.setArcWidth(7);
+        marker.setArcHeight(7);
+        marker.setFill(Color.color(0.10, 0.78, 1.00, alpha));
+        marker.setStroke(Color.color(0.52, 0.90, 1.00, 0.35 + (0.35 * isolation)));
+        marker.setStrokeWidth(0.7);
+        marker.setLayoutX(position.col() * CELL_SIZE + (CELL_SIZE - marker.getWidth()) / 2.0);
+        marker.setLayoutY(position.row() * CELL_SIZE + (CELL_SIZE - marker.getHeight()) / 2.0);
+        unexploredOverlayLayer.getChildren().add(marker);
+      }
+    }
+  }
+
+  public void clearUnexploredOverlay() {
+    if (unexploredOverlayLayer != null) {
+      unexploredOverlayLayer.getChildren().clear();
+    }
+  }
+
+  private int nearestVisitedDistance(
+      GridPosition candidate, Set<GridPosition> visited, int fallbackDistance) {
+    if (visited.isEmpty()) {
+      return fallbackDistance;
+    }
+    int best = Integer.MAX_VALUE;
+    for (GridPosition position : visited) {
+      int distance = Math.abs(candidate.row() - position.row()) + Math.abs(candidate.col() - position.col());
+      if (distance < best) {
+        best = distance;
+      }
+    }
+    return best == Integer.MAX_VALUE ? fallbackDistance : best;
   }
 
   private String styleForCell(MazeDefinition maze, GridPosition position) {
