@@ -8,11 +8,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class SimpleMovementPolicy implements MovementPolicy {
+public class SimpleMovementPolicy implements MovementPolicy, ExplorationBudgetAwarePolicy {
 
   private static final List<MoveDirection> DIRECTION_PRIORITY =
       List.of(MoveDirection.UP, MoveDirection.RIGHT, MoveDirection.DOWN, MoveDirection.LEFT);
   private final int recentHistorySize;
+  private volatile int remainingExplorationBudget = Integer.MAX_VALUE;
+  private volatile int consumePerEpisode = 0;
 
   public SimpleMovementPolicy() {
     this(6);
@@ -57,6 +59,11 @@ public class SimpleMovementPolicy implements MovementPolicy {
       double score = 0.0;
       if (!visitedCells.contains(next)) {
         score += 3.0;
+        if (remainingExplorationBudget <= 0) {
+          score -= 0.8;
+        } else if (consumePerEpisode > 0) {
+          score += 0.25;
+        }
       }
       score -= recentVisited.getOrDefault(next, 0) * 2.5;
       if (createsShortLoop(current, next, context.recentPositions())) {
@@ -137,5 +144,11 @@ public class SimpleMovementPolicy implements MovementPolicy {
 
   private int distanceToExit(GridPosition position, GridPosition exit) {
     return Math.abs(position.row() - exit.row()) + Math.abs(position.col() - exit.col());
+  }
+
+  @Override
+  public void applyExplorationBudget(int remainingBudget, int consumePerEpisode) {
+    this.remainingExplorationBudget = Math.max(0, remainingBudget);
+    this.consumePerEpisode = Math.max(0, consumePerEpisode);
   }
 }

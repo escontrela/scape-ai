@@ -60,3 +60,14 @@ CREATE TABLE IF NOT EXISTS maze_policy_coverage (
   FOREIGN KEY (maze_id) REFERENCES mazes(id),
   UNIQUE(maze_id, policy_id)
 );
+
+CREATE TABLE IF NOT EXISTS exploration_budgets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  preset_id INTEGER NOT NULL,
+  policy_id TEXT NOT NULL,
+  initial_budget INTEGER NOT NULL,
+  consume_per_episode INTEGER NOT NULL,
+  remaining_budget INTEGER NOT NULL,
+  updated_at_epoch_millis INTEGER NOT NULL,
+  UNIQUE(preset_id, policy_id)
+);

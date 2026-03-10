@@ -9,14 +9,17 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
   private final SimulationControlService simulationControlService;
   private final MazeCatalogService mazeCatalogService;
   private final SessionRandomSource sessionRandomSource;
+  private final ExplorationBudgetService explorationBudgetService;
 
   public ApplicationStartTrainingSessionUseCase(
       SimulationControlService simulationControlService,
       MazeCatalogService mazeCatalogService,
-      SessionRandomSource sessionRandomSource) {
+      SessionRandomSource sessionRandomSource,
+      ExplorationBudgetService explorationBudgetService) {
     this.simulationControlService = simulationControlService;
     this.mazeCatalogService = mazeCatalogService;
     this.sessionRandomSource = sessionRandomSource;
+    this.explorationBudgetService = explorationBudgetService;
   }
 
   @Override
@@ -65,6 +68,8 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
     }
 
     long effectiveSeed = sessionRandomSource.resolveAndApplySeed(command.sessionSeed());
+    explorationBudgetService.startSession(
+        simulationControlService.activeTrainingPresetId(), simulationControlService.activeMovementPolicy());
     simulationControlService.start();
     return StartTrainingSessionResult.ok(
         "TRAINING RUNNING — TARGET "

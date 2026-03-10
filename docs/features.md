@@ -400,6 +400,9 @@
 - SCAPE-0047: `MazeViewportRenderer` incorpora capa opcional `unexploredOverlay` con intensidad por aislamiento/distancia respecto a celdas visitadas.
 - SCAPE-0047: `MainWindow` agrega toggle `Unexplored Overlay` en panel de control y aplica activacion/desactivacion inmediata sin reiniciar sesion.
 - SCAPE-0047: la superposicion se refresca en vivo junto al ticker de trayectoria, manteniendo el trabajo en hilo JavaFX via `Platform.runLater`.
+- SCAPE-0048: nuevo modelo persistente `exploration_budgets` (`preset_id + policy_id`) con `initial_budget`, `consume_per_episode` y `remaining_budget`.
+- SCAPE-0048: `ApplicationStartTrainingSessionUseCase` carga presupuesto activo por sesion y lo propaga a politicas compatibles via `ExplorationBudgetAwarePolicy` sin acoplar UI.
+- SCAPE-0048: `ExplorationBudgetLifecycleSubscriber` consume/persiste remanente al cierre de episodio (`TIMED_OUT`/`FINISHED`) para continuidad entre sesiones del mismo preset/algoritmo.
 
 ## Iteracion PO 2026-03-10 (automation cycle 7)
 

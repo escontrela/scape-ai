@@ -15,6 +15,7 @@ public class SqliteSchemaMigrator {
     this.jdbcTemplate = new JdbcTemplate(dataSource);
     migrateMazes();
     migrateTrainingRuns();
+    migrateExplorationBudgets();
   }
 
   private void migrateMazes() {
@@ -91,5 +92,21 @@ public class SqliteSchemaMigrator {
         .query("PRAGMA table_info(" + tableName + ")", (rs, rowNum) -> rs.getString("name"))
         .forEach(columns::add);
     return columns;
+  }
+
+  private void migrateExplorationBudgets() {
+    jdbcTemplate.execute(
+        """
+        CREATE TABLE IF NOT EXISTS exploration_budgets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          preset_id INTEGER NOT NULL,
+          policy_id TEXT NOT NULL,
+          initial_budget INTEGER NOT NULL,
+          consume_per_episode INTEGER NOT NULL,
+          remaining_budget INTEGER NOT NULL,
+          updated_at_epoch_millis INTEGER NOT NULL,
+          UNIQUE(preset_id, policy_id)
+        )
+        """);
   }
 }

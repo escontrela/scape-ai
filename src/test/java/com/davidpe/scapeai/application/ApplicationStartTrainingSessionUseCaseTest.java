@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
+import com.davidpe.scapeai.persistence.ExplorationBudgetEntity;
+import com.davidpe.scapeai.persistence.repository.ExplorationBudgetRepository;
 import com.davidpe.scapeai.ui.MazeCatalogService;
 import com.davidpe.scapeai.ui.MazeJsonResourceLoader;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,7 +26,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
     StubMazeCatalogService mazeCatalogService = new StubMazeCatalogService();
     SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
-        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService, randomSource);
+        new ApplicationStartTrainingSessionUseCase(
+            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -46,7 +49,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
     mazeCatalogService.lowCandidate = Optional.empty();
     SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
-        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService, randomSource);
+        new ApplicationStartTrainingSessionUseCase(
+            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService());
 
     StartTrainingSessionResult result =
         useCase.start(new StartTrainingSessionCommand(null, 1L, TrainingTargetDifficulty.LOW, null));
@@ -62,7 +66,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
     StubMazeCatalogService mazeCatalogService = new StubMazeCatalogService();
     SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
-        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService, randomSource);
+        new ApplicationStartTrainingSessionUseCase(
+            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -82,7 +87,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
     mazeCatalogService.mediumCandidate = Optional.empty();
     SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
-        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService, randomSource);
+        new ApplicationStartTrainingSessionUseCase(
+            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -102,7 +108,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
     StubMazeCatalogService mazeCatalogService = new StubMazeCatalogService();
     SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
-        new ApplicationStartTrainingSessionUseCase(controlService, mazeCatalogService, randomSource);
+        new ApplicationStartTrainingSessionUseCase(
+            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -228,6 +235,37 @@ class ApplicationStartTrainingSessionUseCaseTest {
     @Override
     public List<com.davidpe.scapeai.persistence.MazeEntity> findAllOrderByDifficulty(boolean ascending) {
       return List.of();
+    }
+  }
+
+  private static ExplorationBudgetService noOpExplorationBudgetService() {
+    ActiveMovementPolicyService policyService =
+        new ActiveMovementPolicyService(
+            Map.of(
+                "heuristic-baseline", context -> MoveDirection.RIGHT,
+                "random-controlled", context -> MoveDirection.UP),
+            "heuristic-baseline");
+    return new ExplorationBudgetService(new InMemoryExplorationBudgetRepository(), policyService, 100, 5);
+  }
+
+  private static final class InMemoryExplorationBudgetRepository
+      implements ExplorationBudgetRepository {
+
+    @Override
+    public Optional<ExplorationBudgetEntity> findByPresetAndPolicy(long presetId, String policyId) {
+      return Optional.empty();
+    }
+
+    @Override
+    public ExplorationBudgetEntity upsert(ExplorationBudgetEntity budget) {
+      return new ExplorationBudgetEntity(
+          1L,
+          budget.presetId(),
+          budget.policyId(),
+          budget.initialBudget(),
+          budget.consumePerEpisode(),
+          budget.remainingBudget(),
+          budget.updatedAtEpochMillis());
     }
   }
 }
