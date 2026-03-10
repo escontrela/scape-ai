@@ -14,4 +14,20 @@ public enum TrainingTargetDifficulty {
   public String label() {
     return label;
   }
+
+  public TrainingTargetDifficulty harder() {
+    return switch (this) {
+      case LOW -> MEDIUM;
+      case MEDIUM -> HIGH;
+      case HIGH -> HIGH;
+    };
+  }
+
+  public TrainingTargetDifficulty easier() {
+    return switch (this) {
+      case LOW -> LOW;
+      case MEDIUM -> LOW;
+      case HIGH -> MEDIUM;
+    };
+  }
 }

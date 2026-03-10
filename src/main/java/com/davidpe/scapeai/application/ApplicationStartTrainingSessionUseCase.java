@@ -10,16 +10,19 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
   private final MazeCatalogService mazeCatalogService;
   private final SessionRandomSource sessionRandomSource;
   private final ExplorationBudgetService explorationBudgetService;
+  private final AdaptiveDifficultyService adaptiveDifficultyService;
 
   public ApplicationStartTrainingSessionUseCase(
       SimulationControlService simulationControlService,
       MazeCatalogService mazeCatalogService,
       SessionRandomSource sessionRandomSource,
-      ExplorationBudgetService explorationBudgetService) {
+      ExplorationBudgetService explorationBudgetService,
+      AdaptiveDifficultyService adaptiveDifficultyService) {
     this.simulationControlService = simulationControlService;
     this.mazeCatalogService = mazeCatalogService;
     this.sessionRandomSource = sessionRandomSource;
     this.explorationBudgetService = explorationBudgetService;
+    this.adaptiveDifficultyService = adaptiveDifficultyService;
   }
 
   @Override
@@ -28,8 +31,10 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
       return StartTrainingSessionResult.validationError("Select a maze before starting.");
     }
 
-    TrainingTargetDifficulty targetDifficulty =
+    TrainingTargetDifficulty requestedDifficulty =
         command.targetDifficulty() == null ? TrainingTargetDifficulty.MEDIUM : command.targetDifficulty();
+    AdaptiveDifficultyDecision difficultyDecision = adaptiveDifficultyService.resolve(requestedDifficulty);
+    TrainingTargetDifficulty targetDifficulty = difficultyDecision.resolved();
     var selectedMaze = mazeCatalogService.findCandidateByDifficulty(targetDifficulty).orElse(command.maze());
     if (selectedMaze == null) {
       return StartTrainingSessionResult.validationError("Select a maze before starting.");
@@ -74,6 +79,15 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
     return StartTrainingSessionResult.ok(
         "TRAINING RUNNING — TARGET "
             + targetDifficulty.label().toUpperCase()
+            + " — ADAPT "
+            + requestedDifficulty.label().toUpperCase()
+            + "->"
+            + targetDifficulty.label().toUpperCase()
+            + " (SR "
+            + String.format(java.util.Locale.ROOT, "%.2f", difficultyDecision.successRate())
+            + " n="
+            + difficultyDecision.sampleSize()
+            + ")"
             + " — SEED "
             + effectiveSeed,
         selectedMaze,

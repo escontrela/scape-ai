@@ -27,7 +27,11 @@ class ApplicationStartTrainingSessionUseCaseTest {
     SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
         new ApplicationStartTrainingSessionUseCase(
-            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService());
+            controlService,
+            mazeCatalogService,
+            randomSource,
+            noOpExplorationBudgetService(),
+            adaptiveDifficultyDisabledService());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -35,7 +39,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
         useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.LOW, 77L));
 
     assertTrue(result.started());
-    assertEquals("TRAINING RUNNING — TARGET BAJA — SEED 77", result.message());
+    assertEquals(
+        "TRAINING RUNNING — TARGET BAJA — ADAPT BAJA->BAJA (SR 0.00 n=0) — SEED 77", result.message());
     assertNotNull(result.maze());
     assertEquals(Long.valueOf(77L), result.effectiveSeed());
     assertTrue(controlService.started);
@@ -50,7 +55,11 @@ class ApplicationStartTrainingSessionUseCaseTest {
     SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
         new ApplicationStartTrainingSessionUseCase(
-            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService());
+            controlService,
+            mazeCatalogService,
+            randomSource,
+            noOpExplorationBudgetService(),
+            adaptiveDifficultyDisabledService());
 
     StartTrainingSessionResult result =
         useCase.start(new StartTrainingSessionCommand(null, 1L, TrainingTargetDifficulty.LOW, null));
@@ -67,7 +76,11 @@ class ApplicationStartTrainingSessionUseCaseTest {
     SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
         new ApplicationStartTrainingSessionUseCase(
-            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService());
+            controlService,
+            mazeCatalogService,
+            randomSource,
+            noOpExplorationBudgetService(),
+            adaptiveDifficultyDisabledService());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -88,7 +101,11 @@ class ApplicationStartTrainingSessionUseCaseTest {
     SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
         new ApplicationStartTrainingSessionUseCase(
-            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService());
+            controlService,
+            mazeCatalogService,
+            randomSource,
+            noOpExplorationBudgetService(),
+            adaptiveDifficultyDisabledService());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -109,7 +126,11 @@ class ApplicationStartTrainingSessionUseCaseTest {
     SessionRandomSource randomSource = new SessionRandomSource(20260309L);
     ApplicationStartTrainingSessionUseCase useCase =
         new ApplicationStartTrainingSessionUseCase(
-            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService());
+            controlService,
+            mazeCatalogService,
+            randomSource,
+            noOpExplorationBudgetService(),
+            adaptiveDifficultyDisabledService());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -119,6 +140,50 @@ class ApplicationStartTrainingSessionUseCaseTest {
     assertTrue(result.started());
     assertNotNull(result.effectiveSeed());
     assertTrue(result.message().contains("SEED " + result.effectiveSeed()));
+  }
+
+  @Test
+  void shouldPromoteDifficultyWhenSuccessRateIsHigh() {
+    StubSimulationControlService controlService = new StubSimulationControlService();
+    StubMazeCatalogService mazeCatalogService = new StubMazeCatalogService();
+    SessionRandomSource randomSource = new SessionRandomSource(20260309L);
+    AdaptiveDifficultyService adaptive = new AdaptiveDifficultyService(true, 4, 0.70, 0.35);
+    adaptive.recordOutcome(true);
+    adaptive.recordOutcome(true);
+    adaptive.recordOutcome(true);
+    ApplicationStartTrainingSessionUseCase useCase =
+        new ApplicationStartTrainingSessionUseCase(
+            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService(), adaptive);
+    MazeDefinition maze =
+        new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
+
+    StartTrainingSessionResult result =
+        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.MEDIUM, 10L));
+
+    assertTrue(result.started());
+    assertTrue(result.message().contains("ADAPT MEDIA->ALTA"));
+  }
+
+  @Test
+  void shouldDemoteDifficultyWhenSuccessRateIsLow() {
+    StubSimulationControlService controlService = new StubSimulationControlService();
+    StubMazeCatalogService mazeCatalogService = new StubMazeCatalogService();
+    SessionRandomSource randomSource = new SessionRandomSource(20260309L);
+    AdaptiveDifficultyService adaptive = new AdaptiveDifficultyService(true, 4, 0.70, 0.35);
+    adaptive.recordOutcome(false);
+    adaptive.recordOutcome(false);
+    adaptive.recordOutcome(false);
+    ApplicationStartTrainingSessionUseCase useCase =
+        new ApplicationStartTrainingSessionUseCase(
+            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService(), adaptive);
+    MazeDefinition maze =
+        new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
+
+    StartTrainingSessionResult result =
+        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.HIGH, 11L));
+
+    assertTrue(result.started());
+    assertTrue(result.message().contains("ADAPT ALTA->MEDIA"));
   }
 
   private static final class StubSimulationControlService implements SimulationControlService {
@@ -267,5 +332,9 @@ class ApplicationStartTrainingSessionUseCaseTest {
           budget.remainingBudget(),
           budget.updatedAtEpochMillis());
     }
+  }
+
+  private static AdaptiveDifficultyService adaptiveDifficultyDisabledService() {
+    return new AdaptiveDifficultyService(false, 8, 0.70, 0.35);
   }
 }

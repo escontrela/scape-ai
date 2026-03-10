@@ -472,3 +472,10 @@
 - `MainWindow` incorpora bloque `VISIT HEATMAP` en panel de métricas con grilla compacta de celdas.
 - El heatmap se recalcula incrementalmente desde el snapshot de trayectoria en cada tick del episodio sobre `Platform.runLater`, evitando bloqueo del hilo JavaFX.
 - Se agrega toggle `Mini Heatmap: ON/OFF` en controles para ocultar/mostrar la visualización sin reiniciar sesión.
+
+### SCAPE-0051 - Curriculum de dificultad adaptativa por tasa de éxito
+- Objetivo funcional: ajustar automáticamente dificultad objetivo en función de éxito reciente de sesiones.
+- Alcance introducido:
+- Nuevo `AdaptiveDifficultyService` con ventana móvil configurable (`window-size`) y umbrales de promoción/degradación (`promote-threshold`, `demote-threshold`).
+- La decisión respeta límites (`LOW..HIGH`) y se traza por sesión en el mensaje de inicio (`ADAPT X->Y`, `SR`, `n`), dejando evidencia operativa del ajuste.
+- Configuración `scape.adaptive-difficulty.enabled` permite desactivar la estrategia y mantener comportamiento fijo.
