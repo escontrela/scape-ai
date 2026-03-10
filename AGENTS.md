@@ -350,3 +350,23 @@ Future extensions should support:
 After sufficient training iterations, the AI agent should be able to consistently escape complex mazes within the allowed time.
 
 The system will progressively refine its model parameters across executions, building an increasingly capable maze-solving agent.
+
+---
+
+# Guardrails for AI Agents
+
+## Spring Boot Constructor Injection
+
+When a `@Component`, `@Service`, or `@Controller` class has **multiple constructors**, Spring cannot auto-detect which one to use for dependency injection. This causes the error:
+
+```
+No default constructor found
+```
+
+**Rules to follow:**
+
+1. If a class has **exactly one constructor**, Spring uses it automatically — no annotation needed.
+2. If a class has **two or more constructors** (e.g. a primary one for Spring and a package-private one for tests), you **must** annotate the Spring-facing constructor with `@Autowired`.
+3. Never leave a multi-constructor `@Service` / `@Component` without `@Autowired` on the intended injection constructor.
+4. After creating or modifying any Spring-managed bean, **verify** that the constructor Spring should use is unambiguous.
+5. When adding a secondary constructor (for testing, defaults, etc.), always go back and add `@Autowired` to the primary constructor if it is not already present.

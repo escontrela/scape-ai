@@ -3,6 +3,7 @@ package com.davidpe.scapeai.application;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.EnumSet;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,7 @@ public class AdaptiveDifficultyService {
   private final double promoteThreshold;
   private final double demoteThreshold;
 
+  @Autowired
   public AdaptiveDifficultyService(
       TrainingLifecycleSubscriberRouter router,
       @Value("${scape.adaptive-difficulty.enabled:true}") boolean enabled,
@@ -44,7 +46,12 @@ public class AdaptiveDifficultyService {
         requested == null ? TrainingTargetDifficulty.MEDIUM : requested;
     if (!enabled || recentOutcomes.isEmpty()) {
       return new AdaptiveDifficultyDecision(
-          safeRequested, safeRequested, successRate(), recentOutcomes.size(), false, "adaptive disabled or no history");
+          safeRequested,
+          safeRequested,
+          successRate(),
+          recentOutcomes.size(),
+          false,
+          "adaptive disabled or no history");
     }
     double rate = successRate();
     TrainingTargetDifficulty resolved = safeRequested;

@@ -8,6 +8,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +32,7 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
           });
   private final AtomicReference<TrainingRunHandle> currentRun = new AtomicReference<>();
 
+  @Autowired
   public ApplicationTrainingExecutionService(
       IterativeEpisodeTrainingService iterativeTrainingService,
       TrainingLifecycleEventBus trainingLifecycleEventBus,
@@ -103,7 +105,8 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
     AtomicBoolean cancelled = new AtomicBoolean(false);
     CompletableFuture<IterativeTrainingSummary> future =
         CompletableFuture.supplyAsync(
-            () -> iterativeTrainingService.train(maze, episodes, timeout, cancelled::get), executor);
+            () -> iterativeTrainingService.train(maze, episodes, timeout, cancelled::get),
+            executor);
 
     TrainingRunHandle handle = new TrainingRunHandle(cancelled, future);
     currentRun.set(handle);
@@ -134,7 +137,8 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
     AtomicBoolean cancelled = new AtomicBoolean(false);
     CompletableFuture<IterativeTrainingSummary> future =
         CompletableFuture.supplyAsync(
-            () -> runBatches(maze, episodesPerBatch, batches, timeout, budget, cancelled), executor);
+            () -> runBatches(maze, episodesPerBatch, batches, timeout, budget, cancelled),
+            executor);
 
     TrainingRunHandle handle = new TrainingRunHandle(cancelled, future);
     currentRun.set(handle);
@@ -231,7 +235,8 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
       }
       trainingLifecycleEventBus.publish(
           TrainingLifecycleEvent.now(
-              TrainingLifecycleEventType.STARTED, "BATCH " + batchIndex + "/" + batches + " STARTED"));
+              TrainingLifecycleEventType.STARTED,
+              "BATCH " + batchIndex + "/" + batches + " STARTED"));
       int remainingEpisodesBudget = Math.max(0, budgetEpisodesAvailable - episodesCompleted);
       IterativeTrainingSummary batchSummary =
           iterativeTrainingService.train(

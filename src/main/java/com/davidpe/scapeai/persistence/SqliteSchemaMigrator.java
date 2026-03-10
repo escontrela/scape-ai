@@ -33,6 +33,18 @@ public class SqliteSchemaMigrator {
       return;
     }
     Set<String> columns = tableColumns("training_runs");
+    if (!columns.contains("collisions")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN collisions INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!columns.contains("discovered_cells")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN discovered_cells INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!columns.contains("final_distance_to_exit")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN final_distance_to_exit INTEGER NOT NULL DEFAULT 0");
+    }
     if (!columns.contains("policy_id")) {
       jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN policy_id TEXT");
     }
@@ -40,7 +52,8 @@ public class SqliteSchemaMigrator {
       jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN policy_snapshot TEXT");
     }
     if (!columns.contains("reward_version")) {
-      jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN reward_version TEXT NOT NULL DEFAULT 'v1'");
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN reward_version TEXT NOT NULL DEFAULT 'v1'");
     }
     if (!columns.contains("net_progress")) {
       jdbcTemplate.execute(
@@ -110,7 +123,8 @@ public class SqliteSchemaMigrator {
     }
     if (!columns.contains("health_index_formula_version")) {
       jdbcTemplate.execute(
-          "ALTER TABLE training_runs ADD COLUMN health_index_formula_version TEXT NOT NULL DEFAULT 'v1.0.0'");
+          "ALTER TABLE training_runs ADD COLUMN health_index_formula_version TEXT NOT NULL DEFAULT"
+              + " 'v1.0.0'");
     }
     jdbcTemplate.execute(
         """
