@@ -13,6 +13,7 @@ public record SpatialContext(
     MazeDefinition maze,
     SimulationState simulationState,
     Map<MoveDirection, NeighborCell> localNeighborhood,
+    Map<MoveDirection, Boolean> validActionMask,
     List<GridPosition> recentPositions,
     MoveDirection previousDirection,
     int noProgressStreak) {
@@ -39,6 +40,7 @@ public record SpatialContext(
         maze,
         simulationState,
         resolveLocalNeighborhood(maze, simulationState.agentPosition()),
+        resolveValidActionMask(maze, simulationState.agentPosition()),
         recentPositions,
         previousDirection,
         noProgressStreak);
@@ -48,12 +50,13 @@ public record SpatialContext(
     maze = Objects.requireNonNull(maze, "maze must not be null");
     simulationState = Objects.requireNonNull(simulationState, "simulationState must not be null");
     localNeighborhood = Map.copyOf(Objects.requireNonNull(localNeighborhood, "localNeighborhood must not be null"));
+    validActionMask = Map.copyOf(Objects.requireNonNull(validActionMask, "validActionMask must not be null"));
     recentPositions = List.copyOf(Objects.requireNonNull(recentPositions, "recentPositions must not be null"));
     noProgressStreak = Math.max(0, noProgressStreak);
   }
 
   public boolean canMove(MoveDirection direction) {
-    return localNeighborhood.getOrDefault(direction, NeighborCell.WALL) != NeighborCell.WALL;
+    return validActionMask.getOrDefault(direction, false);
   }
 
   public static Map<MoveDirection, NeighborCell> resolveLocalNeighborhood(
@@ -70,6 +73,16 @@ public record SpatialContext(
       }
     }
     return Map.copyOf(neighborhood);
+  }
+
+  public static Map<MoveDirection, Boolean> resolveValidActionMask(
+      MazeDefinition maze, GridPosition center) {
+    EnumMap<MoveDirection, Boolean> mask = new EnumMap<>(MoveDirection.class);
+    for (MoveDirection direction : MoveDirection.values()) {
+      GridPosition target = center.move(direction);
+      mask.put(direction, maze.isInside(target) && !maze.isWall(target));
+    }
+    return Map.copyOf(mask);
   }
 
   public enum NeighborCell {

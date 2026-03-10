@@ -31,6 +31,10 @@ class SpatialContextTest {
     assertEquals(SpatialContext.NeighborCell.OPEN, context.localNeighborhood().get(MoveDirection.DOWN));
     assertEquals(SpatialContext.NeighborCell.OPEN, context.localNeighborhood().get(MoveDirection.LEFT));
     assertEquals(SpatialContext.NeighborCell.EXIT, context.localNeighborhood().get(MoveDirection.RIGHT));
+    assertEquals(false, context.validActionMask().get(MoveDirection.UP));
+    assertEquals(true, context.validActionMask().get(MoveDirection.DOWN));
+    assertEquals(true, context.validActionMask().get(MoveDirection.LEFT));
+    assertEquals(true, context.validActionMask().get(MoveDirection.RIGHT));
     assertEquals(MoveDirection.LEFT, context.previousDirection());
     assertEquals(3, context.noProgressStreak());
   }

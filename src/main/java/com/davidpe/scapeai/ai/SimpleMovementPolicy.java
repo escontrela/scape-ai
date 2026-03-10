@@ -38,11 +38,7 @@ public class SimpleMovementPolicy implements MovementPolicy, ExplorationBudgetAw
 
     List<MoveDirection> validMoves =
         DIRECTION_PRIORITY.stream()
-            .filter(
-                direction -> {
-                  var next = current.move(direction);
-                  return maze.isInside(next) && !maze.isWall(next);
-                })
+            .filter(context::canMove)
             .toList();
 
     if (validMoves.isEmpty()) {

@@ -63,6 +63,58 @@ class SimulationStepFlowTest {
     assertEquals(RewardSignal.VERY_NEGATIVE, outcome.reward().signal());
   }
 
+  @Test
+  void shouldAdaptInvalidActionUsingNeighborMaskBeforeSimulationStep() {
+    MovementPolicy invalidPolicy = context -> MoveDirection.LEFT;
+    RewardEvaluator evaluator = this::rewardByCollision;
+    ActiveMovementPolicyService policyService =
+        new ActiveMovementPolicyService(
+            Map.of("heuristic-baseline", invalidPolicy, "random-controlled", invalidPolicy),
+            "heuristic-baseline");
+    SimulationStepFlow flow =
+        new SimulationStepFlow(policyService, evaluator, new SingleStepSimulationEngine());
+    boolean[][] walls = {
+      {true, false, false},
+      {false, false, false},
+      {false, false, false}
+    };
+    MazeDefinition maze =
+        new MazeDefinition(3, 3, walls, new GridPosition(0, 0), new GridPosition(2, 2));
+    SimulationState start = SimulationState.initial(new GridPosition(0, 0));
+
+    SimulationStepOutcome outcome = flow.execute(maze, start);
+
+    assertEquals(false, outcome.result().collision());
+    assertEquals(true, outcome.selectedDirection() == MoveDirection.RIGHT || outcome.selectedDirection() == MoveDirection.DOWN);
+  }
+
+  @Test
+  void shouldReduceInvalidCollisionEventsAgainstUnguardedBaseline() {
+    MovementPolicy invalidPolicy = context -> MoveDirection.LEFT;
+    RewardEvaluator evaluator = this::rewardByCollision;
+    ActiveMovementPolicyService policyService =
+        new ActiveMovementPolicyService(
+            Map.of("heuristic-baseline", invalidPolicy, "random-controlled", invalidPolicy),
+            "heuristic-baseline");
+    SimulationStepFlow flow =
+        new SimulationStepFlow(policyService, evaluator, new SingleStepSimulationEngine());
+    boolean[][] walls = {
+      {true, false, false},
+      {false, false, false},
+      {false, false, false}
+    };
+    MazeDefinition maze =
+        new MazeDefinition(3, 3, walls, new GridPosition(0, 0), new GridPosition(2, 2));
+    SimulationState start = SimulationState.initial(new GridPosition(0, 0));
+
+    boolean baselineCollision =
+        new SingleStepSimulationEngine().step(start, maze, MoveDirection.LEFT).collision();
+    SimulationStepOutcome guardedOutcome = flow.execute(maze, start);
+
+    assertEquals(true, baselineCollision);
+    assertEquals(false, guardedOutcome.result().collision());
+  }
+
   private RewardAssessment rewardByCollision(RewardContext context) {
     return context.stepResult().collision()
         ? RewardAssessment.of(RewardSignal.VERY_NEGATIVE)

@@ -669,3 +669,11 @@
 - Repositorio de corridas recientes devuelve el motivo terminal incluso cuando los datos previos no lo tenian (fallback por `success/timeout_reached`).
 - La UI de comparativa y timeline renderiza etiqueta legible de finalizacion terminal por fila.
 - Implementacion tecnica: `SqliteSchemaMigrator` agrega/backfillea `terminal_reason`, `JdbcTrainingRunRepository` normaliza lectura/escritura, y `MainWindow` consume `terminalReason` en `RecentRunComparisonRow` y `TrainingTimelineEntry`.
+
+### SCAPE-0062 - Adaptador de accion valida con mascara de vecinos
+- Objetivo funcional: reducir decisiones invalidas aplicando una mascara booleana de acciones permitidas por vecindad.
+- Alcance introducido:
+- `SpatialContext` expone `validActionMask` por direccion (`UP/DOWN/LEFT/RIGHT`) derivada de celdas vecinas.
+- `SimpleMovementPolicy` y `DjlMovementPolicyAdapter` consumen la mascara para filtrar o rechazar acciones invalidas.
+- `SimulationStepFlow` incorpora adaptador comun que corrige una decision invalida hacia una accion permitida antes de ejecutar el paso.
+- Pruebas automatizadas validan contrato de mascara y reduccion de colisiones invalidas frente a baseline sin adaptador.

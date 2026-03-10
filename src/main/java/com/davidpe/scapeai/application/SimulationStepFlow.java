@@ -87,10 +87,10 @@ public class SimulationStepFlow {
       int noProgressStreak,
       boolean loopDetected,
       MovementPolicy movementPolicy) {
-    var direction =
-        movementPolicy.chooseNextMove(
-            new SpatialContext(
-                maze, currentState, recentPositions, previousDirection, noProgressStreak));
+    SpatialContext context =
+        new SpatialContext(maze, currentState, recentPositions, previousDirection, noProgressStreak);
+    MoveDirection requestedDirection = movementPolicy.chooseNextMove(context);
+    MoveDirection direction = adaptToValidNeighborMask(context, requestedDirection);
     String transitionKey = transitionKey(currentState, direction);
     int repeatCount = transitionCounts.getOrDefault(transitionKey, 0);
     SimulationStepResult result = simulationEngine.step(currentState, maze, direction);
@@ -112,6 +112,18 @@ public class SimulationStepFlow {
       trace = provider.latestInferenceTrace();
     }
     return new SimulationStepOutcome(direction, result, reward, trace);
+  }
+
+  private MoveDirection adaptToValidNeighborMask(SpatialContext context, MoveDirection requestedDirection) {
+    if (requestedDirection != null && context.canMove(requestedDirection)) {
+      return requestedDirection;
+    }
+    for (MoveDirection candidate : MoveDirection.values()) {
+      if (context.canMove(candidate)) {
+        return candidate;
+      }
+    }
+    return MoveDirection.UP;
   }
 
   MovementPolicy activePolicy() {

@@ -27,8 +27,7 @@ public class DjlMovementPolicyAdapter implements MovementPolicy, InferenceTraceP
         return useFallback(context, startedAt, "NULL_PREDICTION");
       }
 
-      var target = context.simulationState().agentPosition().move(predicted);
-      if (!context.maze().isInside(target) || context.maze().isWall(target)) {
+      if (!context.canMove(predicted)) {
         return useFallback(context, startedAt, "INVALID_MOVE");
       }
       latestTrace = buildTrace(1.0, startedAt, false, null);
