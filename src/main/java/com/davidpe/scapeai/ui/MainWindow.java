@@ -125,6 +125,8 @@ public final class MainWindow {
   private volatile boolean miniHeatmapEnabled = true;
   private volatile boolean sessionConfigLocked;
   private volatile TrainingTargetDifficulty selectedTargetDifficulty = TrainingTargetDifficulty.MEDIUM;
+  private volatile HeatmapComparisonMode heatmapComparisonMode = HeatmapComparisonMode.SUPERPOSED;
+  private volatile List<CellVisitFrequency> accumulatedHeatmapFrequencies = List.of();
   private final double coverageAlertThreshold;
   private final int persistentHeatmapRuns;
 
@@ -601,6 +603,7 @@ public final class MainWindow {
               if (maze != null) {
                 selectedMazeName = selectedName;
                 selectedMaze = maze;
+                accumulatedHeatmapFrequencies = List.of();
                 mazeViewportRenderer.renderInto(mazeViewport, maze);
                 resetTrajectoryEpisode();
                 refreshUnexploredOverlay();
@@ -617,6 +620,7 @@ public final class MainWindow {
       if (firstMaze != null) {
         selectedMazeName = mazeSelector.getValue();
         selectedMaze = firstMaze;
+        accumulatedHeatmapFrequencies = List.of();
         mazeViewportRenderer.renderInto(mazeViewport, firstMaze);
         refreshUnexploredOverlay();
         refreshMiniHeatmap();
@@ -731,6 +735,44 @@ public final class MainWindow {
     Label heatmapTitle = new Label("VISIT HEATMAP");
     heatmapTitle.setTextFill(Color.web("#9db2ff"));
     heatmapTitle.setFont(Font.font("Consolas", 12));
+    ComboBox<HeatmapComparisonMode> heatmapModeSelector =
+        new ComboBox<>(FXCollections.observableArrayList(HeatmapComparisonMode.values()));
+    heatmapModeSelector.getSelectionModel().select(heatmapComparisonMode);
+    heatmapModeSelector.setMaxWidth(Double.MAX_VALUE);
+    heatmapModeSelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    heatmapModeSelector.setCellFactory(
+        ignored ->
+            new javafx.scene.control.ListCell<>() {
+              @Override
+              protected void updateItem(HeatmapComparisonMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.label());
+              }
+            });
+    heatmapModeSelector.setButtonCell(
+        new javafx.scene.control.ListCell<>() {
+          @Override
+          protected void updateItem(HeatmapComparisonMode item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty || item == null ? null : item.label());
+          }
+        });
+    heatmapModeSelector
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldSelection, selected) -> {
+              if (selected == null || selected == oldSelection) {
+                return;
+              }
+              heatmapComparisonMode = selected;
+              refreshMiniHeatmap();
+            });
     miniHeatmapGrid = new GridPane();
     miniHeatmapGrid.setHgap(1.2);
     miniHeatmapGrid.setVgap(1.2);
@@ -740,6 +782,7 @@ public final class MainWindow {
             + "-fx-border-color: #2cf1ff;"
             + "-fx-border-radius: 6;"
             + "-fx-background-radius: 6;");
+    HBox heatmapLegend = buildHeatmapLegend();
 
     VBox panel =
         new VBox(
@@ -756,6 +799,8 @@ public final class MainWindow {
             coverageTitle,
             coverageEntriesBox,
             heatmapTitle,
+            heatmapModeSelector,
+            heatmapLegend,
             miniHeatmapGrid);
     panel.setPadding(new Insets(18));
     panel.setMinWidth(240);
@@ -792,6 +837,32 @@ public final class MainWindow {
             + "-fx-border-radius: 6;"
             + "-fx-background-radius: 6;");
     return card;
+  }
+
+  private HBox buildHeatmapLegend() {
+    Label low = new Label("LOW");
+    low.setTextFill(Color.web("#9db2ff"));
+    low.setFont(Font.font("Consolas", 10));
+    Label high = new Label("HIGH");
+    high.setTextFill(Color.web("#9db2ff"));
+    high.setFont(Font.font("Consolas", 10));
+    HBox swatches = new HBox(2);
+    for (int index = 0; index < 6; index++) {
+      double ratio = index / 5.0;
+      Rectangle swatch = new Rectangle(12, 8);
+      swatch.setArcWidth(3);
+      swatch.setArcHeight(3);
+      swatch.setFill(Color.color(0.22 + (0.70 * ratio), 0.32 + (0.52 * ratio), 0.78 - (0.58 * ratio), 0.30 + (0.55 * ratio)));
+      swatch.setStroke(Color.color(0.30, 0.90, 1.0, 0.35));
+      swatch.setStrokeWidth(0.3);
+      swatches.getChildren().add(swatch);
+    }
+    Label title = new Label("Shared intensity scale");
+    title.setTextFill(Color.web("#6fd6ff"));
+    title.setFont(Font.font("Consolas", 10));
+    HBox legend = new HBox(6, title, low, swatches, high);
+    legend.setAlignment(Pos.CENTER_LEFT);
+    return legend;
   }
 
   private Label sessionCardValue(String label, String value) {
@@ -981,11 +1052,14 @@ public final class MainWindow {
     if (!mazeName.equals(selectedMazeName)) {
       return;
     }
+    accumulatedHeatmapFrequencies = frequencies == null ? List.of() : List.copyOf(frequencies);
     if (frequencies == null || frequencies.isEmpty()) {
       mazeViewportRenderer.clearPersistentHeatmap();
+      refreshMiniHeatmap();
       return;
     }
     mazeViewportRenderer.renderPersistentHeatmap(frequencies);
+    refreshMiniHeatmap();
   }
 
   private void renderRecentRuns(
@@ -1393,17 +1467,27 @@ public final class MainWindow {
     if (!miniHeatmapEnabled) {
       return;
     }
-    java.util.Map<GridPosition, Integer> visits = new java.util.HashMap<>();
-    int maxVisits = 1;
+    java.util.Map<GridPosition, Integer> activeVisits = new java.util.HashMap<>();
     for (GridPosition position : trajectory) {
       if (!selectedMaze.isInside(position) || selectedMaze.isWall(position)) {
         continue;
       }
-      int value = visits.getOrDefault(position, 0) + 1;
-      visits.put(position, value);
-      if (value > maxVisits) {
-        maxVisits = value;
+      int value = activeVisits.getOrDefault(position, 0) + 1;
+      activeVisits.put(position, value);
+    }
+    java.util.Map<GridPosition, Integer> accumulatedVisits = new java.util.HashMap<>();
+    for (CellVisitFrequency frequency : accumulatedHeatmapFrequencies) {
+      if (!selectedMaze.isInside(frequency.position()) || selectedMaze.isWall(frequency.position())) {
+        continue;
       }
+      accumulatedVisits.put(frequency.position(), Math.max(0, frequency.visits()));
+    }
+    int maxVisits = 1;
+    for (int count : activeVisits.values()) {
+      maxVisits = Math.max(maxVisits, count);
+    }
+    for (int count : accumulatedVisits.values()) {
+      maxVisits = Math.max(maxVisits, count);
     }
     for (int row = 0; row < selectedMaze.rows(); row++) {
       for (int col = 0; col < selectedMaze.cols(); col++) {
@@ -1414,14 +1498,61 @@ public final class MainWindow {
           cell.setFill(Color.color(0.08, 0.12, 0.22, 0.95));
           cell.setStroke(Color.color(0.16, 0.22, 0.36, 0.8));
         } else {
-          int count = visits.getOrDefault(position, 0);
-          double intensity = count <= 0 ? 0.0 : (double) count / (double) maxVisits;
-          double red = 0.18 + (0.72 * intensity);
-          double green = 0.28 + (0.58 * intensity);
-          double blue = 0.72 - (0.60 * intensity);
-          double alpha = 0.25 + (0.70 * intensity);
+          int activeCount = activeVisits.getOrDefault(position, 0);
+          int accumulatedCount = accumulatedVisits.getOrDefault(position, 0);
+          double activeIntensity = activeCount <= 0 ? 0.0 : (double) activeCount / (double) maxVisits;
+          double accumulatedIntensity =
+              accumulatedCount <= 0 ? 0.0 : (double) accumulatedCount / (double) maxVisits;
+          boolean leftHalf = col < (selectedMaze.cols() / 2);
+          double intensity;
+          double red;
+          double green;
+          double blue;
+          double alpha;
+          switch (heatmapComparisonMode) {
+            case ACTIVE_ONLY -> {
+              intensity = activeIntensity;
+              red = 0.18 + (0.18 * intensity);
+              green = 0.68 + (0.28 * intensity);
+              blue = 0.70 + (0.24 * intensity);
+              alpha = 0.20 + (0.70 * intensity);
+            }
+            case ACCUMULATED_ONLY -> {
+              intensity = accumulatedIntensity;
+              red = 0.35 + (0.65 * intensity);
+              green = 0.24 + (0.58 * intensity);
+              blue = 0.12 + (0.38 * intensity);
+              alpha = 0.20 + (0.70 * intensity);
+            }
+            case SPLIT -> {
+              intensity = leftHalf ? activeIntensity : accumulatedIntensity;
+              if (leftHalf) {
+                red = 0.18 + (0.18 * intensity);
+                green = 0.68 + (0.28 * intensity);
+                blue = 0.70 + (0.24 * intensity);
+              } else {
+                red = 0.35 + (0.65 * intensity);
+                green = 0.24 + (0.58 * intensity);
+                blue = 0.12 + (0.38 * intensity);
+              }
+              alpha = 0.20 + (0.70 * intensity);
+            }
+            case SUPERPOSED -> {
+              double combined = Math.max(activeIntensity, accumulatedIntensity);
+              red = 0.22 + (0.65 * accumulatedIntensity);
+              green = 0.26 + (0.56 * activeIntensity);
+              blue = 0.75 - (0.40 * accumulatedIntensity) + (0.18 * activeIntensity);
+              alpha = 0.24 + (0.70 * combined);
+            }
+            default -> {
+              red = 0.18;
+              green = 0.28;
+              blue = 0.72;
+              alpha = 0.25;
+            }
+          }
           cell.setFill(Color.color(red, green, blue, alpha));
-          cell.setStroke(Color.color(0.26, 0.88, 1.0, 0.12 + (0.40 * intensity)));
+          cell.setStroke(Color.color(0.26, 0.88, 1.0, 0.16 + (0.35 * Math.max(activeIntensity, accumulatedIntensity))));
           if (position.equals(selectedMaze.exit())) {
             cell.setFill(Color.color(1.0, 0.78, 0.24, 0.95));
             cell.setStroke(Color.color(1.0, 0.93, 0.55, 0.95));
@@ -1452,6 +1583,23 @@ public final class MainWindow {
   }
 
   private record MiniHeatmapSnapshot(List<GridPosition> trajectory, GridPosition currentPosition) {}
+
+  private enum HeatmapComparisonMode {
+    ACTIVE_ONLY("Active"),
+    ACCUMULATED_ONLY("Accumulated"),
+    SUPERPOSED("Superposed"),
+    SPLIT("Split");
+
+    private final String label;
+
+    HeatmapComparisonMode(String label) {
+      this.label = label;
+    }
+
+    String label() {
+      return label;
+    }
+  }
 
   private void onTrainingLifecycleEvent(TrainingLifecycleEvent event) {
     Platform.runLater(

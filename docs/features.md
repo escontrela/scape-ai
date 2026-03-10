@@ -653,6 +653,13 @@
 - `IterativeTrainingSummary` y `HeadlessBatchTrainingResult` exponen consumo/disponible de presupuesto (episodios y wall-clock) mas `budgetExhaustedReason`.
 - Implementacion tecnica: cierre por presupuesto publica evento `FINISHED` con detalle `BUDGET_EXHAUSTED: <reason>` para trazabilidad en UI/timeline.
 
+### SCAPE-0067 - Comparador UI de heatmap corrida vs acumulado
+- Objetivo funcional: contrastar visualmente cobertura de la corrida activa frente al acumulado historico.
+- La UI incorpora selector de capa/modo con opciones `Active`, `Accumulated`, `Superposed` y `Split`.
+- El modo `Superposed` mezcla ambas fuentes; `Split` divide la grilla en mitades para comparar sin cambiar de pantalla.
+- Se agrega leyenda de intensidad compartida (`LOW -> HIGH`) para mantener escala consistente entre ambas fuentes.
+- Implementacion tecnica: `MainWindow.renderMiniHeatmap(...)` combina `trajectory` (corrida activa) y `accumulatedHeatmapFrequencies` (ultimas N corridas) sin bloquear JavaFX, reutilizando carga asíncrona de `PersistentMazeHeatmapService`.
+
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
 - Estado inicial detectado: `in_progress=0` y `backlog=4` (`SCAPE-0060`, `SCAPE-0061`, `SCAPE-0062`, `SCAPE-0063`).
