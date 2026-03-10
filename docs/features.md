@@ -549,3 +549,25 @@
 - Repositorio operativo unico usado: `/Users/davidpe/dev/projects/scape-ai` (sin worktrees).
 - Rama obligatoria confirmada: `features-nightly-20260309`.
 - Actualizacion acumulativa aplicada en `docs/features.md` para mantener trazabilidad funcional del backlog vigente.
+
+## Iteracion PO 2026-03-10 (automation cycle 10)
+
+### SCAPE-0058 - Contrato unificado de configuracion de sesion
+- Objetivo funcional: unificar la configuracion de sesion para evitar divergencias entre arranque UI y ejecucion headless.
+- Alcance introducido:
+- Definicion de `TrainingSessionConfig` versionado con campos minimos (maze, policy, timeout, seed, smoke-run, dificultad objetivo).
+- Consumo obligatorio del mismo contrato por `StartTrainingSession`, flujo UI y modo headless.
+- Validaciones centralizadas con errores tipados reutilizables en panel UI y logs operativos.
+
+### SCAPE-0059 - Minimap de cobertura acumulada en runtime
+- Objetivo funcional: exponer en tiempo real zonas ciegas de exploracion mediante un minimapa de cobertura acumulada.
+- Alcance introducido:
+- Componente UI de minimapa 2D con intensidad por frecuencia de visita durante episodio activo.
+- Actualizacion no bloqueante en JavaFX y reinicio limpio al iniciar nueva sesion.
+- Resaltado de salida y posicion actual del agente sobre el minimapa para diagnostico inmediato.
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- Se crearon tickets en backlog: `SCAPE-0058` y `SCAPE-0059`.
+- Transicion aplicada: `SCAPE-0056` -> `in_progress` para restaurar WIP operativo.
+- Estado objetivo esperado tras la transicion: `in_progress=1` y `backlog=5`.
