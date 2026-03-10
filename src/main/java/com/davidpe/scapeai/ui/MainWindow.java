@@ -13,6 +13,7 @@ import com.davidpe.scapeai.application.StartTrainingSessionResult;
 import com.davidpe.scapeai.application.StartTrainingSessionUseCase;
 import com.davidpe.scapeai.application.SimulationSpeed;
 import com.davidpe.scapeai.application.SimulationControlService;
+import com.davidpe.scapeai.application.TrainingSessionConfig;
 import com.davidpe.scapeai.application.TrainingTargetDifficulty;
 import com.davidpe.scapeai.application.TrainingExecutionService;
 import com.davidpe.scapeai.application.TrainingLifecycleEvent;
@@ -390,10 +391,22 @@ public final class MainWindow {
               TrainingPresetOption selectedPreset = presetSelector.getValue();
               Long selectedPresetId = selectedPreset == null ? null : selectedPreset.id();
               TrainingTargetDifficulty targetDifficulty = targetDifficultySelector.getValue();
+              var activePresetBeforeStart = trainingPresetService.activePreset();
+              if (activePresetBeforeStart.isEmpty()) {
+                updateSystemStatus("Select a training preset before starting batches.", "#ff6b8a");
+                return;
+              }
+              TrainingSessionConfig sessionConfig =
+                  TrainingSessionConfig.v1(
+                      selectedMazeName,
+                      controlService.activeMovementPolicy(),
+                      activePresetBeforeStart.get().timeout(),
+                      null,
+                      true,
+                      targetDifficulty);
               StartTrainingSessionResult startResult =
                   startTrainingSessionUseCase.start(
-                      new StartTrainingSessionCommand(
-                          selectedMaze, selectedPresetId, targetDifficulty, null));
+                      new StartTrainingSessionCommand(selectedMaze, selectedPresetId, sessionConfig));
               if (!startResult.started()) {
                 updateSystemStatus(startResult.message(), "#ff6b8a");
                 return;
@@ -414,7 +427,7 @@ public final class MainWindow {
               int batches = batchSelector.getValue() == null ? 1 : Math.max(1, batchSelector.getValue());
               int episodesPerBatch = Math.max(1, activePreset.get().episodes());
               trainingExecutionService
-                  .startBatchTraining(selectedMaze, episodesPerBatch, batches, activePreset.get().timeout())
+                  .startBatchTraining(selectedMaze, episodesPerBatch, batches, sessionConfig.timeout())
                   .whenComplete(
                       (summary, error) ->
                           Platform.runLater(

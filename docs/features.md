@@ -612,6 +612,7 @@
 - Definicion de `TrainingSessionConfig` versionado con campos minimos (maze, policy, timeout, seed, smoke-run, dificultad objetivo).
 - Consumo obligatorio del mismo contrato por `StartTrainingSession`, flujo UI y modo headless.
 - Validaciones centralizadas con errores tipados reutilizables en panel UI y logs operativos.
+- Implementacion tecnica: `TrainingSessionConfigValidator` centraliza reglas/errores tipados (`TrainingSessionConfigErrorCode`), `ApplicationStartTrainingSessionUseCase` y `HeadlessBatchTrainingUseCase` exigen el mismo contrato, y `MainWindow` construye una unica `TrainingSessionConfig.v1(...)` para inicio y batch.
 
 ### SCAPE-0059 - Minimap de cobertura acumulada en runtime
 - Objetivo funcional: exponer en tiempo real zonas ciegas de exploracion mediante un minimapa de cobertura acumulada.

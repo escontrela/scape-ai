@@ -13,6 +13,7 @@ import com.davidpe.scapeai.persistence.repository.ExplorationBudgetRepository;
 import com.davidpe.scapeai.ui.MazeCatalogService;
 import com.davidpe.scapeai.ui.MazeJsonResourceLoader;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,12 +32,15 @@ class ApplicationStartTrainingSessionUseCaseTest {
             mazeCatalogService,
             randomSource,
             noOpExplorationBudgetService(),
-            adaptiveDifficultyDisabledService());
+            adaptiveDifficultyDisabledService(),
+            new TrainingSessionConfigValidator());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
     StartTrainingSessionResult result =
-        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.LOW, 77L));
+        useCase.start(
+            new StartTrainingSessionCommand(
+                maze, 1L, sessionConfig("maze-1", "heuristic-baseline", TrainingTargetDifficulty.LOW, 77L)));
 
     assertTrue(result.started());
     assertEquals(
@@ -59,10 +63,15 @@ class ApplicationStartTrainingSessionUseCaseTest {
             mazeCatalogService,
             randomSource,
             noOpExplorationBudgetService(),
-            adaptiveDifficultyDisabledService());
+            adaptiveDifficultyDisabledService(),
+            new TrainingSessionConfigValidator());
 
     StartTrainingSessionResult result =
-        useCase.start(new StartTrainingSessionCommand(null, 1L, TrainingTargetDifficulty.LOW, null));
+        useCase.start(
+            new StartTrainingSessionCommand(
+                null,
+                1L,
+                sessionConfig("maze-1", "heuristic-baseline", TrainingTargetDifficulty.LOW, null)));
 
     assertFalse(result.started());
     assertEquals("Select a maze before starting.", result.message());
@@ -80,13 +89,17 @@ class ApplicationStartTrainingSessionUseCaseTest {
             mazeCatalogService,
             randomSource,
             noOpExplorationBudgetService(),
-            adaptiveDifficultyDisabledService());
+            adaptiveDifficultyDisabledService(),
+            new TrainingSessionConfigValidator());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
     StartTrainingSessionResult result =
         useCase.start(
-            new StartTrainingSessionCommand(maze, 999L, TrainingTargetDifficulty.MEDIUM, null));
+            new StartTrainingSessionCommand(
+                maze,
+                999L,
+                sessionConfig("maze-1", "heuristic-baseline", TrainingTargetDifficulty.MEDIUM, null)));
 
     assertFalse(result.started());
     assertEquals("Selected preset does not exist.", result.message());
@@ -105,12 +118,17 @@ class ApplicationStartTrainingSessionUseCaseTest {
             mazeCatalogService,
             randomSource,
             noOpExplorationBudgetService(),
-            adaptiveDifficultyDisabledService());
+            adaptiveDifficultyDisabledService(),
+            new TrainingSessionConfigValidator());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
     StartTrainingSessionResult result =
-        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.MEDIUM, null));
+        useCase.start(
+            new StartTrainingSessionCommand(
+                maze,
+                1L,
+                sessionConfig("maze-1", "heuristic-baseline", TrainingTargetDifficulty.MEDIUM, null)));
 
     assertFalse(result.started());
     assertEquals(
@@ -130,12 +148,15 @@ class ApplicationStartTrainingSessionUseCaseTest {
             mazeCatalogService,
             randomSource,
             noOpExplorationBudgetService(),
-            adaptiveDifficultyDisabledService());
+            adaptiveDifficultyDisabledService(),
+            new TrainingSessionConfigValidator());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
     StartTrainingSessionResult result =
-        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.HIGH, null));
+        useCase.start(
+            new StartTrainingSessionCommand(
+                maze, 1L, sessionConfig("maze-1", "heuristic-baseline", TrainingTargetDifficulty.HIGH, null)));
 
     assertTrue(result.started());
     assertNotNull(result.effectiveSeed());
@@ -153,12 +174,19 @@ class ApplicationStartTrainingSessionUseCaseTest {
     adaptive.recordOutcome(true);
     ApplicationStartTrainingSessionUseCase useCase =
         new ApplicationStartTrainingSessionUseCase(
-            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService(), adaptive);
+            controlService,
+            mazeCatalogService,
+            randomSource,
+            noOpExplorationBudgetService(),
+            adaptive,
+            new TrainingSessionConfigValidator());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
     StartTrainingSessionResult result =
-        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.MEDIUM, 10L));
+        useCase.start(
+            new StartTrainingSessionCommand(
+                maze, 1L, sessionConfig("maze-1", "heuristic-baseline", TrainingTargetDifficulty.MEDIUM, 10L)));
 
     assertTrue(result.started());
     assertTrue(result.message().contains("ADAPT MEDIA->ALTA"));
@@ -175,15 +203,27 @@ class ApplicationStartTrainingSessionUseCaseTest {
     adaptive.recordOutcome(false);
     ApplicationStartTrainingSessionUseCase useCase =
         new ApplicationStartTrainingSessionUseCase(
-            controlService, mazeCatalogService, randomSource, noOpExplorationBudgetService(), adaptive);
+            controlService,
+            mazeCatalogService,
+            randomSource,
+            noOpExplorationBudgetService(),
+            adaptive,
+            new TrainingSessionConfigValidator());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
     StartTrainingSessionResult result =
-        useCase.start(new StartTrainingSessionCommand(maze, 1L, TrainingTargetDifficulty.HIGH, 11L));
+        useCase.start(
+            new StartTrainingSessionCommand(
+                maze, 1L, sessionConfig("maze-1", "heuristic-baseline", TrainingTargetDifficulty.HIGH, 11L)));
 
     assertTrue(result.started());
     assertTrue(result.message().contains("ADAPT ALTA->MEDIA"));
+  }
+
+  private static TrainingSessionConfig sessionConfig(
+      String mazeId, String policyId, TrainingTargetDifficulty difficultyTarget, Long seed) {
+    return TrainingSessionConfig.v1(mazeId, policyId, Duration.ofMinutes(2), seed, true, difficultyTarget);
   }
 
   private static final class StubSimulationControlService implements SimulationControlService {

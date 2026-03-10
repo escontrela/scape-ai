@@ -1,23 +1,26 @@
 package com.davidpe.scapeai.application;
 
 import com.davidpe.scapeai.simulation.MazeDefinition;
-import java.time.Duration;
 import org.springframework.stereotype.Service;
 
 @Service
 public class HeadlessBatchTrainingUseCase {
 
   private final IterativeEpisodeTrainingService iterativeTrainingService;
+  private final TrainingSessionConfigValidator configValidator;
 
-  public HeadlessBatchTrainingUseCase(IterativeEpisodeTrainingService iterativeTrainingService) {
+  public HeadlessBatchTrainingUseCase(
+      IterativeEpisodeTrainingService iterativeTrainingService,
+      TrainingSessionConfigValidator configValidator) {
     this.iterativeTrainingService = iterativeTrainingService;
+    this.configValidator = configValidator;
   }
 
-  public HeadlessBatchTrainingResult runBatch(
-      MazeDefinition maze, int episodes, Duration timeout) {
+  public HeadlessBatchTrainingResult runBatch(TrainingSessionConfig sessionConfig, MazeDefinition maze, int episodes) {
+    configValidator.ensureValid(sessionConfig);
     long startedAt = System.currentTimeMillis();
     IterativeTrainingSummary summary =
-        iterativeTrainingService.train(maze, episodes, timeout, () -> false);
+        iterativeTrainingService.train(maze, episodes, sessionConfig.timeout(), () -> false);
     long totalDurationMillis = Math.max(0L, System.currentTimeMillis() - startedAt);
     return new HeadlessBatchTrainingResult(
         summary.episodesRequested(),

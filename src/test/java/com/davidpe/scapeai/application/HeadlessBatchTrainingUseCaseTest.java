@@ -16,11 +16,15 @@ class HeadlessBatchTrainingUseCaseTest {
     IterativeEpisodeTrainingService trainingService =
         new StubIterativeTrainingService(
             new IterativeTrainingSummary(20, 20, false, 0.8, 2.4, 0.6));
-    HeadlessBatchTrainingUseCase useCase = new HeadlessBatchTrainingUseCase(trainingService);
+    HeadlessBatchTrainingUseCase useCase =
+        new HeadlessBatchTrainingUseCase(trainingService, new TrainingSessionConfigValidator());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
+    TrainingSessionConfig sessionConfig =
+        TrainingSessionConfig.v1(
+            "maze-headless", "heuristic-baseline", Duration.ofSeconds(30), 7L, true, TrainingTargetDifficulty.MEDIUM);
 
-    HeadlessBatchTrainingResult result = useCase.runBatch(maze, 20, Duration.ofSeconds(30));
+    HeadlessBatchTrainingResult result = useCase.runBatch(sessionConfig, maze, 20);
 
     assertEquals(20, result.episodesRequested());
     assertEquals(20, result.episodesCompleted());

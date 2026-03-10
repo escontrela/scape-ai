@@ -11,18 +11,21 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
   private final SessionRandomSource sessionRandomSource;
   private final ExplorationBudgetService explorationBudgetService;
   private final AdaptiveDifficultyService adaptiveDifficultyService;
+  private final TrainingSessionConfigValidator configValidator;
 
   public ApplicationStartTrainingSessionUseCase(
       SimulationControlService simulationControlService,
       MazeCatalogService mazeCatalogService,
       SessionRandomSource sessionRandomSource,
       ExplorationBudgetService explorationBudgetService,
-      AdaptiveDifficultyService adaptiveDifficultyService) {
+      AdaptiveDifficultyService adaptiveDifficultyService,
+      TrainingSessionConfigValidator configValidator) {
     this.simulationControlService = simulationControlService;
     this.mazeCatalogService = mazeCatalogService;
     this.sessionRandomSource = sessionRandomSource;
     this.explorationBudgetService = explorationBudgetService;
     this.adaptiveDifficultyService = adaptiveDifficultyService;
+    this.configValidator = configValidator;
   }
 
   @Override
@@ -30,9 +33,18 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
     if (command == null) {
       return StartTrainingSessionResult.validationError("Select a maze before starting.");
     }
+    TrainingSessionConfig sessionConfig = command.sessionConfig();
+    try {
+      configValidator.ensureValid(sessionConfig);
+    } catch (TrainingSessionConfigValidationException validationException) {
+      return StartTrainingSessionResult.validationError(
+          validationException.getMessage(), validationException.errors());
+    }
 
     TrainingTargetDifficulty requestedDifficulty =
-        command.targetDifficulty() == null ? TrainingTargetDifficulty.MEDIUM : command.targetDifficulty();
+        sessionConfig.difficultyTarget() == null
+            ? TrainingTargetDifficulty.MEDIUM
+            : sessionConfig.difficultyTarget();
     AdaptiveDifficultyDecision difficultyDecision = adaptiveDifficultyService.resolve(requestedDifficulty);
     TrainingTargetDifficulty targetDifficulty = difficultyDecision.resolved();
     var selectedMaze = mazeCatalogService.findCandidateByDifficulty(targetDifficulty).orElse(command.maze());
@@ -44,13 +56,14 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
       return StartTrainingSessionResult.validationError("No movement policy available.");
     }
 
-    String activePolicy = simulationControlService.activeMovementPolicy();
+    String activePolicy = sessionConfig.policyId();
     boolean policyExists =
         simulationControlService.availableMovementPolicies().stream()
             .anyMatch(option -> option.id().equals(activePolicy));
     if (!policyExists) {
       return StartTrainingSessionResult.validationError("Active policy is not valid.");
     }
+    simulationControlService.selectMovementPolicy(activePolicy);
 
     Long presetId = command.presetId();
     if (presetId != null) {
@@ -72,7 +85,7 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
           "No mazes available for selected difficulty. Choose another level or add more mazes.");
     }
 
-    long effectiveSeed = sessionRandomSource.resolveAndApplySeed(command.sessionSeed());
+    long effectiveSeed = sessionRandomSource.resolveAndApplySeed(sessionConfig.seed());
     explorationBudgetService.startSession(
         simulationControlService.activeTrainingPresetId(), simulationControlService.activeMovementPolicy());
     simulationControlService.start();
