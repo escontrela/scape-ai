@@ -677,3 +677,11 @@
 - `SimpleMovementPolicy` y `DjlMovementPolicyAdapter` consumen la mascara para filtrar o rechazar acciones invalidas.
 - `SimulationStepFlow` incorpora adaptador comun que corrige una decision invalida hacia una accion permitida antes de ejecutar el paso.
 - Pruebas automatizadas validan contrato de mascara y reduccion de colisiones invalidas frente a baseline sin adaptador.
+
+### SCAPE-0063 - Tarjeta UI de configuracion efectiva de sesion
+- Objetivo funcional: visualizar configuracion efectiva de sesion para trazabilidad antes, durante y despues de la corrida.
+- Alcance introducido:
+- `MainWindow` agrega tarjeta `EFFECTIVE SESSION` con maze, policy, seed efectiva, timeout y dificultad objetivo.
+- La tarjeta se actualiza en caliente con cambios de seleccion (maze/policy/preset/dificultad) y se fija al iniciar sesion.
+- Al finalizar episodio, la configuracion fijada se conserva para correlacion directa con metricas y timeline.
+- Implementacion tecnica: `MainWindow` incorpora estado `sessionConfigLocked`, refresco reactivo de preview y fijacion con `lockSessionConfigCard(...)` usando la `effectiveSeed` real de `StartTrainingSessionResult`.

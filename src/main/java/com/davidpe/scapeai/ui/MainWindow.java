@@ -21,6 +21,7 @@ import com.davidpe.scapeai.application.TrainingLifecycleEventType;
 import com.davidpe.scapeai.application.TrainingLifecycleSubscriberRouter;
 import com.davidpe.scapeai.application.TrainingTimelineEntry;
 import com.davidpe.scapeai.application.TrainingTimelineStatus;
+import com.davidpe.scapeai.application.TrainingPreset;
 import com.davidpe.scapeai.application.TrainingPresetOption;
 import com.davidpe.scapeai.application.TrainingPresetService;
 import com.davidpe.scapeai.simulation.GridPosition;
@@ -98,6 +99,11 @@ public final class MainWindow {
   private Label activePolicyValue;
   private Label activePresetValue;
   private Label activeSpeedValue;
+  private Label effectiveMazeValue;
+  private Label effectivePolicyValue;
+  private Label effectiveSeedCardValue;
+  private Label effectiveTimeoutValue;
+  private Label effectiveDifficultyValue;
   private Label systemStatusValue;
   private Label sessionSeedValue;
   private Label executionModeValue;
@@ -114,6 +120,8 @@ public final class MainWindow {
   private volatile boolean trajectoryRunning;
   private volatile boolean unexploredOverlayEnabled;
   private volatile boolean miniHeatmapEnabled = true;
+  private volatile boolean sessionConfigLocked;
+  private volatile TrainingTargetDifficulty selectedTargetDifficulty = TrainingTargetDifficulty.MEDIUM;
   private final double coverageAlertThreshold;
 
   public MainWindow(
@@ -233,6 +241,7 @@ public final class MainWindow {
               }
               controlService.selectMovementPolicy(selected.id());
               updateActivePolicyLabel();
+              refreshSessionConfigCardPreview();
             });
 
     activePolicyValue = new Label();
@@ -282,6 +291,7 @@ public final class MainWindow {
               updateActivePolicyLabel();
               updateActivePresetLabel();
               selectActiveAlgorithm(algorithmSelector);
+              refreshSessionConfigCardPreview();
             });
 
     activePresetValue = new Label();
@@ -344,7 +354,7 @@ public final class MainWindow {
     targetDifficultyLabel.setFont(Font.font("Consolas", 12));
     ComboBox<TrainingTargetDifficulty> targetDifficultySelector =
         new ComboBox<>(FXCollections.observableArrayList(TrainingTargetDifficulty.values()));
-    targetDifficultySelector.getSelectionModel().select(TrainingTargetDifficulty.MEDIUM);
+    targetDifficultySelector.getSelectionModel().select(selectedTargetDifficulty);
     targetDifficultySelector.setMaxWidth(Double.MAX_VALUE);
     targetDifficultySelector.setStyle(
         "-fx-background-color: #101938;"
@@ -369,6 +379,17 @@ public final class MainWindow {
             setText(empty || item == null ? null : item.label());
           }
         });
+    targetDifficultySelector
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldSelection, selected) -> {
+              if (selected == null || selected == oldSelection) {
+                return;
+              }
+              selectedTargetDifficulty = selected;
+              refreshSessionConfigCardPreview();
+            });
     Label batchLabel = new Label("BATCHES");
     batchLabel.setTextFill(Color.web("#9db2ff"));
     batchLabel.setFont(Font.font("Consolas", 12));
@@ -417,6 +438,7 @@ public final class MainWindow {
               }
               updateSystemStatus(startResult.message(), "#89ff9a");
               updateSessionHud(startResult.effectiveSeed(), "visual");
+              lockSessionConfigCard(startResult.effectiveSeed(), sessionConfig);
               updateActivePolicyLabel();
               updateActivePresetLabel();
               var activePreset = trainingPresetService.activePreset();
@@ -509,6 +531,7 @@ public final class MainWindow {
     panel.setPadding(new Insets(18));
     panel.setMinWidth(220);
     panel.setStyle(panelStyle());
+    refreshSessionConfigCardPreview();
     return panel;
   }
 
@@ -575,6 +598,7 @@ public final class MainWindow {
                 refreshUnexploredOverlay();
                 refreshMiniHeatmap();
                 refreshRecentRunsAsync();
+                refreshSessionConfigCardPreview();
               }
             });
 
@@ -588,6 +612,7 @@ public final class MainWindow {
         refreshUnexploredOverlay();
         refreshMiniHeatmap();
         refreshRecentRunsAsync();
+        refreshSessionConfigCardPreview();
       }
     }
 
@@ -628,6 +653,7 @@ public final class MainWindow {
             metricLine("Termination", "IDLE"),
             metricLine("Maze Coverage", "0%"),
             metricLine("Alert", "NOMINAL"));
+    VBox effectiveSessionCard = buildEffectiveSessionCard();
 
     Label timelineTitle = new Label("RECENT EPISODES");
     timelineTitle.setTextFill(Color.web("#9db2ff"));
@@ -711,6 +737,7 @@ public final class MainWindow {
             title,
             metrics,
             diagnostics,
+            effectiveSessionCard,
             timelineTitle,
             timelineEntriesBox,
             comparisonTitle,
@@ -723,7 +750,45 @@ public final class MainWindow {
     panel.setPadding(new Insets(18));
     panel.setMinWidth(240);
     panel.setStyle(panelStyle());
+    refreshSessionConfigCardPreview();
     return panel;
+  }
+
+  private VBox buildEffectiveSessionCard() {
+    Label title = new Label("EFFECTIVE SESSION");
+    title.setTextFill(Color.web("#9db2ff"));
+    title.setFont(Font.font("Consolas", 12));
+
+    effectiveMazeValue = sessionCardValue("Maze", "-");
+    effectivePolicyValue = sessionCardValue("Policy", "-");
+    effectiveSeedCardValue = sessionCardValue("Seed", "AUTO");
+    effectiveTimeoutValue = sessionCardValue("Timeout", "-");
+    effectiveDifficultyValue = sessionCardValue("Difficulty", selectedTargetDifficulty.label());
+
+    VBox card =
+        new VBox(
+            6,
+            title,
+            effectiveMazeValue,
+            effectivePolicyValue,
+            effectiveSeedCardValue,
+            effectiveTimeoutValue,
+            effectiveDifficultyValue);
+    card.setPadding(new Insets(8));
+    card.setStyle(
+        "-fx-background-color: rgba(11, 20, 42, 0.75);"
+            + "-fx-border-color: #2c3f73;"
+            + "-fx-border-width: 1;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    return card;
+  }
+
+  private Label sessionCardValue(String label, String value) {
+    Label row = new Label(label + ": " + value);
+    row.setTextFill(Color.web("#c6d7ff"));
+    row.setFont(Font.font("Consolas", 11));
+    return row;
   }
 
   private HBox metricLine(String name, String value) {
@@ -1086,6 +1151,64 @@ public final class MainWindow {
     }
     activeSpeedValue.setText(
         "ACTIVE SPEED: " + liveMetricsService.simulationSpeed().name().toUpperCase(Locale.ROOT));
+  }
+
+  private void refreshSessionConfigCardPreview() {
+    if (sessionConfigLocked) {
+      return;
+    }
+    applySessionConfigCard(
+        selectedMazeName == null ? "-" : selectedMazeName,
+        controlService.activeMovementPolicy(),
+        null,
+        trainingPresetService.activePreset().map(TrainingPreset::timeout).orElse(null),
+        selectedTargetDifficulty);
+  }
+
+  private void lockSessionConfigCard(Long effectiveSeed, TrainingSessionConfig sessionConfig) {
+    sessionConfigLocked = true;
+    applySessionConfigCard(
+        sessionConfig == null || sessionConfig.mazeId() == null || sessionConfig.mazeId().isBlank()
+            ? selectedMazeName
+            : sessionConfig.mazeId(),
+        sessionConfig == null ? controlService.activeMovementPolicy() : sessionConfig.policyId(),
+        effectiveSeed,
+        sessionConfig == null ? null : sessionConfig.timeout(),
+        sessionConfig == null ? selectedTargetDifficulty : sessionConfig.difficultyTarget());
+  }
+
+  private void applySessionConfigCard(
+      String mazeName, String policy, Long seed, java.time.Duration timeout, TrainingTargetDifficulty difficulty) {
+    if (effectiveMazeValue != null) {
+      effectiveMazeValue.setText("Maze: " + (mazeName == null || mazeName.isBlank() ? "-" : mazeName));
+    }
+    if (effectivePolicyValue != null) {
+      effectivePolicyValue.setText("Policy: " + (policy == null || policy.isBlank() ? "-" : policy));
+    }
+    if (effectiveSeedCardValue != null) {
+      effectiveSeedCardValue.setText(seed == null ? "Seed: AUTO" : "Seed: " + seed);
+    }
+    if (effectiveTimeoutValue != null) {
+      effectiveTimeoutValue.setText("Timeout: " + formatTimeout(timeout));
+    }
+    if (effectiveDifficultyValue != null) {
+      TrainingTargetDifficulty currentDifficulty =
+          difficulty == null ? TrainingTargetDifficulty.MEDIUM : difficulty;
+      effectiveDifficultyValue.setText("Difficulty: " + currentDifficulty.label());
+    }
+  }
+
+  private String formatTimeout(java.time.Duration timeout) {
+    if (timeout == null) {
+      return "-";
+    }
+    long seconds = Math.max(0L, timeout.toSeconds());
+    long minutes = seconds / 60L;
+    long remainingSeconds = seconds % 60L;
+    if (remainingSeconds == 0L) {
+      return minutes + "m";
+    }
+    return minutes + "m " + remainingSeconds + "s";
   }
 
   private void updateSystemStatus(String text, String color) {
