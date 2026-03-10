@@ -388,3 +388,53 @@
 - SCAPE-0043: calculo de `pathEntropy` por episodio en `SimulationEpisodeOrchestrator` combinando distribucion de movimientos y frecuencia de celdas visitadas.
 - SCAPE-0043: persistencia de `path_entropy` en `training_runs` (schema + migrador + repositorio JDBC) junto a metricas de corrida.
 - SCAPE-0043: comparativa reciente expone entropia por corrida con alerta visual de baja entropia segun umbral configurable `scape.metrics.path-entropy-alert-threshold`.
+
+## Iteracion PO 2026-03-10 (automation cycle 7)
+
+### SCAPE-0038 - Diagnostico reproducible de bucle y sesgo de cobertura
+- Objetivo funcional: aislar con reproducibilidad el sesgo de exploracion para guiar fixes sin ruido experimental.
+- Alcance introducido:
+- Escenario de referencia con semilla fija para reproducir cobertura desbalanceada.
+- Telemetria minima exigida por episodio: `coverageRatio`, `rightSideCoverage`, `loopEvents`, `uniqueCellsVisited`.
+- Salida documental con hipotesis tecnica principal basada en evidencia del runtime.
+
+### SCAPE-0044 - Garantizar exploracion completa del laberinto
+- Objetivo funcional: elevar cobertura global y reducir estancamiento ciclico del agente.
+- Alcance introducido:
+- Metrica persistente `mazeCoverageRatio` con desglose por lado/cuadrante.
+- Guardia anti-bucle validada sobre benchmark de regresion.
+- Umbral minimo de cobertura del lado derecho en escenario de referencia con semilla fija.
+
+### SCAPE-0045 - Corregir expiracion de timeout por episodio
+- Objetivo funcional: asegurar cierre por `TIMEOUT` al alcanzar el limite configurado, incluso en condiciones de carga.
+- Alcance introducido:
+- Regla de cierre robusta por limite temporal en orquestacion de episodio.
+- Prueba automatizada reproducible que captura el bug de no expiracion.
+- Consistencia de `elapsed/remaining` entre runtime UI y persistencia al cerrar por timeout.
+
+### SCAPE-0046 - Contrato determinista de cierre de episodio
+- Objetivo funcional: eliminar estados terminales ambiguos y dejar trazabilidad unica del cierre por episodio.
+- Alcance introducido:
+- Validador central de exclusividad entre `EXIT_REACHED`, `TIMEOUT` y `ABORTED`.
+- Persistencia de un unico `terminationReason` y marca temporal terminal coherente.
+- Pruebas de borde para empate temporal entre salida y timeout sin doble terminalidad.
+
+### SCAPE-0047 - Overlay de celdas no exploradas en viewport
+- Objetivo funcional: hacer visible en UI las zonas no cubiertas para diagnostico rapido de sesgo espacial.
+- Alcance introducido:
+- Capa opcional `unexploredOverlay` en viewport JavaFX.
+- Actualizacion en vivo por episodio sin bloqueo del hilo UI.
+- Toggle inmediato desde panel de control para activar/desactivar la superposicion.
+
+### SCAPE-0048 - Presupuesto de exploracion persistente por sesion
+- Objetivo funcional: controlar exploracion inter-episodio mediante presupuesto persistente reutilizable por preset/algoritmo.
+- Alcance introducido:
+- Modelo de `explorationBudget` con valor inicial, consumo y remanente.
+- Carga y propagacion desde `StartTrainingSession` hacia politicas compatibles.
+- Persistencia de remanente al cierre de episodio para continuidad entre sesiones.
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- `in_progress=1`: `SCAPE-0038` (WIP mantenido).
+- `backlog=5`: `SCAPE-0044`, `SCAPE-0045`, `SCAPE-0046`, `SCAPE-0047`, `SCAPE-0048`.
+- No se aplican transiciones de estado en esta iteracion porque el WIP ya cumple objetivo.
