@@ -90,6 +90,7 @@ public class HeadlessBatchTrainingUseCase {
         effectiveBudget.hasEpisodeLimit() ? effectiveBudget.maxEpisodes() : episodesRequested,
         totalDurationMillis,
         effectiveBudget.hasWallClockLimit() ? effectiveBudget.maxWallClock().toMillis() : 0L,
-        exhaustedReason);
+        exhaustedReason,
+        summary.averageEpsilonApplied());
   }
 }

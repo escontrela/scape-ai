@@ -11,17 +11,26 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
 
   private final SimulationEpisodeOrchestrator episodeOrchestrator;
   private final TrainingLifecycleEventBus trainingLifecycleEventBus;
+  private final EpsilonPhaseScheduler epsilonPhaseScheduler;
 
   @Autowired
   public DefaultIterativeEpisodeTrainingService(SimulationEpisodeOrchestrator episodeOrchestrator) {
-    this(episodeOrchestrator, TrainingLifecycleEventBus.noop());
+    this(episodeOrchestrator, TrainingLifecycleEventBus.noop(), new EpsilonPhaseScheduler(0.35, 0.20, 0.05));
   }
 
   public DefaultIterativeEpisodeTrainingService(
       SimulationEpisodeOrchestrator episodeOrchestrator,
       TrainingLifecycleEventBus trainingLifecycleEventBus) {
+    this(episodeOrchestrator, trainingLifecycleEventBus, new EpsilonPhaseScheduler(0.35, 0.20, 0.05));
+  }
+
+  public DefaultIterativeEpisodeTrainingService(
+      SimulationEpisodeOrchestrator episodeOrchestrator,
+      TrainingLifecycleEventBus trainingLifecycleEventBus,
+      EpsilonPhaseScheduler epsilonPhaseScheduler) {
     this.episodeOrchestrator = episodeOrchestrator;
     this.trainingLifecycleEventBus = trainingLifecycleEventBus;
+    this.epsilonPhaseScheduler = epsilonPhaseScheduler;
   }
 
   @Override
@@ -35,17 +44,20 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
     int successes = 0;
     double rewardSum = 0.0;
     double collisionsSum = 0.0;
+    double epsilonAppliedSum = 0.0;
 
     while (completed < episodes) {
       if (cancellationRequested.getAsBoolean()) {
         break;
       }
-      SimulationEpisodeResult episode = episodeOrchestrator.runEpisode(maze, timeout);
+      double epsilonForEpisode = epsilonPhaseScheduler.epsilonForEpisode(completed, episodes);
+      SimulationEpisodeResult episode = episodeOrchestrator.runEpisode(maze, timeout, epsilonForEpisode);
       if (episode.endReason() == EpisodeEndReason.TIMEOUT) {
         trainingLifecycleEventBus.publish(
             TrainingLifecycleEvent.now(TrainingLifecycleEventType.TIMED_OUT, "Episode timeout"));
       }
       completed++;
+      epsilonAppliedSum += epsilonForEpisode;
       if (episode.success()) {
         successes++;
       }
@@ -66,6 +78,12 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
         cancelled,
         successes / divisor,
         rewardSum / divisor,
-        collisionsSum / divisor);
+        collisionsSum / divisor,
+        0,
+        0,
+        0L,
+        0L,
+        "NONE",
+        epsilonAppliedSum / divisor);
   }
 }

@@ -667,6 +667,13 @@
 - El episodio puede cerrar con `EpisodeEndReason.DEAD_END` y se propaga a `terminal_reason` para persistencia/comparativas.
 - Implementacion tecnica: `EpisodeTerminationResolver` y normalizacion JDBC aceptan `DEAD_END`; UI (`MainWindow`) diferencia visualmente `DEAD_END` respecto a `TIMEOUT`.
 
+### SCAPE-0069 - Scheduler de epsilon por fases
+- Objetivo funcional: modular exploracion/explotacion con tramos de epsilon segun avance de episodios.
+- Se introduce `EpsilonPhaseScheduler` configurable via propiedades `scape.ai.epsilon.start|middle|end`.
+- Validacion estricta de rangos `[0,1]` para cada fase del scheduler.
+- `DefaultIterativeEpisodeTrainingService` calcula y aplica epsilon por episodio al orquestador.
+- `IterativeTrainingSummary` y `HeadlessBatchTrainingResult` exponen `averageEpsilonApplied` para trazabilidad experimental.
+
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
 - Estado inicial detectado: `in_progress=0` y `backlog=4` (`SCAPE-0060`, `SCAPE-0061`, `SCAPE-0062`, `SCAPE-0063`).

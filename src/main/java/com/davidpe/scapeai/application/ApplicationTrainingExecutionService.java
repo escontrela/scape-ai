@@ -194,7 +194,8 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
           budgetEpisodesAvailable,
           0L,
           budgetWallClockAvailableMillis,
-          "SMOKE_RUN_BLOCKED");
+          "SMOKE_RUN_BLOCKED",
+          0.0);
     }
     int batchesCompleted = 0;
     int episodesRequested = requestedEpisodes;
@@ -202,6 +203,7 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
     double successfulEpisodes = 0.0;
     double rewardWeightedSum = 0.0;
     double collisionsWeightedSum = 0.0;
+    double epsilonWeightedSum = 0.0;
     String budgetExhaustedReason = "NONE";
     boolean interrupted = false;
 
@@ -247,6 +249,7 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
       successfulEpisodes += batchSummary.successRate() * batchSummary.episodesCompleted();
       rewardWeightedSum += batchSummary.averageReward() * batchSummary.episodesCompleted();
       collisionsWeightedSum += batchSummary.averageCollisions() * batchSummary.episodesCompleted();
+      epsilonWeightedSum += batchSummary.averageEpsilonApplied() * batchSummary.episodesCompleted();
       trainingLifecycleEventBus.publish(
           TrainingLifecycleEvent.now(
               TrainingLifecycleEventType.FINISHED,
@@ -290,7 +293,8 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
         budgetEpisodesAvailable,
         wallClockConsumed,
         budgetWallClockAvailableMillis,
-        budgetExhaustedReason);
+        budgetExhaustedReason,
+        epsilonWeightedSum / divisor);
   }
 
   private SmokeRunOutcome runSmokeRun(MazeDefinition maze) {

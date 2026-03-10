@@ -144,11 +144,17 @@ public class SimulationEpisodeOrchestrator {
   }
 
   public SimulationEpisodeResult runEpisode(MazeDefinition maze, Duration timeout) {
+    return runEpisode(maze, timeout, null);
+  }
+
+  public SimulationEpisodeResult runEpisode(
+      MazeDefinition maze, Duration timeout, Double epsilonOverride) {
     long effectiveSeed = entropySupplier.getAsLong();
     long startedAt = monotonicTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
     String policyDescriptor = simulationStepFlow.activePolicy().getClass().getSimpleName();
-    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
+    EpsilonGreedyMovementPolicyDecorator policy =
+        buildEpisodePolicy(effectiveSeed, resolveEpsilon(epsilonOverride));
     EpisodeExecutionState state =
         EpisodeExecutionState.initial(
             SimulationState.initial(maze.start()),
@@ -169,7 +175,7 @@ public class SimulationEpisodeOrchestrator {
     long startedAt = monotonicTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
     String policyDescriptor = simulationStepFlow.activePolicy().getClass().getSimpleName();
-    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
+    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed, epsilon);
     EpisodeExecutionState state =
         EpisodeExecutionState.initial(
             SimulationState.initial(maze.start()),
@@ -189,7 +195,7 @@ public class SimulationEpisodeOrchestrator {
     long resumedAt = monotonicTimeMillis.getAsLong();
     long deadline = resumedAt + checkpoint.remainingMillis();
     String policyDescriptor = simulationStepFlow.activePolicy().getClass().getSimpleName();
-    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
+    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed, epsilon);
     EpisodeExecutionState state =
         EpisodeExecutionState.fromCheckpoint(
             checkpoint,
@@ -207,9 +213,17 @@ public class SimulationEpisodeOrchestrator {
         Math.max(0L, checkpoint.elapsedMillis() + checkpoint.remainingMillis()));
   }
 
-  private EpsilonGreedyMovementPolicyDecorator buildEpisodePolicy(long effectiveSeed) {
+  private EpsilonGreedyMovementPolicyDecorator buildEpisodePolicy(long effectiveSeed, double epsilonValue) {
     MovementPolicy basePolicy = simulationStepFlow.activePolicy();
-    return new EpsilonGreedyMovementPolicyDecorator(basePolicy, epsilon, () -> new Random(effectiveSeed));
+    return new EpsilonGreedyMovementPolicyDecorator(
+        basePolicy, epsilonValue, () -> new Random(effectiveSeed));
+  }
+
+  private double resolveEpsilon(Double epsilonOverride) {
+    if (epsilonOverride == null) {
+      return epsilon;
+    }
+    return Math.max(0.0, Math.min(1.0, epsilonOverride));
   }
 
   private void runLoop(

@@ -12,7 +12,8 @@ public record HeadlessBatchTrainingResult(
     int budgetEpisodesAvailable,
     long budgetWallClockConsumedMillis,
     long budgetWallClockAvailableMillis,
-    String budgetExhaustedReason) {
+    String budgetExhaustedReason,
+    double averageEpsilonApplied) {
 
   public HeadlessBatchTrainingResult(
       int episodesRequested,
@@ -34,6 +35,7 @@ public record HeadlessBatchTrainingResult(
         0,
         0L,
         0L,
-        "NONE");
+        "NONE",
+        0.0);
   }
 }

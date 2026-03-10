@@ -11,7 +11,8 @@ public record IterativeTrainingSummary(
     int budgetEpisodesAvailable,
     long budgetWallClockConsumedMillis,
     long budgetWallClockAvailableMillis,
-    String budgetExhaustedReason) {
+    String budgetExhaustedReason,
+    double averageEpsilonApplied) {
 
   public IterativeTrainingSummary {
     budgetEpisodesConsumed = Math.max(0, budgetEpisodesConsumed);
@@ -42,6 +43,7 @@ public record IterativeTrainingSummary(
         0,
         0L,
         0L,
-        "NONE");
+        "NONE",
+        0.0);
   }
 }

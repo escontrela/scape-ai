@@ -35,6 +35,7 @@ class DefaultIterativeEpisodeTrainingServiceTest {
     assertEquals(1.0, summary.successRate());
     assertEquals(1.0, summary.averageReward());
     assertEquals(0.0, summary.averageCollisions());
+    assertTrue(summary.averageEpsilonApplied() >= 0.0);
     assertEquals(false, summary.cancelled());
   }
 
