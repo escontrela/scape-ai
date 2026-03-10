@@ -26,7 +26,7 @@ public class SimulationEpisodeOrchestrator {
   private final SimulationStepFlow simulationStepFlow;
   private final Duration defaultTimeout;
   private final int loopWindow;
-  private final LongSupplier currentTimeMillis;
+  private final LongSupplier monotonicTimeMillis;
   private final java.util.function.LongSupplier entropySupplier;
   private final double epsilon;
   private final ExperienceTransitionRecorder experienceTransitionRecorder;
@@ -44,7 +44,7 @@ public class SimulationEpisodeOrchestrator {
         experienceTransitionRecorder,
         defaultTimeout,
         loopWindow,
-        System::currentTimeMillis,
+        () -> System.nanoTime() / 1_000_000L,
         () -> sessionRandomSource.random().nextLong(),
         sessionRandomSource::random,
         epsilon);
@@ -55,13 +55,13 @@ public class SimulationEpisodeOrchestrator {
       ExperienceTransitionRecorder experienceTransitionRecorder,
       Duration defaultTimeout,
       int loopWindow,
-      LongSupplier currentTimeMillis) {
+      LongSupplier monotonicTimeMillis) {
     this(
         simulationStepFlow,
         experienceTransitionRecorder,
         defaultTimeout,
         loopWindow,
-        currentTimeMillis,
+        monotonicTimeMillis,
         () -> 0L,
         () -> new Random(0L),
         0.0);
@@ -72,14 +72,14 @@ public class SimulationEpisodeOrchestrator {
       ExperienceTransitionRecorder experienceTransitionRecorder,
       Duration defaultTimeout,
       int loopWindow,
-      LongSupplier currentTimeMillis,
+      LongSupplier monotonicTimeMillis,
       java.util.function.LongSupplier entropySupplier,
       java.util.function.Supplier<Random> randomSupplier,
       double epsilon) {
     this.simulationStepFlow = simulationStepFlow;
     this.defaultTimeout = defaultTimeout;
     this.loopWindow = Math.max(2, loopWindow);
-    this.currentTimeMillis = currentTimeMillis;
+    this.monotonicTimeMillis = monotonicTimeMillis;
     this.experienceTransitionRecorder = experienceTransitionRecorder;
     this.entropySupplier = entropySupplier;
     if (epsilon < 0.0 || epsilon > 1.0) {
@@ -89,26 +89,26 @@ public class SimulationEpisodeOrchestrator {
   }
 
   SimulationEpisodeOrchestrator(
-      SimulationStepFlow simulationStepFlow, Duration defaultTimeout, LongSupplier currentTimeMillis) {
+      SimulationStepFlow simulationStepFlow, Duration defaultTimeout, LongSupplier monotonicTimeMillis) {
     this(
         simulationStepFlow,
         ExperienceTransitionRecorder.noop(),
         defaultTimeout,
         8,
-        currentTimeMillis);
+        monotonicTimeMillis);
   }
 
   SimulationEpisodeOrchestrator(
       SimulationStepFlow simulationStepFlow,
       Duration defaultTimeout,
       int loopWindow,
-      LongSupplier currentTimeMillis) {
+      LongSupplier monotonicTimeMillis) {
     this(
         simulationStepFlow,
         ExperienceTransitionRecorder.noop(),
         defaultTimeout,
         loopWindow,
-        currentTimeMillis);
+        monotonicTimeMillis);
   }
 
   public SimulationEpisodeResult runEpisode(MazeDefinition maze) {
@@ -117,7 +117,7 @@ public class SimulationEpisodeOrchestrator {
 
   public SimulationEpisodeResult runEpisode(MazeDefinition maze, Duration timeout) {
     long effectiveSeed = entropySupplier.getAsLong();
-    long startedAt = currentTimeMillis.getAsLong();
+    long startedAt = monotonicTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
     String policyDescriptor = simulationStepFlow.activePolicy().getClass().getSimpleName();
     EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
@@ -131,13 +131,13 @@ public class SimulationEpisodeOrchestrator {
             effectiveSeed,
             policyDescriptor);
     runLoop(maze, state, policy, -1);
-    return state.toResult(currentTimeMillis.getAsLong(), maze, timeout.toMillis());
+    return state.toResult(monotonicTimeMillis.getAsLong(), maze, timeout.toMillis());
   }
 
   public EpisodeCheckpoint runEpisodeUntilCheckpoint(
       MazeDefinition maze, Duration timeout, int maxSteps) {
     long effectiveSeed = entropySupplier.getAsLong();
-    long startedAt = currentTimeMillis.getAsLong();
+    long startedAt = monotonicTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
     String policyDescriptor = simulationStepFlow.activePolicy().getClass().getSimpleName();
     EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
@@ -151,12 +151,12 @@ public class SimulationEpisodeOrchestrator {
             effectiveSeed,
             policyDescriptor);
     runLoop(maze, state, policy, Math.max(0, maxSteps));
-    return state.toCheckpoint(currentTimeMillis.getAsLong());
+    return state.toCheckpoint(monotonicTimeMillis.getAsLong());
   }
 
   public SimulationEpisodeResult resumeEpisode(MazeDefinition maze, EpisodeCheckpoint checkpoint) {
     long effectiveSeed = entropySupplier.getAsLong();
-    long resumedAt = currentTimeMillis.getAsLong();
+    long resumedAt = monotonicTimeMillis.getAsLong();
     long deadline = resumedAt + checkpoint.remainingMillis();
     String policyDescriptor = simulationStepFlow.activePolicy().getClass().getSimpleName();
     EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
@@ -165,7 +165,9 @@ public class SimulationEpisodeOrchestrator {
             checkpoint, maze.exit(), resumedAt, deadline, loopWindow, effectiveSeed, policyDescriptor);
     runLoop(maze, state, policy, -1);
     return state.toResult(
-        currentTimeMillis.getAsLong(), maze, Math.max(0L, checkpoint.elapsedMillis() + checkpoint.remainingMillis()));
+        monotonicTimeMillis.getAsLong(),
+        maze,
+        Math.max(0L, checkpoint.elapsedMillis() + checkpoint.remainingMillis()));
   }
 
   private EpsilonGreedyMovementPolicyDecorator buildEpisodePolicy(long effectiveSeed) {
@@ -180,7 +182,7 @@ public class SimulationEpisodeOrchestrator {
       int maxSteps) {
     int executed = 0;
     while (!state.currentState.exitReached() && (maxSteps < 0 || executed < maxSteps)) {
-      long tickNow = currentTimeMillis.getAsLong();
+      long tickNow = monotonicTimeMillis.getAsLong();
       if (tickNow >= state.deadline) {
         break;
       }
@@ -256,7 +258,7 @@ public class SimulationEpisodeOrchestrator {
   private static final class EpisodeExecutionState {
 
     private static final long PRE_TIMEOUT_WINDOW_MILLIS = 1_000L;
-    private final long startedAt;
+    private final long startedAtMonotonic;
     private final long deadline;
     private final long effectiveSeed;
     private final GridPosition mazeExit;
@@ -285,7 +287,7 @@ public class SimulationEpisodeOrchestrator {
     private boolean finalCaptured;
 
     private EpisodeExecutionState(
-        long startedAt,
+        long startedAtMonotonic,
         long deadline,
         long effectiveSeed,
         GridPosition mazeExit,
@@ -307,7 +309,7 @@ public class SimulationEpisodeOrchestrator {
         List<EpisodeDebugSnapshot> debugSnapshots,
         Map<String, Integer> transitionCounts,
         Map<MoveDirection, Integer> movementCounts) {
-      this.startedAt = startedAt;
+      this.startedAtMonotonic = startedAtMonotonic;
       this.deadline = deadline;
       this.effectiveSeed = effectiveSeed;
       this.mazeExit = mazeExit;
@@ -458,22 +460,22 @@ public class SimulationEpisodeOrchestrator {
       }
     }
 
-    SimulationEpisodeResult toResult(long currentTime, MazeDefinition maze, long timeoutBudgetOverride) {
-      long elapsed = elapsedMillis(currentTime);
-      boolean timeoutReached = !currentState.exitReached() && currentTime >= deadline;
+    SimulationEpisodeResult toResult(long currentTimeMonotonic, MazeDefinition maze, long timeoutBudgetOverride) {
+      long elapsed = elapsedMillis(currentTimeMonotonic);
+      boolean timeoutReached = !currentState.exitReached() && currentTimeMonotonic >= deadline;
       EpisodeEndReason terminationReason =
           EpisodeTerminationResolver.resolve(currentState.exitReached(), timeoutReached, false);
       long timeoutBudget = timeoutBudgetOverride > 0 ? timeoutBudgetOverride : timeoutBudgetMillis();
       if (terminationReason == EpisodeEndReason.TIMEOUT) {
         elapsed = Math.min(elapsed, timeoutBudget);
       }
-      long terminatedAt = terminationReason == EpisodeEndReason.TIMEOUT ? deadline : currentTime;
+      long terminatedAt = terminationReason == EpisodeEndReason.TIMEOUT ? deadline : currentTimeMonotonic;
       int finalDistanceToExit = distanceToExit(currentState.agentPosition(), mazeExit);
       double netProgress = (initialDistanceToExit - finalDistanceToExit) + improvementDistance;
       MazeQuadrantCoverage coverage = MazeQuadrantCoverage.from(maze, currentState.visitedCells());
       double pathEntropy = calculatePathEntropy();
       if (!finalCaptured) {
-        debugSnapshots.add(snapshot("FINAL", currentTime));
+        debugSnapshots.add(snapshot("FINAL", currentTimeMonotonic));
         finalCaptured = true;
       }
       EpisodeReplayMetadata replayMetadata =
@@ -518,11 +520,11 @@ public class SimulationEpisodeOrchestrator {
     }
 
     private long elapsedMillis(long currentTime) {
-      return Math.max(0L, elapsedBeforeSegment + currentTime - startedAt);
+      return Math.max(0L, elapsedBeforeSegment + currentTime - startedAtMonotonic);
     }
 
     private long timeoutBudgetMillis() {
-      return Math.max(0L, elapsedBeforeSegment + (deadline - startedAt));
+      return Math.max(0L, elapsedBeforeSegment + (deadline - startedAtMonotonic));
     }
 
     private EpisodeDebugSnapshot snapshot(String milestone, long currentTime) {

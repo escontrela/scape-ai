@@ -86,6 +86,29 @@ class SimulationEpisodeOrchestratorTest {
   }
 
   @Test
+  void shouldExpireWithMonotonicClockWithoutDependingOnWallClock() {
+    SimulationStepFlow flow = flowWithPolicy(context -> MoveDirection.LEFT);
+    SimulationEpisodeOrchestrator orchestrator =
+        new SimulationEpisodeOrchestrator(
+            flow,
+            ExperienceTransitionRecorder.noop(),
+            Duration.ofMillis(60),
+            6,
+            new FixedStepTime(0, 20),
+            () -> 7L,
+            () -> new Random(7L),
+            0.0);
+    MazeDefinition maze =
+        new MazeDefinition(3, 3, new boolean[3][3], new GridPosition(1, 1), new GridPosition(0, 2));
+
+    SimulationEpisodeResult result = orchestrator.runEpisode(maze, Duration.ofMillis(60));
+
+    assertEquals(EpisodeEndReason.TIMEOUT, result.endReason());
+    assertEquals(60, result.elapsedMillis());
+    assertEquals(60, result.terminatedAtEpochMillis());
+  }
+
+  @Test
   void shouldResolveExitReachedWhenExitHappensOnLimitTick() {
     SimulationStepFlow flow = flowWithPolicy(context -> MoveDirection.RIGHT);
     SimulationEpisodeOrchestrator orchestrator =

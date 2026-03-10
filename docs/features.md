@@ -651,3 +651,13 @@
 - Tickets creados en backlog: `SCAPE-0064` y `SCAPE-0065`.
 - Transicion aplicada: `SCAPE-0060` movido a `in_progress` para reestablecer politica WIP.
 - Estado final confirmado: `in_progress=1` (`SCAPE-0060`) y `backlog=5` (`SCAPE-0061`, `SCAPE-0062`, `SCAPE-0063`, `SCAPE-0064`, `SCAPE-0065`).
+
+## Iteracion DEV 2026-03-10 (automation cycle 12)
+
+### SCAPE-0060 - Timeout monotónico en orquestador de episodio
+- Objetivo funcional: eliminar deriva temporal en cierres por timeout ante cambios del reloj del sistema.
+- Alcance introducido:
+- `SimulationEpisodeOrchestrator` calcula `startedAt/deadline/elapsed/remaining` con proveedor monotónico por defecto (`System.nanoTime` en milisegundos).
+- Se mantiene contrato de cierre por `TIMEOUT` consistente entre ejecucion visual y headless al usar la misma base temporal interna.
+- Prueba automatizada dedicada valida expiracion estable sin depender del reloj de pared.
+- Implementacion tecnica: el proveedor por defecto del orquestador pasa de `currentTimeMillis` a base monotónica y se agrega cobertura en `SimulationEpisodeOrchestratorTest.shouldExpireWithMonotonicClockWithoutDependingOnWallClock`.
