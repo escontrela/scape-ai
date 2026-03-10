@@ -105,7 +105,8 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     completeEpisodeInternal(TrainingTimelineStatus.TIMEOUT, true);
   }
 
-  private void completeEpisodeInternal(TrainingTimelineStatus forcedStatus, boolean preserveElapsed) {
+  private void completeEpisodeInternal(
+      TrainingTimelineStatus forcedStatus, boolean preserveElapsed) {
     if (!episodeActive) {
       return;
     }
@@ -145,19 +146,26 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
 
   @Override
   public void subscribe(java.util.function.Consumer<LiveEpisodeMetrics> listener) {
-    listeners.add(listener);
+    // Guard: allow at most a few subscribers (method references defeat contains()).
+    if (listeners.size() < 8) {
+      listeners.add(listener);
+    }
     listener.accept(snapshot());
   }
 
   @Override
   public void subscribeTimeline(java.util.function.Consumer<List<TrainingTimelineEntry>> listener) {
-    timelineListeners.add(listener);
+    if (timelineListeners.size() < 8) {
+      timelineListeners.add(listener);
+    }
     listener.accept(List.copyOf(recentTimeline));
   }
 
   @PreDestroy
   public synchronized void shutdown() {
     stopTicker();
+    listeners.clear();
+    timelineListeners.clear();
     scheduler.shutdownNow();
   }
 

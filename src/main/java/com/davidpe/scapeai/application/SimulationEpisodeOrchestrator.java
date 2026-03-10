@@ -2,13 +2,13 @@ package com.davidpe.scapeai.application;
 
 import com.davidpe.scapeai.ai.EpsilonGreedyMovementPolicyDecorator;
 import com.davidpe.scapeai.ai.MovementPolicy;
-import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.GridPosition;
+import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SimulationState;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -23,6 +23,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class SimulationEpisodeOrchestrator {
+
+  /** Keep at most the last N positions in the trajectory to bound memory. */
+  private static final int MAX_TRAJECTORY_SIZE = 10_000;
+
+  /** Keep at most the last N inference traces per episode. */
+  private static final int MAX_INFERENCE_TRACES = 5_000;
 
   private final SimulationStepFlow simulationStepFlow;
   private final Duration defaultTimeout;
@@ -117,7 +123,9 @@ public class SimulationEpisodeOrchestrator {
   }
 
   SimulationEpisodeOrchestrator(
-      SimulationStepFlow simulationStepFlow, Duration defaultTimeout, LongSupplier monotonicTimeMillis) {
+      SimulationStepFlow simulationStepFlow,
+      Duration defaultTimeout,
+      LongSupplier monotonicTimeMillis) {
     this(
         simulationStepFlow,
         ExperienceTransitionRecorder.noop(),
@@ -213,7 +221,8 @@ public class SimulationEpisodeOrchestrator {
         Math.max(0L, checkpoint.elapsedMillis() + checkpoint.remainingMillis()));
   }
 
-  private EpsilonGreedyMovementPolicyDecorator buildEpisodePolicy(long effectiveSeed, double epsilonValue) {
+  private EpsilonGreedyMovementPolicyDecorator buildEpisodePolicy(
+      long effectiveSeed, double epsilonValue) {
     MovementPolicy basePolicy = simulationStepFlow.activePolicy();
     return new EpsilonGreedyMovementPolicyDecorator(
         basePolicy, epsilonValue, () -> new Random(effectiveSeed));
@@ -238,11 +247,13 @@ public class SimulationEpisodeOrchestrator {
         break;
       }
       state.captureTimedMilestones(tickNow);
-      boolean loopDetected = isLoopDetected(state.currentState.agentPosition(), state.positionCounts);
+      boolean loopDetected =
+          isLoopDetected(state.currentState.agentPosition(), state.positionCounts);
       if (loopDetected) {
         state.loopEvents++;
       }
-      int previousDistanceToExit = manhattanDistance(state.currentState.agentPosition(), maze.exit());
+      int previousDistanceToExit =
+          manhattanDistance(state.currentState.agentPosition(), maze.exit());
       SimulationState previousState = state.currentState;
       var outcome =
           simulationStepFlow.execute(
@@ -262,7 +273,8 @@ public class SimulationEpisodeOrchestrator {
       } else {
         state.exploitationDecisions++;
       }
-      int currentDistanceToExit = manhattanDistance(state.currentState.agentPosition(), maze.exit());
+      int currentDistanceToExit =
+          manhattanDistance(state.currentState.agentPosition(), maze.exit());
       boolean discoveredNewCell =
           state.currentState.visitedCells().size() > previousState.visitedCells().size();
       if (currentDistanceToExit < previousDistanceToExit) {
@@ -276,8 +288,12 @@ public class SimulationEpisodeOrchestrator {
           (currentDistanceToExit < previousDistanceToExit || discoveredNewCell)
               ? 0
               : state.deadEndStreak + 1;
-      rememberPosition(state.currentState.agentPosition(), state.recentPositions, state.positionCounts);
+      rememberPosition(
+          state.currentState.agentPosition(), state.recentPositions, state.positionCounts);
       state.trajectory.add(state.currentState.agentPosition());
+      if (state.trajectory.size() > MAX_TRAJECTORY_SIZE) {
+        state.trajectory.subList(0, state.trajectory.size() - MAX_TRAJECTORY_SIZE).clear();
+      }
       state.totalSteps++;
       state.totalReward += outcome.reward().value();
       if (outcome.result().collision()) {
@@ -285,7 +301,18 @@ public class SimulationEpisodeOrchestrator {
       }
       experienceTransitionRecorder.recordTransition(
           previousState, outcome.selectedDirection(), outcome.reward().value(), state.currentState);
-      outcome.inferenceTrace().ifPresent(state.inferenceTraces::add);
+      outcome
+          .inferenceTrace()
+          .ifPresent(
+              trace -> {
+                state.inferenceTraces.add(trace);
+                if (state.inferenceTraces.size() > MAX_INFERENCE_TRACES) {
+                  state
+                      .inferenceTraces
+                      .subList(0, state.inferenceTraces.size() - MAX_INFERENCE_TRACES)
+                      .clear();
+                }
+              });
       if (deadEndNoProgressLimit > 0 && state.deadEndStreak >= deadEndNoProgressLimit) {
         state.deadEndReached = true;
         break;
@@ -294,13 +321,14 @@ public class SimulationEpisodeOrchestrator {
     }
   }
 
-  private boolean isLoopDetected(
-      GridPosition position, Map<GridPosition, Integer> positionCounts) {
+  private boolean isLoopDetected(GridPosition position, Map<GridPosition, Integer> positionCounts) {
     return positionCounts.getOrDefault(position, 0) > 1;
   }
 
   private void rememberPosition(
-      GridPosition position, Deque<GridPosition> recentPositions, Map<GridPosition, Integer> positionCounts) {
+      GridPosition position,
+      Deque<GridPosition> recentPositions,
+      Map<GridPosition, Integer> positionCounts) {
     recentPositions.addLast(position);
     positionCounts.merge(position, 1, Integer::sum);
     while (recentPositions.size() > loopWindow) {
@@ -419,29 +447,29 @@ public class SimulationEpisodeOrchestrator {
       int initialDistance = distanceToExit(initialState.agentPosition(), mazeExit);
       EpisodeExecutionState state =
           new EpisodeExecutionState(
-          startedAt,
-          deadline,
-          effectiveSeed,
-          mazeExit,
-          policyDescriptor,
-          deadEndNoProgressLimit,
-          initialDistance,
-          initialState,
-          null,
-          0,
-          0,
-          0,
-          0,
-          0.0,
-          0.0,
-          0L,
-          recent,
-          counts,
-          trajectory,
-          new ArrayList<>(),
-          new ArrayList<>(),
-          new HashMap<>(),
-          new EnumMap<>(MoveDirection.class));
+              startedAt,
+              deadline,
+              effectiveSeed,
+              mazeExit,
+              policyDescriptor,
+              deadEndNoProgressLimit,
+              initialDistance,
+              initialState,
+              null,
+              0,
+              0,
+              0,
+              0,
+              0.0,
+              0.0,
+              0L,
+              recent,
+              counts,
+              trajectory,
+              new ArrayList<>(),
+              new ArrayList<>(),
+              new HashMap<>(),
+              new EnumMap<>(MoveDirection.class));
       state.debugSnapshots.add(state.snapshot("START", startedAt));
       return state;
     }
@@ -474,29 +502,29 @@ public class SimulationEpisodeOrchestrator {
       int initialDistance = distanceToExit(initialPosition, mazeExit);
       EpisodeExecutionState state =
           new EpisodeExecutionState(
-          resumedAt,
-          deadline,
-          effectiveSeed,
-          mazeExit,
-          policyDescriptor,
-          deadEndNoProgressLimit,
-          initialDistance,
-          checkpoint.currentState(),
-          checkpoint.previousDirection(),
-          checkpoint.noProgressStreak(),
-          checkpoint.totalSteps(),
-          checkpoint.collisions(),
-          checkpoint.loopEvents(),
-          0.0,
-          checkpoint.totalReward(),
-          checkpoint.elapsedMillis(),
-          recent,
-          counts,
-          trajectory,
-          new ArrayList<>(),
-          new ArrayList<>(),
-          new HashMap<>(),
-          new EnumMap<>(MoveDirection.class));
+              resumedAt,
+              deadline,
+              effectiveSeed,
+              mazeExit,
+              policyDescriptor,
+              deadEndNoProgressLimit,
+              initialDistance,
+              checkpoint.currentState(),
+              checkpoint.previousDirection(),
+              checkpoint.noProgressStreak(),
+              checkpoint.totalSteps(),
+              checkpoint.collisions(),
+              checkpoint.loopEvents(),
+              0.0,
+              checkpoint.totalReward(),
+              checkpoint.elapsedMillis(),
+              recent,
+              counts,
+              trajectory,
+              new ArrayList<>(),
+              new ArrayList<>(),
+              new HashMap<>(),
+              new EnumMap<>(MoveDirection.class));
       state.debugSnapshots.add(state.snapshot("START", resumedAt));
       return state;
     }
@@ -532,7 +560,8 @@ public class SimulationEpisodeOrchestrator {
       }
     }
 
-    SimulationEpisodeResult toResult(long currentTimeMonotonic, MazeDefinition maze, long timeoutBudgetOverride) {
+    SimulationEpisodeResult toResult(
+        long currentTimeMonotonic, MazeDefinition maze, long timeoutBudgetOverride) {
       long elapsed = elapsedMillis(currentTimeMonotonic);
       boolean timeoutReached = !currentState.exitReached() && currentTimeMonotonic >= deadline;
       boolean reachedDeadEnd =
@@ -543,11 +572,13 @@ public class SimulationEpisodeOrchestrator {
       EpisodeEndReason terminationReason =
           EpisodeTerminationResolver.resolve(
               currentState.exitReached(), timeoutReached, reachedDeadEnd, false);
-      long timeoutBudget = timeoutBudgetOverride > 0 ? timeoutBudgetOverride : timeoutBudgetMillis();
+      long timeoutBudget =
+          timeoutBudgetOverride > 0 ? timeoutBudgetOverride : timeoutBudgetMillis();
       if (terminationReason == EpisodeEndReason.TIMEOUT) {
         elapsed = Math.min(elapsed, timeoutBudget);
       }
-      long terminatedAt = terminationReason == EpisodeEndReason.TIMEOUT ? deadline : currentTimeMonotonic;
+      long terminatedAt =
+          terminationReason == EpisodeEndReason.TIMEOUT ? deadline : currentTimeMonotonic;
       int finalDistanceToExit = distanceToExit(currentState.agentPosition(), mazeExit);
       double netProgress = (initialDistanceToExit - finalDistanceToExit) + improvementDistance;
       MazeQuadrantCoverage coverage = MazeQuadrantCoverage.from(maze, currentState.visitedCells());
@@ -559,7 +590,14 @@ public class SimulationEpisodeOrchestrator {
       EpisodeReplayMetadata replayMetadata =
           new EpisodeReplayMetadata(
               EpisodeReplayMetadata.CONTRACT_VERSION,
-              "rows=" + maze.rows() + ",cols=" + maze.cols() + ",exit=" + maze.exit().row() + ":" + maze.exit().col(),
+              "rows="
+                  + maze.rows()
+                  + ",cols="
+                  + maze.cols()
+                  + ",exit="
+                  + maze.exit().row()
+                  + ":"
+                  + maze.exit().col(),
               policyDescriptor,
               effectiveSeed,
               terminationReason,
@@ -659,8 +697,10 @@ public class SimulationEpisodeOrchestrator {
     }
 
     private double calculatePathEntropy() {
-      double moveEntropy = entropy(movementCounts.values().stream().mapToInt(Integer::intValue).toArray());
-      int[] visitFrequencies = positionCounts.values().stream().mapToInt(Integer::intValue).toArray();
+      double moveEntropy =
+          entropy(movementCounts.values().stream().mapToInt(Integer::intValue).toArray());
+      int[] visitFrequencies =
+          positionCounts.values().stream().mapToInt(Integer::intValue).toArray();
       double visitEntropy = entropy(visitFrequencies);
       return (moveEntropy + visitEntropy) / 2.0;
     }

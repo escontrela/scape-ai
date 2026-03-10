@@ -11,6 +11,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class TrainingLifecyclePersistenceSubscriber {
 
+  /** Keep at most the last 500 lifecycle events in memory. */
+  private static final int MAX_RETAINED_EVENTS = 500;
+
   private final List<TrainingLifecycleEvent> receivedEvents = new ArrayList<>();
 
   public TrainingLifecyclePersistenceSubscriber(TrainingLifecycleSubscriberRouter router) {
@@ -20,6 +23,9 @@ public class TrainingLifecyclePersistenceSubscriber {
         event -> {
           synchronized (receivedEvents) {
             receivedEvents.add(event);
+            while (receivedEvents.size() > MAX_RETAINED_EVENTS) {
+              receivedEvents.remove(0);
+            }
           }
         });
   }
@@ -29,5 +35,4 @@ public class TrainingLifecyclePersistenceSubscriber {
       return List.copyOf(receivedEvents);
     }
   }
-
 }

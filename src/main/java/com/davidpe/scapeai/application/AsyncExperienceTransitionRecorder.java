@@ -6,29 +6,44 @@ import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MoveDirection;
 import com.davidpe.scapeai.simulation.SimulationState;
 import jakarta.annotation.PreDestroy;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AsyncExperienceTransitionRecorder implements ExperienceTransitionRecorder {
 
+  /** Bounded queue – drops oldest tasks when full to prevent unbounded memory growth. */
+  private static final int MAX_QUEUED_TRANSITIONS = 2_048;
+
   private final ExperienceReplayRepository repository;
-  private final ExecutorService executor =
-      Executors.newSingleThreadExecutor(
-          runnable -> {
-            Thread thread = new Thread(runnable, "experience-transition-writer");
-            thread.setDaemon(true);
-            return thread;
-          });
+  private final ExecutorService executor;
 
   public AsyncExperienceTransitionRecorder(ExperienceReplayRepository repository) {
     this.repository = repository;
+    this.executor =
+        new ThreadPoolExecutor(
+            1,
+            1,
+            0L,
+            TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<>(MAX_QUEUED_TRANSITIONS),
+            runnable -> {
+              Thread thread = new Thread(runnable, "experience-transition-writer");
+              thread.setDaemon(true);
+              return thread;
+            },
+            new ThreadPoolExecutor.DiscardOldestPolicy());
   }
 
   @Override
   public void recordTransition(
-      SimulationState previousState, MoveDirection action, double reward, SimulationState nextState) {
+      SimulationState previousState,
+      MoveDirection action,
+      double reward,
+      SimulationState nextState) {
     ExperienceTransitionEntity transition =
         new ExperienceTransitionEntity(
             null,
