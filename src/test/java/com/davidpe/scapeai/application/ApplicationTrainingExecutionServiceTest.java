@@ -102,4 +102,123 @@ class ApplicationTrainingExecutionServiceTest {
     assertTrue(cancelObserved.await(1, TimeUnit.SECONDS));
     service.shutdown();
   }
+
+  @Test
+  void shouldBlockBatchTrainingWhenSmokeRunFailsCoverage() throws Exception {
+    List<TrainingLifecycleEvent> events = new ArrayList<>();
+    TrainingLifecycleEventBus bus =
+        new TrainingLifecycleEventBus() {
+          @Override
+          public void publish(TrainingLifecycleEvent event) {
+            events.add(event);
+          }
+
+          @Override
+          public Subscription subscribe(java.util.function.Consumer<TrainingLifecycleEvent> listener) {
+            return () -> {};
+          }
+        };
+    IterativeEpisodeTrainingService trainer =
+        (maze, episodes, timeout, cancellationRequested) ->
+            new IterativeTrainingSummary(episodes, episodes, false, 1.0, 1.0, 0.0);
+    ApplicationTrainingExecutionService service =
+        new ApplicationTrainingExecutionService(
+            trainer,
+            bus,
+            (maze, timeout) -> smokeResult(EpisodeEndReason.ABORTED, 0.05),
+            new SessionRandomSource(77L),
+            true,
+            20260309L,
+            Duration.ofSeconds(2),
+            0.20);
+    MazeDefinition maze = new MazeDefinition(1, 1, new boolean[1][1], new GridPosition(0, 0), new GridPosition(0, 0));
+
+    IterativeTrainingSummary summary =
+        service.startBatchTraining(maze, 2, 2, Duration.ofSeconds(3)).get(1, TimeUnit.SECONDS);
+
+    assertEquals(4, summary.episodesRequested());
+    assertEquals(0, summary.episodesCompleted());
+    assertTrue(summary.cancelled());
+    assertTrue(events.stream().anyMatch(event -> event.detail().contains("SMOKE-RUN BLOCKED")));
+    service.shutdown();
+  }
+
+  @Test
+  void shouldContinueBatchTrainingWhenSmokeRunPasses() throws Exception {
+    List<TrainingLifecycleEvent> events = new ArrayList<>();
+    TrainingLifecycleEventBus bus =
+        new TrainingLifecycleEventBus() {
+          @Override
+          public void publish(TrainingLifecycleEvent event) {
+            events.add(event);
+          }
+
+          @Override
+          public Subscription subscribe(java.util.function.Consumer<TrainingLifecycleEvent> listener) {
+            return () -> {};
+          }
+        };
+    IterativeEpisodeTrainingService trainer =
+        (maze, episodes, timeout, cancellationRequested) ->
+            new IterativeTrainingSummary(episodes, episodes, false, 1.0, 1.0, 0.0);
+    ApplicationTrainingExecutionService service =
+        new ApplicationTrainingExecutionService(
+            trainer,
+            bus,
+            (maze, timeout) -> smokeResult(EpisodeEndReason.EXIT_REACHED, 0.80),
+            new SessionRandomSource(88L),
+            true,
+            20260309L,
+            Duration.ofSeconds(2),
+            0.20);
+    MazeDefinition maze = new MazeDefinition(1, 1, new boolean[1][1], new GridPosition(0, 0), new GridPosition(0, 0));
+
+    IterativeTrainingSummary summary =
+        service.startBatchTraining(maze, 2, 2, Duration.ofSeconds(3)).get(1, TimeUnit.SECONDS);
+
+    assertEquals(4, summary.episodesRequested());
+    assertEquals(4, summary.episodesCompleted());
+    assertTrue(events.stream().anyMatch(event -> event.detail().contains("SMOKE-RUN PASS")));
+    service.shutdown();
+  }
+
+  private static SimulationEpisodeResult smokeResult(EpisodeEndReason endReason, double coverageRatio) {
+    return new SimulationEpisodeResult(
+        endReason == EpisodeEndReason.EXIT_REACHED,
+        3,
+        1_000L,
+        endReason,
+        1_000L,
+        1.0,
+        0,
+        0,
+        2,
+        1.0,
+        coverageRatio,
+        coverageRatio,
+        coverageRatio,
+        coverageRatio,
+        coverageRatio,
+        coverageRatio,
+        coverageRatio,
+        0.8,
+        20260309L,
+        2_000L,
+        1,
+        2,
+        List.of(),
+        new EpisodeReplayMetadata(
+            EpisodeReplayMetadata.CONTRACT_VERSION,
+            "rows=1,cols=1,exit=0:0",
+            "smoke-policy",
+            20260309L,
+            endReason,
+            coverageRatio,
+            0,
+            2_000L,
+            3,
+            new GridPosition(0, 0),
+            endReason),
+        List.of());
+  }
 }

@@ -8,6 +8,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,6 +16,12 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
 
   private final IterativeEpisodeTrainingService iterativeTrainingService;
   private final TrainingLifecycleEventBus trainingLifecycleEventBus;
+  private final SmokeRunProbe smokeRunProbe;
+  private final SessionRandomSource sessionRandomSource;
+  private final boolean smokeRunEnabled;
+  private final long smokeRunSeed;
+  private final Duration smokeRunTimeout;
+  private final double smokeRunMinCoverage;
   private final ExecutorService executor =
       Executors.newSingleThreadExecutor(
           runnable -> {
@@ -26,13 +33,67 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
 
   public ApplicationTrainingExecutionService(
       IterativeEpisodeTrainingService iterativeTrainingService,
-      TrainingLifecycleEventBus trainingLifecycleEventBus) {
+      TrainingLifecycleEventBus trainingLifecycleEventBus,
+      SimulationEpisodeOrchestrator simulationEpisodeOrchestrator,
+      SessionRandomSource sessionRandomSource,
+      @Value("${scape.training.smoke-run.enabled:true}") boolean smokeRunEnabled,
+      @Value("${scape.training.smoke-run.seed:20260309}") long smokeRunSeed,
+      @Value("${scape.training.smoke-run.timeout:PT20S}") Duration smokeRunTimeout,
+      @Value("${scape.training.smoke-run.min-coverage:0.15}") double smokeRunMinCoverage) {
+    this(
+        iterativeTrainingService,
+        trainingLifecycleEventBus,
+        simulationEpisodeOrchestrator::runEpisode,
+        sessionRandomSource,
+        smokeRunEnabled,
+        smokeRunSeed,
+        smokeRunTimeout,
+        smokeRunMinCoverage);
+  }
+
+  ApplicationTrainingExecutionService(
+      IterativeEpisodeTrainingService iterativeTrainingService,
+      TrainingLifecycleEventBus trainingLifecycleEventBus,
+      SmokeRunProbe smokeRunProbe,
+      SessionRandomSource sessionRandomSource,
+      boolean smokeRunEnabled,
+      long smokeRunSeed,
+      Duration smokeRunTimeout,
+      double smokeRunMinCoverage) {
     this.iterativeTrainingService = iterativeTrainingService;
     this.trainingLifecycleEventBus = trainingLifecycleEventBus;
+    this.smokeRunProbe = smokeRunProbe;
+    this.sessionRandomSource = sessionRandomSource;
+    this.smokeRunEnabled = smokeRunEnabled;
+    this.smokeRunSeed = smokeRunSeed;
+    this.smokeRunTimeout = smokeRunTimeout == null ? Duration.ofSeconds(20) : smokeRunTimeout;
+    this.smokeRunMinCoverage = Math.max(0.0, Math.min(1.0, smokeRunMinCoverage));
   }
 
   ApplicationTrainingExecutionService(IterativeEpisodeTrainingService iterativeTrainingService) {
-    this(iterativeTrainingService, TrainingLifecycleEventBus.noop());
+    this(
+        iterativeTrainingService,
+        TrainingLifecycleEventBus.noop(),
+        (SmokeRunProbe) null,
+        null,
+        false,
+        20260309L,
+        Duration.ofSeconds(20),
+        0.15);
+  }
+
+  ApplicationTrainingExecutionService(
+      IterativeEpisodeTrainingService iterativeTrainingService,
+      TrainingLifecycleEventBus trainingLifecycleEventBus) {
+    this(
+        iterativeTrainingService,
+        trainingLifecycleEventBus,
+        (SmokeRunProbe) null,
+        null,
+        false,
+        20260309L,
+        Duration.ofSeconds(20),
+        0.15);
   }
 
   @Override
@@ -96,6 +157,14 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
       int batches,
       Duration timeout,
       AtomicBoolean cancelled) {
+    SmokeRunOutcome smokeRunOutcome = runSmokeRun(maze);
+    if (!smokeRunOutcome.passed()) {
+      trainingLifecycleEventBus.publish(
+          TrainingLifecycleEvent.now(
+              TrainingLifecycleEventType.FINISHED,
+              "SMOKE-RUN BLOCKED: " + smokeRunOutcome.reason()));
+      return new IterativeTrainingSummary(episodesPerBatch * batches, 0, true, 0.0, 0.0, 0.0);
+    }
     int batchesCompleted = 0;
     int episodesRequested = episodesPerBatch * batches;
     int episodesCompleted = 0;
@@ -137,5 +206,53 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
         successfulEpisodes / divisor,
         rewardWeightedSum / divisor,
         collisionsWeightedSum / divisor);
+  }
+
+  private SmokeRunOutcome runSmokeRun(MazeDefinition maze) {
+    if (!smokeRunEnabled || smokeRunProbe == null || sessionRandomSource == null) {
+      return SmokeRunOutcome.success();
+    }
+    long previousSeed = sessionRandomSource.effectiveSeed();
+    try {
+      trainingLifecycleEventBus.publish(
+          TrainingLifecycleEvent.now(
+              TrainingLifecycleEventType.STARTED,
+              "SMOKE-RUN START seed=" + smokeRunSeed + " timeout=" + smokeRunTimeout));
+      sessionRandomSource.reset(smokeRunSeed);
+      SimulationEpisodeResult smokeResult = smokeRunProbe.run(maze, smokeRunTimeout);
+      if (smokeResult.endReason() == EpisodeEndReason.TIMEOUT) {
+        return SmokeRunOutcome.failed("timeout reached before long training");
+      }
+      if (smokeResult.mazeCoverageRatio() < smokeRunMinCoverage) {
+        return SmokeRunOutcome.failed(
+            "coverage "
+                + String.format(java.util.Locale.ROOT, "%.2f", smokeResult.mazeCoverageRatio())
+                + " below "
+                + String.format(java.util.Locale.ROOT, "%.2f", smokeRunMinCoverage));
+      }
+      trainingLifecycleEventBus.publish(
+          TrainingLifecycleEvent.now(
+              TrainingLifecycleEventType.STARTED,
+              "SMOKE-RUN PASS coverage="
+                  + String.format(java.util.Locale.ROOT, "%.2f", smokeResult.mazeCoverageRatio())));
+      return SmokeRunOutcome.success();
+    } finally {
+      sessionRandomSource.reset(previousSeed);
+    }
+  }
+
+  interface SmokeRunProbe {
+    SimulationEpisodeResult run(MazeDefinition maze, Duration timeout);
+  }
+
+  private record SmokeRunOutcome(boolean passed, String reason) {
+
+    static SmokeRunOutcome success() {
+      return new SmokeRunOutcome(true, "");
+    }
+
+    static SmokeRunOutcome failed(String reason) {
+      return new SmokeRunOutcome(false, reason == null ? "unknown reason" : reason);
+    }
   }
 }

@@ -530,6 +530,7 @@
 - Ejecucion obligatoria de smoke-run con semilla fija y umbrales minimos de timeout/cobertura.
 - Bloqueo del entrenamiento principal y registro de causa cuando el smoke-run falla.
 - Continuidad del flujo normal cuando el smoke-run cumple criterios.
+- Implementacion tecnica: `ApplicationTrainingExecutionService.startBatchTraining(...)` ejecuta `SMOKE-RUN` previo con semilla `scape.training.smoke-run.seed`, timeout `scape.training.smoke-run.timeout` y umbral `scape.training.smoke-run.min-coverage`; si falla publica evento `SMOKE-RUN BLOCKED` y retorna corrida cancelada sin iniciar batches.
 
 ### SCAPE-0057 - Politica compuesta con fallback DJL->heuristica
 - Objetivo funcional: mejorar estabilidad de decisiones con fallback controlado ante baja confianza o fallo de inferencia DJL.
