@@ -9,6 +9,7 @@ public record RecentRunComparisonRow(
     double rightSideCoverage,
     double pathEntropy,
     boolean lowEntropyAlert,
+    String terminalReason,
     double trainingHealthIndex,
     boolean healthRegression,
     String healthIndexFormulaVersion,

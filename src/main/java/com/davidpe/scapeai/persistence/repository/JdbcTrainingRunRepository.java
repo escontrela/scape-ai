@@ -27,6 +27,8 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
 
   @Override
   public TrainingRunEntity save(TrainingRunEntity run) {
+    String terminalReason =
+        normalizeTerminalReason(run.terminalReason(), run.success(), run.timeoutReached());
     double timeoutRatio = computeTimeoutRatio(run.mazeId(), run.timeoutReached());
     double trainingHealthIndex =
         run.trainingHealthIndex() > 0.0
@@ -44,9 +46,9 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
               connection.prepareStatement(
                   """
                   INSERT INTO training_runs(
-                    maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, maze_coverage_ratio, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, path_entropy, episode_debug_snapshots, replay_debug_metadata, timeout_reached, training_health_index, health_index_formula_version, created_at_epoch_millis
+                    maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, maze_coverage_ratio, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, path_entropy, episode_debug_snapshots, replay_debug_metadata, terminal_reason, timeout_reached, training_health_index, health_index_formula_version, created_at_epoch_millis
                   )
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                   """,
                   Statement.RETURN_GENERATED_KEYS);
           statement.setLong(1, run.mazeId());
@@ -70,10 +72,11 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
           statement.setDouble(19, run.pathEntropy());
           statement.setString(20, run.episodeDebugSnapshots());
           statement.setString(21, run.replayDebugMetadata());
-          statement.setBoolean(22, run.timeoutReached());
-          statement.setDouble(23, trainingHealthIndex);
-          statement.setString(24, formulaVersion);
-          statement.setLong(25, run.createdAtEpochMillis());
+          statement.setString(22, terminalReason);
+          statement.setBoolean(23, run.timeoutReached());
+          statement.setDouble(24, trainingHealthIndex);
+          statement.setString(25, formulaVersion);
+          statement.setLong(26, run.createdAtEpochMillis());
           return statement;
         },
         keyHolder);
@@ -104,6 +107,7 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
         run.pathEntropy(),
         run.episodeDebugSnapshots(),
         run.replayDebugMetadata(),
+        terminalReason,
         run.timeoutReached(),
         trainingHealthIndex,
         formulaVersion,
@@ -119,7 +123,7 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
   public List<TrainingRunEntity> findRecentByMazeId(long mazeId, int limit) {
     return jdbcTemplate.query(
         """
-        SELECT id, maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, maze_coverage_ratio, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, path_entropy, episode_debug_snapshots, replay_debug_metadata, timeout_reached, training_health_index, health_index_formula_version, created_at_epoch_millis
+        SELECT id, maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, maze_coverage_ratio, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, path_entropy, episode_debug_snapshots, replay_debug_metadata, terminal_reason, timeout_reached, training_health_index, health_index_formula_version, created_at_epoch_millis
         FROM training_runs
         WHERE maze_id = ?
         ORDER BY created_at_epoch_millis DESC
@@ -149,6 +153,10 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
                 rs.getDouble("path_entropy"),
                 rs.getString("episode_debug_snapshots"),
                 rs.getString("replay_debug_metadata"),
+                normalizeTerminalReason(
+                    rs.getString("terminal_reason"),
+                    rs.getBoolean("success"),
+                    rs.getBoolean("timeout_reached")),
                 rs.getBoolean("timeout_reached"),
                 rs.getDouble("training_health_index"),
                 rs.getString("health_index_formula_version"),
@@ -208,5 +216,18 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
             (rs, rowNum) -> rs.getBoolean("timeout_reached"),
             mazeId));
     return TrainingHealthIndexFormula.timeoutRatio(timeoutFlags);
+  }
+
+  private String normalizeTerminalReason(String terminalReason, boolean success, boolean timeoutReached) {
+    if (terminalReason == null || terminalReason.isBlank()) {
+      if (timeoutReached) {
+        return "TIMEOUT";
+      }
+      return success ? "EXIT_REACHED" : "ABORTED";
+    }
+    return switch (terminalReason.trim().toUpperCase(java.util.Locale.ROOT)) {
+      case "EXIT_REACHED", "TIMEOUT", "ABORTED", "ERROR" -> terminalReason.trim().toUpperCase(java.util.Locale.ROOT);
+      default -> timeoutReached ? "TIMEOUT" : (success ? "EXIT_REACHED" : "ABORTED");
+    };
   }
 }

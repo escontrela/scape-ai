@@ -23,6 +23,7 @@ public record TrainingRunEntity(
     double pathEntropy,
     String episodeDebugSnapshots,
     String replayDebugMetadata,
+    String terminalReason,
     boolean timeoutReached,
     double trainingHealthIndex,
     String healthIndexFormulaVersion,

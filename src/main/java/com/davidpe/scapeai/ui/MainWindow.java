@@ -928,9 +928,9 @@ public final class MainWindow {
   }
 
   private HBox recentRunRow(RecentRunComparisonRow row) {
-    Label status = new Label(row.success() ? "OK" : "FAIL");
+    Label status = new Label(formatTerminalReason(row.terminalReason()));
     status.setFont(Font.font("Consolas", 11));
-    status.setTextFill(Color.web(row.success() ? "#89ff9a" : "#ff6b8a"));
+    status.setTextFill(Color.web(terminalReasonColor(row.terminalReason())));
 
     Label reward = new Label(String.format(Locale.US, "R %.1f", row.reward()));
     reward.setFont(Font.font("Consolas", 11));
@@ -984,9 +984,9 @@ public final class MainWindow {
   }
 
   private HBox timelineRow(TrainingTimelineEntry entry) {
-    Label status = new Label(entry.status().name());
+    Label status = new Label(formatTerminalReason(entry.terminalReason()));
     status.setFont(Font.font("Consolas", 12));
-    status.setTextFill(Color.web(statusColor(entry.status())));
+    status.setTextFill(Color.web(terminalReasonColor(entry.terminalReason())));
 
     Label reward =
         new Label(String.format(Locale.US, "R %.1f", entry.reward()));
@@ -1009,11 +1009,28 @@ public final class MainWindow {
     return label;
   }
 
-  private String statusColor(TrainingTimelineStatus status) {
-    return switch (status) {
-      case SUCCESS -> "#89ff9a";
-      case TIMEOUT -> "#ffd166";
-      case COLLISION_STALL -> "#ff6b8a";
+  private String terminalReasonColor(String terminalReason) {
+    if (terminalReason == null || terminalReason.isBlank()) {
+      return "#5e719f";
+    }
+    return switch (terminalReason.trim().toUpperCase(Locale.ROOT)) {
+      case "EXIT_REACHED" -> "#89ff9a";
+      case "TIMEOUT" -> "#ffd166";
+      case "ABORTED", "ERROR" -> "#ff6b8a";
+      default -> "#5e719f";
+    };
+  }
+
+  private String formatTerminalReason(String terminalReason) {
+    if (terminalReason == null || terminalReason.isBlank()) {
+      return "UNKNOWN";
+    }
+    return switch (terminalReason.trim().toUpperCase(Locale.ROOT)) {
+      case "EXIT_REACHED" -> "EXIT";
+      case "TIMEOUT" -> "TIMEOUT";
+      case "ABORTED" -> "ABORTED";
+      case "ERROR" -> "ERROR";
+      default -> terminalReason.toUpperCase(Locale.ROOT);
     };
   }
 

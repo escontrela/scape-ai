@@ -661,3 +661,11 @@
 - Se mantiene contrato de cierre por `TIMEOUT` consistente entre ejecucion visual y headless al usar la misma base temporal interna.
 - Prueba automatizada dedicada valida expiracion estable sin depender del reloj de pared.
 - Implementacion tecnica: el proveedor por defecto del orquestador pasa de `currentTimeMillis` a base monotónica y se agrega cobertura en `SimulationEpisodeOrchestratorTest.shouldExpireWithMonotonicClockWithoutDependingOnWallClock`.
+
+### SCAPE-0061 - Persistir semantica de finalizacion por episodio
+- Objetivo funcional: registrar y exponer una causa terminal normalizada por corrida para analisis comparativo.
+- Alcance introducido:
+- `training_runs` persiste `terminal_reason` con valores normalizados (`EXIT_REACHED`, `TIMEOUT`, `ABORTED`, `ERROR`) y migracion compatible para historicos.
+- Repositorio de corridas recientes devuelve el motivo terminal incluso cuando los datos previos no lo tenian (fallback por `success/timeout_reached`).
+- La UI de comparativa y timeline renderiza etiqueta legible de finalizacion terminal por fila.
+- Implementacion tecnica: `SqliteSchemaMigrator` agrega/backfillea `terminal_reason`, `JdbcTrainingRunRepository` normaliza lectura/escritura, y `MainWindow` consume `terminalReason` en `RecentRunComparisonRow` y `TrainingTimelineEntry`.

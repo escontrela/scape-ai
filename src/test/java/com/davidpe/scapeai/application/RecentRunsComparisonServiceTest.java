@@ -174,6 +174,7 @@ class RecentRunsComparisonServiceTest {
                 1.5 - (0.08 * i),
                 "[{\"milestone\":\"FINAL\"}]",
                 "{\"seed\":20260309}",
+                i % 4 == 0 ? "TIMEOUT" : (i % 2 == 0 ? "EXIT_REACHED" : "ABORTED"),
                 i % 4 == 0,
                 75.0 - (i * 3.2),
                 TrainingHealthIndexFormula.FORMULA_VERSION,

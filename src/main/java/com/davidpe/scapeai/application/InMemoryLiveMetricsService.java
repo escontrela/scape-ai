@@ -117,7 +117,8 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     TrainingTimelineStatus status = forcedStatus == null ? classifyEpisode(metrics) : forcedStatus;
     terminationReason = mapTerminationReason(status);
     recentTimeline.addFirst(
-        new TrainingTimelineEntry(status, metrics.accumulatedReward(), metrics.elapsedMillis()));
+        new TrainingTimelineEntry(
+            status, terminationReason, metrics.accumulatedReward(), metrics.elapsedMillis()));
     while (recentTimeline.size() > 12) {
       recentTimeline.removeLast();
     }
@@ -256,7 +257,7 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     return switch (status) {
       case SUCCESS -> "EXIT_REACHED";
       case TIMEOUT -> "TIMEOUT";
-      case COLLISION_STALL -> "COLLISION_STALL";
+      case COLLISION_STALL -> "ABORTED";
     };
   }
 }

@@ -85,6 +85,19 @@ public class SqliteSchemaMigrator {
       jdbcTemplate.execute(
           "ALTER TABLE training_runs ADD COLUMN timeout_reached INTEGER NOT NULL DEFAULT 0");
     }
+    if (!columns.contains("terminal_reason")) {
+      jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN terminal_reason TEXT");
+      jdbcTemplate.execute(
+          """
+          UPDATE training_runs
+          SET terminal_reason = CASE
+            WHEN timeout_reached = 1 THEN 'TIMEOUT'
+            WHEN success = 1 THEN 'EXIT_REACHED'
+            ELSE 'ABORTED'
+          END
+          WHERE terminal_reason IS NULL OR TRIM(terminal_reason) = ''
+          """);
+    }
     if (!columns.contains("training_health_index")) {
       jdbcTemplate.execute(
           "ALTER TABLE training_runs ADD COLUMN training_health_index REAL NOT NULL DEFAULT 0");

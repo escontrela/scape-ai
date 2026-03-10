@@ -60,6 +60,7 @@ class JdbcPersistenceRepositoriesTest {
             path_entropy REAL NOT NULL DEFAULT 0,
             episode_debug_snapshots TEXT,
             replay_debug_metadata TEXT,
+            terminal_reason TEXT NOT NULL DEFAULT 'ABORTED',
             timeout_reached INTEGER NOT NULL DEFAULT 0,
             training_health_index REAL NOT NULL DEFAULT 0,
             health_index_formula_version TEXT NOT NULL DEFAULT 'v1.0.0',
@@ -138,6 +139,7 @@ class JdbcPersistenceRepositoriesTest {
               0.88,
               "[{\"milestone\":\"FINAL\"}]",
               "{\"seed\":20260309}",
+              "TIMEOUT",
               true,
               58.4,
               "v1.0.0",
@@ -166,6 +168,7 @@ class JdbcPersistenceRepositoriesTest {
               1.32,
               "[{\"milestone\":\"FINAL\"}]",
               "{\"seed\":20260310}",
+              "EXIT_REACHED",
               false,
               83.1,
               "v1.0.0",
@@ -209,6 +212,7 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals("{\"seed\":20260310}", byRunId.get().replayDebugMetadata());
       assertEquals(2, latestDiagnostics.size());
       assertEquals(history.get(0).id(), latestDiagnostics.get(0).trainingRunId());
+      assertEquals("EXIT_REACHED", history.get(0).terminalReason());
       assertEquals(false, history.get(0).timeoutReached());
       assertEquals(83.1, history.get(0).trainingHealthIndex());
       assertEquals("v1.0.0", history.get(0).healthIndexFormulaVersion());
