@@ -394,6 +394,9 @@
 - SCAPE-0045: cierre de episodio por timeout endurecido en `SimulationEpisodeOrchestrator`, acotando `elapsedMillis` al limite configurado para evitar deriva bajo carga/reloj grueso.
 - SCAPE-0045: `LiveMetricsService` extiende contrato con timeout activo para publicar `elapsed/remaining` consistentes y cierre forzado `TIMEOUT` en telemetria UI.
 - SCAPE-0045: panel UI de metricas agrega `Remaining` y la suite de tests incluye regresion reproducible del bug de expiracion y validacion de timeline `TIMEOUT`.
+- SCAPE-0046: se agrega `EpisodeTerminationResolver` como validador central para garantizar exclusividad entre `EXIT_REACHED`, `TIMEOUT` y `ABORTED`.
+- SCAPE-0046: `SimulationEpisodeResult` pasa a exponer `terminationReason` y `terminatedAtEpochMillis` (con compatibilidad via `endReason()`), dejando trazabilidad terminal unica.
+- SCAPE-0046: pruebas de borde cubren `timeout` en tick limite y salida en tick limite sin terminalidad doble ni ambigua.
 
 ## Iteracion PO 2026-03-10 (automation cycle 7)
 

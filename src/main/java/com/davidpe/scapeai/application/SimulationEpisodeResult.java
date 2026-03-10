@@ -6,7 +6,8 @@ public record SimulationEpisodeResult(
     boolean success,
     int totalSteps,
     long elapsedMillis,
-    EpisodeEndReason endReason,
+    EpisodeEndReason terminationReason,
+    long terminatedAtEpochMillis,
     double totalReward,
     int collisions,
     int loopEvents,
@@ -24,6 +25,12 @@ public record SimulationEpisodeResult(
     List<PolicyInferenceTrace> inferenceTraces) {
 
   public SimulationEpisodeResult {
+    terminationReason = java.util.Objects.requireNonNull(terminationReason, "terminationReason must not be null");
+    terminatedAtEpochMillis = Math.max(0L, terminatedAtEpochMillis);
     inferenceTraces = inferenceTraces == null ? List.of() : List.copyOf(inferenceTraces);
+  }
+
+  public EpisodeEndReason endReason() {
+    return terminationReason;
   }
 }

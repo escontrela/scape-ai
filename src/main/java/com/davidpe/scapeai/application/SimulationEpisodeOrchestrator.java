@@ -392,11 +392,13 @@ public class SimulationEpisodeOrchestrator {
 
     SimulationEpisodeResult toResult(long currentTime, MazeDefinition maze) {
       long elapsed = elapsedMillis(currentTime);
-      EpisodeEndReason endReason =
-          currentState.exitReached() ? EpisodeEndReason.EXIT_REACHED : EpisodeEndReason.TIMEOUT;
-      if (endReason == EpisodeEndReason.TIMEOUT) {
+      boolean timeoutReached = !currentState.exitReached() && currentTime >= deadline;
+      EpisodeEndReason terminationReason =
+          EpisodeTerminationResolver.resolve(currentState.exitReached(), timeoutReached, false);
+      if (terminationReason == EpisodeEndReason.TIMEOUT) {
         elapsed = Math.min(elapsed, timeoutBudgetMillis());
       }
+      long terminatedAt = terminationReason == EpisodeEndReason.TIMEOUT ? deadline : currentTime;
       int finalDistanceToExit = distanceToExit(currentState.agentPosition(), mazeExit);
       double netProgress = (initialDistanceToExit - finalDistanceToExit) + improvementDistance;
       MazeQuadrantCoverage coverage = MazeQuadrantCoverage.from(maze, currentState.visitedCells());
@@ -405,7 +407,8 @@ public class SimulationEpisodeOrchestrator {
           currentState.exitReached(),
           totalSteps,
           elapsed,
-          endReason,
+          terminationReason,
+          terminatedAt,
           totalReward,
           collisions,
           loopEvents,

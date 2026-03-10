@@ -38,6 +38,7 @@ class SimulationEpisodeOrchestratorTest {
     assertTrue(result.success());
     assertEquals(1, result.totalSteps());
     assertEquals(EpisodeEndReason.EXIT_REACHED, result.endReason());
+    assertEquals(50, result.terminatedAtEpochMillis());
     assertEquals(-1.0, result.totalReward());
     assertEquals(0, result.collisions());
     assertEquals(0, result.loopEvents());
@@ -60,6 +61,7 @@ class SimulationEpisodeOrchestratorTest {
 
     assertFalse(result.success());
     assertEquals(EpisodeEndReason.TIMEOUT, result.endReason());
+    assertEquals(60, result.terminatedAtEpochMillis());
     assertTrue(result.totalSteps() > 0);
     assertTrue(result.totalReward() <= 0.0);
     assertTrue(result.collisions() >= 0);
@@ -79,6 +81,21 @@ class SimulationEpisodeOrchestratorTest {
 
     assertEquals(EpisodeEndReason.TIMEOUT, result.endReason());
     assertEquals(60, result.elapsedMillis());
+    assertEquals(60, result.terminatedAtEpochMillis());
+  }
+
+  @Test
+  void shouldResolveExitReachedWhenExitHappensOnLimitTick() {
+    SimulationStepFlow flow = flowWithPolicy(context -> MoveDirection.RIGHT);
+    SimulationEpisodeOrchestrator orchestrator =
+        new SimulationEpisodeOrchestrator(flow, Duration.ofMillis(60), new FixedStepTime(0, 20));
+    MazeDefinition maze =
+        new MazeDefinition(1, 3, new boolean[1][3], new GridPosition(0, 0), new GridPosition(0, 2));
+
+    SimulationEpisodeResult result = orchestrator.runEpisode(maze);
+
+    assertEquals(EpisodeEndReason.EXIT_REACHED, result.endReason());
+    assertEquals(60, result.terminatedAtEpochMillis());
   }
 
   @Test
