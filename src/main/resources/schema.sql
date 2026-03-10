@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS training_runs (
   path_entropy REAL NOT NULL DEFAULT 0,
   episode_debug_snapshots TEXT,
   replay_debug_metadata TEXT,
+  cell_visit_frequencies TEXT,
   terminal_reason TEXT NOT NULL DEFAULT 'ABORTED',
   timeout_reached INTEGER NOT NULL DEFAULT 0,
   training_health_index REAL NOT NULL DEFAULT 0,

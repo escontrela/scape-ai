@@ -125,6 +125,11 @@ class RecentRunsComparisonServiceTest {
     }
 
     @Override
+    public List<CellVisitFrequency> findAccumulatedCellVisitsByMazeId(long mazeId, int limit) {
+      return List.of();
+    }
+
+    @Override
     public Optional<TrainingRunReplayDiagnosticEntity> findReplayDiagnosticByTrainingRunId(
         long trainingRunId) {
       return rows.stream()
@@ -174,6 +179,7 @@ class RecentRunsComparisonServiceTest {
                 1.5 - (0.08 * i),
                 "[{\"milestone\":\"FINAL\"}]",
                 "{\"seed\":20260309}",
+                "0:0:1",
                 i % 4 == 0 ? "TIMEOUT" : (i % 2 == 0 ? "EXIT_REACHED" : "ABORTED"),
                 i % 4 == 0,
                 75.0 - (i * 3.2),

@@ -1,5 +1,6 @@
 package com.davidpe.scapeai.persistence.repository;
 
+import com.davidpe.scapeai.application.CellVisitFrequency;
 import com.davidpe.scapeai.persistence.TrainingRunEntity;
 import com.davidpe.scapeai.persistence.TrainingRunReplayDiagnosticEntity;
 import java.util.List;
@@ -12,6 +13,8 @@ public interface TrainingRunRepository {
   List<TrainingRunEntity> findByMazeId(long mazeId);
 
   List<TrainingRunEntity> findRecentByMazeId(long mazeId, int limit);
+
+  List<CellVisitFrequency> findAccumulatedCellVisitsByMazeId(long mazeId, int limit);
 
   Optional<TrainingRunReplayDiagnosticEntity> findReplayDiagnosticByTrainingRunId(long trainingRunId);
 

@@ -61,6 +61,7 @@ class JdbcPersistenceRepositoriesTest {
             path_entropy REAL NOT NULL DEFAULT 0,
             episode_debug_snapshots TEXT,
             replay_debug_metadata TEXT,
+            cell_visit_frequencies TEXT,
             terminal_reason TEXT NOT NULL DEFAULT 'ABORTED',
             timeout_reached INTEGER NOT NULL DEFAULT 0,
             training_health_index REAL NOT NULL DEFAULT 0,
@@ -140,6 +141,7 @@ class JdbcPersistenceRepositoriesTest {
               0.88,
               "[{\"milestone\":\"FINAL\"}]",
               "{\"seed\":20260309}",
+              "0:0:3;0:1:2;1:1:1",
               "TIMEOUT",
               true,
               58.4,
@@ -169,6 +171,7 @@ class JdbcPersistenceRepositoriesTest {
               1.32,
               "[{\"milestone\":\"FINAL\"}]",
               "{\"seed\":20260310}",
+              "0:0:4;0:1:1;2:2:5",
               "EXIT_REACHED",
               false,
               83.1,
@@ -177,6 +180,7 @@ class JdbcPersistenceRepositoriesTest {
 
       var history = runRepository.findByMazeId(maze.id());
       var latestOnly = runRepository.findRecentByMazeId(maze.id(), 1);
+      var accumulatedHeatmap = runRepository.findAccumulatedCellVisitsByMazeId(maze.id(), 2);
       var byRunId = runRepository.findReplayDiagnosticByTrainingRunId(history.get(0).id());
       var latestDiagnostics = runRepository.findRecentReplayDiagnostics(2);
       var sortedAsc = mazeRepository.findAllOrderByDifficulty(true);
@@ -196,6 +200,8 @@ class JdbcPersistenceRepositoriesTest {
 
       assertEquals(2, history.size());
       assertEquals(1, latestOnly.size());
+      assertEquals(4, accumulatedHeatmap.size());
+      assertEquals(7, accumulatedHeatmap.get(0).visits());
       assertTrue(history.get(0).createdAtEpochMillis() >= history.get(1).createdAtEpochMillis());
       assertEquals(18, history.get(0).steps());
       assertEquals(true, history.get(0).success());
@@ -209,6 +215,7 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals(1.32, history.get(0).pathEntropy());
       assertEquals("[{\"milestone\":\"FINAL\"}]", history.get(0).episodeDebugSnapshots());
       assertEquals("{\"seed\":20260310}", history.get(0).replayDebugMetadata());
+      assertEquals("0:0:4;0:1:1;2:2:5", history.get(0).cellVisitFrequencies());
       assertTrue(byRunId.isPresent());
       assertEquals(history.get(0).id(), byRunId.get().trainingRunId());
       assertEquals("{\"seed\":20260310}", byRunId.get().replayDebugMetadata());

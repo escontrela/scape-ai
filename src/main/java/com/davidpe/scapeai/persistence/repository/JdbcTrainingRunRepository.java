@@ -1,5 +1,6 @@
 package com.davidpe.scapeai.persistence.repository;
 
+import com.davidpe.scapeai.application.CellVisitFrequency;
 import com.davidpe.scapeai.application.TrainingHealthIndexFormula;
 import com.davidpe.scapeai.persistence.TrainingRunEntity;
 import com.davidpe.scapeai.persistence.TrainingRunReplayDiagnosticEntity;
@@ -46,9 +47,9 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
               connection.prepareStatement(
                   """
                   INSERT INTO training_runs(
-                    maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, maze_coverage_ratio, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, path_entropy, episode_debug_snapshots, replay_debug_metadata, terminal_reason, timeout_reached, training_health_index, health_index_formula_version, created_at_epoch_millis
+                    maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, maze_coverage_ratio, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, path_entropy, episode_debug_snapshots, replay_debug_metadata, cell_visit_frequencies, terminal_reason, timeout_reached, training_health_index, health_index_formula_version, created_at_epoch_millis
                   )
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                   """,
                   Statement.RETURN_GENERATED_KEYS);
           statement.setLong(1, run.mazeId());
@@ -72,11 +73,12 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
           statement.setDouble(19, run.pathEntropy());
           statement.setString(20, run.episodeDebugSnapshots());
           statement.setString(21, run.replayDebugMetadata());
-          statement.setString(22, terminalReason);
-          statement.setBoolean(23, run.timeoutReached());
-          statement.setDouble(24, trainingHealthIndex);
-          statement.setString(25, formulaVersion);
-          statement.setLong(26, run.createdAtEpochMillis());
+          statement.setString(22, run.cellVisitFrequencies());
+          statement.setString(23, terminalReason);
+          statement.setBoolean(24, run.timeoutReached());
+          statement.setDouble(25, trainingHealthIndex);
+          statement.setString(26, formulaVersion);
+          statement.setLong(27, run.createdAtEpochMillis());
           return statement;
         },
         keyHolder);
@@ -107,6 +109,7 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
         run.pathEntropy(),
         run.episodeDebugSnapshots(),
         run.replayDebugMetadata(),
+        run.cellVisitFrequencies(),
         terminalReason,
         run.timeoutReached(),
         trainingHealthIndex,
@@ -123,7 +126,7 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
   public List<TrainingRunEntity> findRecentByMazeId(long mazeId, int limit) {
     return jdbcTemplate.query(
         """
-        SELECT id, maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, maze_coverage_ratio, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, path_entropy, episode_debug_snapshots, replay_debug_metadata, terminal_reason, timeout_reached, training_health_index, health_index_formula_version, created_at_epoch_millis
+        SELECT id, maze_id, policy_id, policy_snapshot, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, maze_coverage_ratio, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, path_entropy, episode_debug_snapshots, replay_debug_metadata, cell_visit_frequencies, terminal_reason, timeout_reached, training_health_index, health_index_formula_version, created_at_epoch_millis
         FROM training_runs
         WHERE maze_id = ?
         ORDER BY created_at_epoch_millis DESC
@@ -153,6 +156,7 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
                 rs.getDouble("path_entropy"),
                 rs.getString("episode_debug_snapshots"),
                 rs.getString("replay_debug_metadata"),
+                rs.getString("cell_visit_frequencies"),
                 normalizeTerminalReason(
                     rs.getString("terminal_reason"),
                     rs.getBoolean("success"),
@@ -163,6 +167,35 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
                 rs.getLong("created_at_epoch_millis")),
         mazeId,
         limit);
+  }
+
+  @Override
+  public List<CellVisitFrequency> findAccumulatedCellVisitsByMazeId(long mazeId, int limit) {
+    List<String> encodedRuns =
+        jdbcTemplate.query(
+            """
+            SELECT cell_visit_frequencies
+            FROM training_runs
+            WHERE maze_id = ?
+            ORDER BY created_at_epoch_millis DESC
+            LIMIT ?
+            """,
+            (rs, rowNum) -> rs.getString("cell_visit_frequencies"),
+            mazeId,
+            Math.max(1, limit));
+    java.util.Map<com.davidpe.scapeai.simulation.GridPosition, Integer> totals = new java.util.HashMap<>();
+    for (String encoded : encodedRuns) {
+      for (CellVisitFrequency frequency : CellVisitFrequency.decode(encoded)) {
+        totals.merge(frequency.position(), frequency.visits(), Integer::sum);
+      }
+    }
+    return totals.entrySet().stream()
+        .map(entry -> new CellVisitFrequency(entry.getKey(), entry.getValue()))
+        .sorted(
+            java.util.Comparator.comparingInt(
+                    (CellVisitFrequency frequency) -> frequency.position().row())
+                .thenComparingInt(frequency -> frequency.position().col()))
+        .toList();
   }
 
   @Override

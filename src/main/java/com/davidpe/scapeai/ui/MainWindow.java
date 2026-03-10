@@ -1,5 +1,6 @@
 package com.davidpe.scapeai.ui;
 
+import com.davidpe.scapeai.application.CellVisitFrequency;
 import com.davidpe.scapeai.application.LiveEpisodeMetrics;
 import com.davidpe.scapeai.application.LiveMetricsService;
 import com.davidpe.scapeai.application.MazeCoverageSummaryRow;
@@ -8,6 +9,7 @@ import com.davidpe.scapeai.application.MovementPolicyOption;
 import com.davidpe.scapeai.application.RecentRunComparisonRow;
 import com.davidpe.scapeai.application.RecentRunsComparisonService;
 import com.davidpe.scapeai.application.RecentRunsSortOption;
+import com.davidpe.scapeai.application.PersistentMazeHeatmapService;
 import com.davidpe.scapeai.application.StartTrainingSessionCommand;
 import com.davidpe.scapeai.application.StartTrainingSessionResult;
 import com.davidpe.scapeai.application.StartTrainingSessionUseCase;
@@ -68,6 +70,7 @@ public final class MainWindow {
   private final TrainingPresetService trainingPresetService;
   private final LiveMetricsService liveMetricsService;
   private final RecentRunsComparisonService recentRunsComparisonService;
+  private final PersistentMazeHeatmapService persistentMazeHeatmapService;
   private final MazeCoverageSummaryService mazeCoverageSummaryService;
   private final MazeCatalogService mazeCatalogService;
   private final MazeViewportRenderer mazeViewportRenderer;
@@ -123,6 +126,7 @@ public final class MainWindow {
   private volatile boolean sessionConfigLocked;
   private volatile TrainingTargetDifficulty selectedTargetDifficulty = TrainingTargetDifficulty.MEDIUM;
   private final double coverageAlertThreshold;
+  private final int persistentHeatmapRuns;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -131,21 +135,25 @@ public final class MainWindow {
       TrainingPresetService trainingPresetService,
       LiveMetricsService liveMetricsService,
       RecentRunsComparisonService recentRunsComparisonService,
+      PersistentMazeHeatmapService persistentMazeHeatmapService,
       MazeCoverageSummaryService mazeCoverageSummaryService,
       MazeCatalogService mazeCatalogService,
       MazeViewportRenderer mazeViewportRenderer,
       TrainingLifecycleSubscriberRouter trainingLifecycleSubscriberRouter,
-      @Value("${scape.ui.coverage-alert-threshold:0.35}") double coverageAlertThreshold) {
+      @Value("${scape.ui.coverage-alert-threshold:0.35}") double coverageAlertThreshold,
+      @Value("${scape.ui.persistent-heatmap-runs:12}") int persistentHeatmapRuns) {
     this.controlService = controlService;
     this.startTrainingSessionUseCase = startTrainingSessionUseCase;
     this.trainingExecutionService = trainingExecutionService;
     this.trainingPresetService = trainingPresetService;
     this.liveMetricsService = liveMetricsService;
     this.recentRunsComparisonService = recentRunsComparisonService;
+    this.persistentMazeHeatmapService = persistentMazeHeatmapService;
     this.mazeCoverageSummaryService = mazeCoverageSummaryService;
     this.mazeCatalogService = mazeCatalogService;
     this.mazeViewportRenderer = mazeViewportRenderer;
     this.coverageAlertThreshold = Math.max(0.0, Math.min(1.0, coverageAlertThreshold));
+    this.persistentHeatmapRuns = Math.max(1, persistentHeatmapRuns);
     trainingLifecycleSubscriberRouter.register(
         "main-window",
         EnumSet.allOf(TrainingLifecycleEventType.class),
@@ -597,6 +605,7 @@ public final class MainWindow {
                 resetTrajectoryEpisode();
                 refreshUnexploredOverlay();
                 refreshMiniHeatmap();
+                refreshPersistentHeatmapAsync();
                 refreshRecentRunsAsync();
                 refreshSessionConfigCardPreview();
               }
@@ -611,6 +620,7 @@ public final class MainWindow {
         mazeViewportRenderer.renderInto(mazeViewport, firstMaze);
         refreshUnexploredOverlay();
         refreshMiniHeatmap();
+        refreshPersistentHeatmapAsync();
         refreshRecentRunsAsync();
         refreshSessionConfigCardPreview();
       }
@@ -951,6 +961,31 @@ public final class MainWindow {
           List<MazeCoverageSummaryRow> rows = mazeCoverageSummaryService.pendingCoverage();
           Platform.runLater(() -> renderCoverageSummary(rows));
         });
+  }
+
+  private void refreshPersistentHeatmapAsync() {
+    String mazeName = selectedMazeName;
+    if (mazeName == null || mazeName.isBlank()) {
+      Platform.runLater(mazeViewportRenderer::clearPersistentHeatmap);
+      return;
+    }
+    recentRunsExecutor.execute(
+        () -> {
+          List<CellVisitFrequency> frequencies =
+              persistentMazeHeatmapService.loadAccumulatedHeatmap(mazeName, persistentHeatmapRuns);
+          Platform.runLater(() -> renderPersistentHeatmap(mazeName, frequencies));
+        });
+  }
+
+  private void renderPersistentHeatmap(String mazeName, List<CellVisitFrequency> frequencies) {
+    if (!mazeName.equals(selectedMazeName)) {
+      return;
+    }
+    if (frequencies == null || frequencies.isEmpty()) {
+      mazeViewportRenderer.clearPersistentHeatmap();
+      return;
+    }
+    mazeViewportRenderer.renderPersistentHeatmap(frequencies);
   }
 
   private void renderRecentRuns(
@@ -1442,6 +1477,7 @@ public final class MainWindow {
             }
             case FINISHED -> {
               resetTrajectoryEpisode();
+              refreshPersistentHeatmapAsync();
               if (event.detail() != null && event.detail().contains("RESET")) {
                 updateSessionHud(null, "visual");
               }
@@ -1450,6 +1486,7 @@ public final class MainWindow {
             case TIMED_OUT -> {
               trajectoryRunning = false;
               stopTrajectoryTicker();
+              refreshPersistentHeatmapAsync();
               updateSystemStatus("TRAINING TIMEOUT", "#ff6b8a");
             }
           }

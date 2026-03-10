@@ -25,6 +25,7 @@ public record SimulationEpisodeResult(
     long timeoutBudgetMillis,
     int explorationDecisions,
     int exploitationDecisions,
+    List<CellVisitFrequency> cellVisitFrequencies,
     java.util.List<EpisodeDebugSnapshot> debugSnapshots,
     EpisodeReplayMetadata replayMetadata,
     List<PolicyInferenceTrace> inferenceTraces) {
@@ -33,6 +34,7 @@ public record SimulationEpisodeResult(
     terminationReason = java.util.Objects.requireNonNull(terminationReason, "terminationReason must not be null");
     terminatedAtEpochMillis = Math.max(0L, terminatedAtEpochMillis);
     timeoutBudgetMillis = Math.max(0L, timeoutBudgetMillis);
+    cellVisitFrequencies = cellVisitFrequencies == null ? List.of() : List.copyOf(cellVisitFrequencies);
     debugSnapshots = debugSnapshots == null ? List.of() : List.copyOf(debugSnapshots);
     replayMetadata = java.util.Objects.requireNonNull(replayMetadata, "replayMetadata must not be null");
     inferenceTraces = inferenceTraces == null ? List.of() : List.copyOf(inferenceTraces);

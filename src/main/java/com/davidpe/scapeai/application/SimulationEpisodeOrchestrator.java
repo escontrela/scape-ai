@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.LongSupplier;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -514,9 +515,24 @@ public class SimulationEpisodeOrchestrator {
           timeoutBudget,
           explorationDecisions,
           exploitationDecisions,
+          buildCellVisitFrequencies(),
           List.copyOf(debugSnapshots),
           replayMetadata,
           List.copyOf(inferenceTraces));
+    }
+
+    private List<CellVisitFrequency> buildCellVisitFrequencies() {
+      Map<GridPosition, Integer> visitCounts = new HashMap<>();
+      for (GridPosition position : trajectory) {
+        visitCounts.merge(position, 1, Integer::sum);
+      }
+      return visitCounts.entrySet().stream()
+          .map(entry -> new CellVisitFrequency(entry.getKey(), entry.getValue()))
+          .sorted(
+              java.util.Comparator.comparingInt(
+                      (CellVisitFrequency frequency) -> frequency.position().row())
+                  .thenComparingInt(frequency -> frequency.position().col()))
+          .collect(Collectors.toList());
     }
 
     private long elapsedMillis(long currentTime) {

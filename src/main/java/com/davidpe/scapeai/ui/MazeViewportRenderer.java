@@ -1,5 +1,6 @@
 package com.davidpe.scapeai.ui;
 
+import com.davidpe.scapeai.application.CellVisitFrequency;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import java.util.HashSet;
@@ -24,6 +25,7 @@ public class MazeViewportRenderer {
       "-fx-fill: #1f4f35; -fx-stroke: #63ffb1; -fx-stroke-width: 1.4;";
   private static final String EXIT_STYLE =
       "-fx-fill: #4b2f17; -fx-stroke: #ffcf57; -fx-stroke-width: 1.4;";
+  private Pane persistentHeatmapLayer;
   private Pane unexploredOverlayLayer;
   private Pane trajectoryLayer;
   private MazeDefinition activeMaze;
@@ -46,12 +48,51 @@ public class MazeViewportRenderer {
     unexploredOverlayLayer.setMouseTransparent(true);
     unexploredOverlayLayer.setPrefSize(maze.cols() * CELL_SIZE, maze.rows() * CELL_SIZE);
 
+    persistentHeatmapLayer = new Pane();
+    persistentHeatmapLayer.setManaged(false);
+    persistentHeatmapLayer.setMouseTransparent(true);
+    persistentHeatmapLayer.setPrefSize(maze.cols() * CELL_SIZE, maze.rows() * CELL_SIZE);
+
     trajectoryLayer = new Pane();
     trajectoryLayer.setManaged(false);
     trajectoryLayer.setMouseTransparent(true);
     trajectoryLayer.setPrefSize(maze.cols() * CELL_SIZE, maze.rows() * CELL_SIZE);
 
-    container.getChildren().setAll(grid, unexploredOverlayLayer, trajectoryLayer);
+    container.getChildren().setAll(grid, persistentHeatmapLayer, unexploredOverlayLayer, trajectoryLayer);
+  }
+
+  public void renderPersistentHeatmap(List<CellVisitFrequency> frequencies) {
+    if (persistentHeatmapLayer == null || activeMaze == null) {
+      return;
+    }
+    persistentHeatmapLayer.getChildren().clear();
+    if (frequencies == null || frequencies.isEmpty()) {
+      return;
+    }
+    int maxVisits =
+        frequencies.stream().mapToInt(CellVisitFrequency::visits).max().orElse(1);
+    for (CellVisitFrequency frequency : frequencies) {
+      GridPosition position = frequency.position();
+      if (!activeMaze.isInside(position) || activeMaze.isWall(position)) {
+        continue;
+      }
+      double intensity = Math.min(1.0, (double) frequency.visits() / (double) maxVisits);
+      Rectangle marker = new Rectangle(CELL_SIZE * 0.82, CELL_SIZE * 0.82);
+      marker.setArcWidth(6);
+      marker.setArcHeight(6);
+      marker.setFill(Color.color(1.0, 0.40 + (0.42 * intensity), 0.18, 0.18 + (0.38 * intensity)));
+      marker.setStroke(Color.color(1.0, 0.86, 0.48, 0.22 + (0.50 * intensity)));
+      marker.setStrokeWidth(0.6);
+      marker.setLayoutX(position.col() * CELL_SIZE + (CELL_SIZE - marker.getWidth()) / 2.0);
+      marker.setLayoutY(position.row() * CELL_SIZE + (CELL_SIZE - marker.getHeight()) / 2.0);
+      persistentHeatmapLayer.getChildren().add(marker);
+    }
+  }
+
+  public void clearPersistentHeatmap() {
+    if (persistentHeatmapLayer != null) {
+      persistentHeatmapLayer.getChildren().clear();
+    }
   }
 
   public void renderTrajectory(List<GridPosition> trajectory) {

@@ -209,6 +209,8 @@ class SimulationEpisodeOrchestratorTest {
 
     assertTrue(result.totalSteps() > 0);
     assertEquals(result.totalSteps(), recorder.transitions().size());
+    assertFalse(result.cellVisitFrequencies().isEmpty());
+    assertTrue(result.cellVisitFrequencies().stream().anyMatch(frequency -> frequency.visits() > 0));
   }
 
   @Test

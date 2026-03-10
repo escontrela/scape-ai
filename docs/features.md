@@ -644,6 +644,7 @@
 - Persistencia de frecuencia por celda visitada asociada a maze y corrida.
 - Overlay de intensidad renderizable en viewport JavaFX sin bloqueo del hilo UI.
 - Consulta acumulada por ultimas N corridas para analisis comparativo operativo.
+- Implementacion tecnica: `SimulationEpisodeResult` incorpora `cellVisitFrequencies` calculado desde la trayectoria del episodio; `training_runs` persiste `cell_visit_frequencies`; `JdbcTrainingRunRepository.findAccumulatedCellVisitsByMazeId(...)` agrega frecuencias de las ultimas N corridas y `MainWindow` renderiza un overlay acumulado en `MazeViewportRenderer` mediante `PersistentMazeHeatmapService` usando carga asíncrona.
 
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
