@@ -68,6 +68,20 @@ class SimulationEpisodeOrchestratorTest {
   }
 
   @Test
+  void shouldClampElapsedToConfiguredTimeoutUnderCoarseClockSteps() {
+    SimulationStepFlow flow = flowWithPolicy(context -> MoveDirection.LEFT);
+    SimulationEpisodeOrchestrator orchestrator =
+        new SimulationEpisodeOrchestrator(flow, Duration.ofMillis(60), new FixedStepTime(0, 80));
+    MazeDefinition maze =
+        new MazeDefinition(3, 3, new boolean[3][3], new GridPosition(1, 1), new GridPosition(0, 2));
+
+    SimulationEpisodeResult result = orchestrator.runEpisode(maze);
+
+    assertEquals(EpisodeEndReason.TIMEOUT, result.endReason());
+    assertEquals(60, result.elapsedMillis());
+  }
+
+  @Test
   void shouldCountLoopEventsWhenAgentRepeatsWindowPositions() {
     SimulationStepFlow flow =
         flowWithPolicy(

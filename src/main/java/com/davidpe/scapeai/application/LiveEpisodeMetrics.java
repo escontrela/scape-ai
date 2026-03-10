@@ -5,5 +5,6 @@ public record LiveEpisodeMetrics(
     int collisions,
     double accumulatedReward,
     long elapsedMillis,
+    long remainingMillis,
     double leftSideCoverage,
     double rightSideCoverage) {}

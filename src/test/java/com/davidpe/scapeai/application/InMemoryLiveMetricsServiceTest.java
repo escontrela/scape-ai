@@ -3,6 +3,7 @@ package com.davidpe.scapeai.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -13,12 +14,13 @@ class InMemoryLiveMetricsServiceTest {
     InMemoryLiveMetricsService service = new InMemoryLiveMetricsService();
     try {
       service.setSimulationSpeed(SimulationSpeed.SLOW);
-      service.startEpisode();
+      service.startEpisode(Duration.ofSeconds(2));
       Thread.sleep(420);
 
       LiveEpisodeMetrics firstSnapshot = captureLatest(service);
       assertTrue(firstSnapshot.steps() > 0);
       assertTrue(firstSnapshot.elapsedMillis() > 0);
+      assertTrue(firstSnapshot.remainingMillis() < 2_000);
       assertTrue(firstSnapshot.leftSideCoverage() >= 0.0);
       assertTrue(firstSnapshot.rightSideCoverage() >= 0.0);
 
@@ -27,11 +29,12 @@ class InMemoryLiveMetricsServiceTest {
       LiveEpisodeMetrics speedChangedSnapshot = captureLatest(service);
       assertTrue(speedChangedSnapshot.steps() > firstSnapshot.steps());
 
-      service.startEpisode();
+      service.startEpisode(Duration.ofSeconds(2));
       LiveEpisodeMetrics secondSnapshot = captureLatest(service);
       assertEquals(0, secondSnapshot.steps());
       assertEquals(0, secondSnapshot.collisions());
       assertEquals(0.0, secondSnapshot.accumulatedReward(), 0.0001);
+      assertEquals(2_000, secondSnapshot.remainingMillis());
       assertEquals(0.0, secondSnapshot.leftSideCoverage(), 0.0001);
       assertEquals(0.0, secondSnapshot.rightSideCoverage(), 0.0001);
     } finally {
@@ -44,16 +47,16 @@ class InMemoryLiveMetricsServiceTest {
     InMemoryLiveMetricsService service = new InMemoryLiveMetricsService();
     try {
       service.setSimulationSpeed(SimulationSpeed.FAST);
-      service.startEpisode();
+      service.startEpisode(Duration.ofSeconds(1));
       Thread.sleep(220);
-      service.completeEpisode();
+      service.completeEpisodeAtTimeout(Duration.ofSeconds(1));
 
       List<TrainingTimelineEntry>[] holder = new List[] {List.of()};
       service.subscribeTimeline(entries -> holder[0] = entries);
 
       assertEquals(1, holder[0].size());
-      assertTrue(holder[0].get(0).durationMillis() > 0);
-      assertEquals(TrainingTimelineStatus.SUCCESS, holder[0].get(0).status());
+      assertEquals(1_000, holder[0].get(0).durationMillis());
+      assertEquals(TrainingTimelineStatus.TIMEOUT, holder[0].get(0).status());
     } finally {
       service.shutdown();
     }
@@ -64,7 +67,7 @@ class InMemoryLiveMetricsServiceTest {
     InMemoryLiveMetricsService service = new InMemoryLiveMetricsService();
     try {
       service.setSimulationSpeed(SimulationSpeed.FAST);
-      service.startEpisode();
+      service.startEpisode(Duration.ofSeconds(3));
       Thread.sleep(140);
       service.pauseEpisode();
       LiveEpisodeMetrics pausedSnapshot = captureLatest(service);
@@ -76,6 +79,7 @@ class InMemoryLiveMetricsServiceTest {
 
       assertTrue(resumedSnapshot.steps() >= pausedSnapshot.steps());
       assertTrue(resumedSnapshot.elapsedMillis() > pausedSnapshot.elapsedMillis());
+      assertTrue(resumedSnapshot.remainingMillis() <= pausedSnapshot.remainingMillis());
     } finally {
       service.shutdown();
     }

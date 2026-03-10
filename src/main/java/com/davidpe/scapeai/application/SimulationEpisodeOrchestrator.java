@@ -394,6 +394,9 @@ public class SimulationEpisodeOrchestrator {
       long elapsed = elapsedMillis(currentTime);
       EpisodeEndReason endReason =
           currentState.exitReached() ? EpisodeEndReason.EXIT_REACHED : EpisodeEndReason.TIMEOUT;
+      if (endReason == EpisodeEndReason.TIMEOUT) {
+        elapsed = Math.min(elapsed, timeoutBudgetMillis());
+      }
       int finalDistanceToExit = distanceToExit(currentState.agentPosition(), mazeExit);
       double netProgress = (initialDistanceToExit - finalDistanceToExit) + improvementDistance;
       MazeQuadrantCoverage coverage = MazeQuadrantCoverage.from(maze, currentState.visitedCells());
@@ -422,6 +425,10 @@ public class SimulationEpisodeOrchestrator {
 
     private long elapsedMillis(long currentTime) {
       return Math.max(0L, elapsedBeforeSegment + currentTime - startedAt);
+    }
+
+    private long timeoutBudgetMillis() {
+      return Math.max(0L, elapsedBeforeSegment + (deadline - startedAt));
     }
 
     private static void remember(

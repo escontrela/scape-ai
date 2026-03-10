@@ -1,10 +1,15 @@
 package com.davidpe.scapeai.application;
 
+import java.time.Duration;
 import java.util.function.Consumer;
 
 public interface LiveMetricsService {
 
   void startEpisode();
+
+  default void startEpisode(Duration timeout) {
+    startEpisode();
+  }
 
   void pauseEpisode();
 
@@ -13,6 +18,10 @@ public interface LiveMetricsService {
   void resetEpisode();
 
   void completeEpisode();
+
+  default void completeEpisodeAtTimeout(Duration timeout) {
+    completeEpisode();
+  }
 
   void setSimulationSpeed(SimulationSpeed speed);
 

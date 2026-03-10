@@ -391,6 +391,9 @@
 - SCAPE-0044: se incorpora `mazeCoverageRatio` como metrica global por episodio (`MazeQuadrantCoverage`) y se propaga a `SimulationEpisodeResult`.
 - SCAPE-0044: persistencia de `maze_coverage_ratio` en `training_runs` (schema + migrador + JDBC) manteniendo desglose por cuadrantes y lados.
 - SCAPE-0044: `SimpleMovementPolicy` agrega guardia anti-oscilacion de trayectoria corta (patron `A->B->A->B`) y la regresion fija por semillas valida umbral minimo de cobertura derecha por episodio.
+- SCAPE-0045: cierre de episodio por timeout endurecido en `SimulationEpisodeOrchestrator`, acotando `elapsedMillis` al limite configurado para evitar deriva bajo carga/reloj grueso.
+- SCAPE-0045: `LiveMetricsService` extiende contrato con timeout activo para publicar `elapsed/remaining` consistentes y cierre forzado `TIMEOUT` en telemetria UI.
+- SCAPE-0045: panel UI de metricas agrega `Remaining` y la suite de tests incluye regresion reproducible del bug de expiracion y validacion de timeline `TIMEOUT`.
 
 ## Iteracion PO 2026-03-10 (automation cycle 7)
 

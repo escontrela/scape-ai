@@ -1,6 +1,7 @@
 package com.davidpe.scapeai.application;
 
 import jakarta.annotation.PreDestroy;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -33,18 +34,27 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   private final AtomicInteger leftVisits = new AtomicInteger(0);
   private final AtomicInteger rightVisits = new AtomicInteger(0);
   private final AtomicLong elapsedMillis = new AtomicLong(0L);
+  private final AtomicLong remainingMillis = new AtomicLong(0L);
   private volatile double accumulatedReward = 0.0;
   private volatile long episodeStartedAt = 0L;
+  private volatile long episodeTimeoutMillis = 0L;
   private volatile ScheduledFuture<?> ticker;
   private volatile SimulationSpeed simulationSpeed = SimulationSpeed.NORMAL;
   private volatile boolean episodeActive;
 
   @Override
   public synchronized void startEpisode() {
+    startEpisode(Duration.ZERO);
+  }
+
+  @Override
+  public synchronized void startEpisode(Duration timeout) {
     if (episodeActive && steps.get() > 0) {
       completeEpisode();
     }
     resetSnapshot();
+    episodeTimeoutMillis = timeout == null ? 0L : Math.max(0L, timeout.toMillis());
+    remainingMillis.set(episodeTimeoutMillis);
     episodeStartedAt = System.currentTimeMillis();
     episodeActive = true;
     publish(snapshot());
@@ -77,14 +87,32 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
 
   @Override
   public synchronized void completeEpisode() {
+    completeEpisodeInternal(null, false);
+  }
+
+  @Override
+  public synchronized void completeEpisodeAtTimeout(Duration timeout) {
+    long timeoutMillis = timeout == null ? 0L : Math.max(0L, timeout.toMillis());
+    if (timeoutMillis > 0L) {
+      episodeTimeoutMillis = timeoutMillis;
+      elapsedMillis.set(timeoutMillis);
+      remainingMillis.set(0L);
+    }
+    completeEpisodeInternal(TrainingTimelineStatus.TIMEOUT, true);
+  }
+
+  private void completeEpisodeInternal(TrainingTimelineStatus forcedStatus, boolean preserveElapsed) {
     if (!episodeActive) {
       return;
     }
     stopTicker();
+    if (!preserveElapsed) {
+      syncElapsedWithCurrentTime();
+    }
     LiveEpisodeMetrics metrics = snapshot();
+    TrainingTimelineStatus status = forcedStatus == null ? classifyEpisode(metrics) : forcedStatus;
     recentTimeline.addFirst(
-        new TrainingTimelineEntry(
-            classifyEpisode(metrics), metrics.accumulatedReward(), metrics.elapsedMillis()));
+        new TrainingTimelineEntry(status, metrics.accumulatedReward(), metrics.elapsedMillis()));
     while (recentTimeline.size() > 12) {
       recentTimeline.removeLast();
     }
@@ -140,7 +168,7 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     } else {
       leftVisits.incrementAndGet();
     }
-    elapsedMillis.set(Math.max(0L, System.currentTimeMillis() - episodeStartedAt));
+    syncElapsedWithCurrentTime();
     publish(snapshot());
   }
 
@@ -163,6 +191,7 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     leftVisits.set(0);
     rightVisits.set(0);
     elapsedMillis.set(0);
+    remainingMillis.set(0);
     accumulatedReward = 0.0;
   }
 
@@ -175,8 +204,20 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
         collisions.get(),
         accumulatedReward,
         elapsedMillis.get(),
+        remainingMillis.get(),
         (double) left / (double) total,
         (double) right / (double) total);
+  }
+
+  private void syncElapsedWithCurrentTime() {
+    long elapsed = Math.max(0L, System.currentTimeMillis() - episodeStartedAt);
+    if (episodeTimeoutMillis > 0L) {
+      elapsed = Math.min(elapsed, episodeTimeoutMillis);
+      remainingMillis.set(Math.max(0L, episodeTimeoutMillis - elapsed));
+    } else {
+      remainingMillis.set(0L);
+    }
+    elapsedMillis.set(elapsed);
   }
 
   private void publish(LiveEpisodeMetrics metrics) {

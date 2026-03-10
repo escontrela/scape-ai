@@ -82,6 +82,7 @@ public final class MainWindow {
   private Label collisionsValue;
   private Label rewardValue;
   private Label elapsedValue;
+  private Label remainingValue;
   private Label sideCoverageValue;
   private Label activePolicyValue;
   private Label activePresetValue;
@@ -515,6 +516,7 @@ public final class MainWindow {
             metricLine("Collisions", "0"),
             metricLine("Reward", "0.0"),
             metricLine("Elapsed", "00:00"),
+            metricLine("Remaining", "00:00"),
             metricLine("Coverage L/R", "0% / 0%"));
 
     Label timelineTitle = new Label("RECENT EPISODES");
@@ -653,6 +655,7 @@ public final class MainWindow {
       case "Collisions" -> collisionsValue = label;
       case "Reward" -> rewardValue = label;
       case "Elapsed" -> elapsedValue = label;
+      case "Remaining" -> remainingValue = label;
       case "Coverage L/R" -> sideCoverageValue = label;
       default -> {
       }
@@ -673,6 +676,9 @@ public final class MainWindow {
           }
           if (elapsedValue != null) {
             elapsedValue.setText(formatElapsed(metrics.elapsedMillis()));
+          }
+          if (remainingValue != null) {
+            remainingValue.setText(formatElapsed(metrics.remainingMillis()));
           }
           if (sideCoverageValue != null) {
             sideCoverageValue.setText(
