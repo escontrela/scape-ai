@@ -628,3 +628,26 @@
 - Se crearon tickets en backlog: `SCAPE-0058` y `SCAPE-0059`.
 - Transicion aplicada durante validacion: `SCAPE-0056` se movio temporalmente a `in_progress` y se retorno a `backlog` al detectarse `SCAPE-0054` ya activo.
 - Estado final confirmado: `in_progress=1` (`SCAPE-0054`) y `backlog=5` (`SCAPE-0055`, `SCAPE-0056`, `SCAPE-0057`, `SCAPE-0058`, `SCAPE-0059`).
+
+## Iteracion PO 2026-03-10 (automation cycle 11)
+
+### SCAPE-0064 - Muestreo balanceado del replay buffer
+- Objetivo funcional: mejorar la calidad de aprendizaje headless priorizando transiciones informativas del buffer de experiencia.
+- Alcance introducido:
+- Estrategia de muestreo configurable en repositorio de experiencia (`uniform`, `reward-aware`, `novelty-aware`).
+- Integracion del selector de estrategia en el entrenador batch sin romper contratos actuales.
+- Benchmark reproducible para comparar cobertura/recompensa media frente a baseline uniforme.
+
+### SCAPE-0065 - Heatmap persistente de frecuencia de celdas
+- Objetivo funcional: consolidar una vista acumulativa de exploracion para detectar zonas infrautilizadas del maze.
+- Alcance introducido:
+- Persistencia de frecuencia por celda visitada asociada a maze y corrida.
+- Overlay de intensidad renderizable en viewport JavaFX sin bloqueo del hilo UI.
+- Consulta acumulada por ultimas N corridas para analisis comparativo operativo.
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- Estado inicial detectado: `in_progress=0` y `backlog=4` (`SCAPE-0060`, `SCAPE-0061`, `SCAPE-0062`, `SCAPE-0063`).
+- Tickets creados en backlog: `SCAPE-0064` y `SCAPE-0065`.
+- Transicion aplicada: `SCAPE-0060` movido a `in_progress` para reestablecer politica WIP.
+- Estado final confirmado: `in_progress=1` (`SCAPE-0060`) y `backlog=5` (`SCAPE-0061`, `SCAPE-0062`, `SCAPE-0063`, `SCAPE-0064`, `SCAPE-0065`).
