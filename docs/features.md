@@ -619,6 +619,8 @@
 - Alcance introducido:
 - Componente UI de minimapa 2D con intensidad por frecuencia de visita durante episodio activo.
 - Actualizacion no bloqueante en JavaFX y reinicio limpio al iniciar nueva sesion.
+- Resaltado visual de salida y posicion actual del agente sobre el minimapa durante la ejecucion.
+- Implementacion tecnica: `MainWindow.renderMiniHeatmap(...)` usa un snapshot sincronizado de trayectoria para pintar intensidad de visitas, marca la celda `exit` en dorado y la celda actual del agente en cian, y mantiene refresco via `Platform.runLater` desde el ticker existente.
 - Resaltado de salida y posicion actual del agente sobre el minimapa para diagnostico inmediato.
 
 ### Validacion MCP de la iteracion

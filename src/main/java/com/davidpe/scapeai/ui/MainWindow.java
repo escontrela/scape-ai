@@ -1130,6 +1130,7 @@ public final class MainWindow {
     }
 
     List<GridPosition> snapshot;
+    GridPosition currentPosition;
     synchronized (trajectoryLock) {
       GridPosition current = trajectoryCurrent == null ? maze.start() : trajectoryCurrent;
       GridPosition next = chooseNextPosition(current, maze);
@@ -1139,6 +1140,7 @@ public final class MainWindow {
         trajectoryCells.remove(0);
       }
       snapshot = List.copyOf(trajectoryCells);
+      currentPosition = trajectoryCurrent;
     }
     Platform.runLater(
         () -> {
@@ -1147,7 +1149,7 @@ public final class MainWindow {
             mazeViewportRenderer.renderUnexploredOverlay(snapshot);
           }
           if (miniHeatmapEnabled) {
-            renderMiniHeatmap(snapshot);
+            renderMiniHeatmap(snapshot, currentPosition);
           }
         });
   }
@@ -1204,11 +1206,11 @@ public final class MainWindow {
   }
 
   private void refreshMiniHeatmap() {
-    List<GridPosition> snapshot = trajectorySnapshot();
-    Platform.runLater(() -> renderMiniHeatmap(snapshot));
+    MiniHeatmapSnapshot snapshot = miniHeatmapSnapshot();
+    Platform.runLater(() -> renderMiniHeatmap(snapshot.trajectory(), snapshot.currentPosition()));
   }
 
-  private void renderMiniHeatmap(List<GridPosition> trajectory) {
+  private void renderMiniHeatmap(List<GridPosition> trajectory, GridPosition currentPosition) {
     if (miniHeatmapGrid == null || selectedMaze == null) {
       return;
     }
@@ -1232,6 +1234,7 @@ public final class MainWindow {
       for (int col = 0; col < selectedMaze.cols(); col++) {
         GridPosition position = new GridPosition(row, col);
         Rectangle cell = new Rectangle(7.0, 7.0);
+        double strokeWidth = 0.3;
         if (selectedMaze.isWall(position)) {
           cell.setFill(Color.color(0.08, 0.12, 0.22, 0.95));
           cell.setStroke(Color.color(0.16, 0.22, 0.36, 0.8));
@@ -1244,10 +1247,26 @@ public final class MainWindow {
           double alpha = 0.25 + (0.70 * intensity);
           cell.setFill(Color.color(red, green, blue, alpha));
           cell.setStroke(Color.color(0.26, 0.88, 1.0, 0.12 + (0.40 * intensity)));
+          if (position.equals(selectedMaze.exit())) {
+            cell.setFill(Color.color(1.0, 0.78, 0.24, 0.95));
+            cell.setStroke(Color.color(1.0, 0.93, 0.55, 0.95));
+            strokeWidth = 1.2;
+          }
+          if (currentPosition != null && position.equals(currentPosition)) {
+            cell.setFill(Color.color(0.30, 0.97, 1.0, 0.98));
+            cell.setStroke(Color.color(0.90, 1.0, 1.0, 1.0));
+            strokeWidth = 1.5;
+          }
         }
-        cell.setStrokeWidth(0.3);
+        cell.setStrokeWidth(strokeWidth);
         miniHeatmapGrid.add(cell, col, row);
       }
+    }
+  }
+
+  private MiniHeatmapSnapshot miniHeatmapSnapshot() {
+    synchronized (trajectoryLock) {
+      return new MiniHeatmapSnapshot(List.copyOf(trajectoryCells), trajectoryCurrent);
     }
   }
 
@@ -1256,6 +1275,8 @@ public final class MainWindow {
       return List.copyOf(trajectoryCells);
     }
   }
+
+  private record MiniHeatmapSnapshot(List<GridPosition> trajectory, GridPosition currentPosition) {}
 
   private void onTrainingLifecycleEvent(TrainingLifecycleEvent event) {
     Platform.runLater(
