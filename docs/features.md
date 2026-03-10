@@ -646,6 +646,13 @@
 - Consulta acumulada por ultimas N corridas para analisis comparativo operativo.
 - Implementacion tecnica: `SimulationEpisodeResult` incorpora `cellVisitFrequencies` calculado desde la trayectoria del episodio; `training_runs` persiste `cell_visit_frequencies`; `JdbcTrainingRunRepository.findAccumulatedCellVisitsByMazeId(...)` agrega frecuencias de las ultimas N corridas y `MainWindow` renderiza un overlay acumulado en `MazeViewportRenderer` mediante `PersistentMazeHeatmapService` usando carga asíncrona.
 
+### SCAPE-0066 - Orquestador de presupuesto de entrenamiento
+- Objetivo funcional: unificar el control de presupuesto de entrenamiento por episodios y tiempo de pared.
+- Contrato `TrainingBudget(maxEpisodes, maxWallClock)` reutilizable por entrenamiento visual y headless.
+- `ApplicationTrainingExecutionService.startBatchTraining(..., TrainingBudget)` detiene lotes con motivo explicito `EPISODE_LIMIT` o `WALL_CLOCK_LIMIT`.
+- `IterativeTrainingSummary` y `HeadlessBatchTrainingResult` exponen consumo/disponible de presupuesto (episodios y wall-clock) mas `budgetExhaustedReason`.
+- Implementacion tecnica: cierre por presupuesto publica evento `FINISHED` con detalle `BUDGET_EXHAUSTED: <reason>` para trazabilidad en UI/timeline.
+
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
 - Estado inicial detectado: `in_progress=0` y `backlog=4` (`SCAPE-0060`, `SCAPE-0061`, `SCAPE-0062`, `SCAPE-0063`).

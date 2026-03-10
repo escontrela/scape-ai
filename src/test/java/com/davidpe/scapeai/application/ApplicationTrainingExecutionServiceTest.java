@@ -182,6 +182,46 @@ class ApplicationTrainingExecutionServiceTest {
     service.shutdown();
   }
 
+  @Test
+  void shouldStopBatchTrainingWhenEpisodeBudgetIsExhausted() throws Exception {
+    List<TrainingLifecycleEvent> events = new ArrayList<>();
+    TrainingLifecycleEventBus bus =
+        new TrainingLifecycleEventBus() {
+          @Override
+          public void publish(TrainingLifecycleEvent event) {
+            events.add(event);
+          }
+
+          @Override
+          public Subscription subscribe(java.util.function.Consumer<TrainingLifecycleEvent> listener) {
+            return () -> {};
+          }
+        };
+    IterativeEpisodeTrainingService trainer =
+        (maze, episodes, timeout, cancellationRequested) ->
+            new IterativeTrainingSummary(episodes, episodes, false, 1.0, 0.5, 0.1);
+    ApplicationTrainingExecutionService service = new ApplicationTrainingExecutionService(trainer, bus);
+    MazeDefinition maze = new MazeDefinition(1, 1, new boolean[1][1], new GridPosition(0, 0), new GridPosition(0, 0));
+
+    IterativeTrainingSummary summary =
+        service
+            .startBatchTraining(
+                maze,
+                3,
+                3,
+                Duration.ofMillis(100),
+                new TrainingBudget(5, Duration.ofSeconds(5)))
+            .get(1, TimeUnit.SECONDS);
+
+    assertEquals(9, summary.episodesRequested());
+    assertEquals(5, summary.episodesCompleted());
+    assertEquals(5, summary.budgetEpisodesConsumed());
+    assertEquals(5, summary.budgetEpisodesAvailable());
+    assertEquals("EPISODE_LIMIT", summary.budgetExhaustedReason());
+    assertTrue(events.stream().anyMatch(event -> event.detail().contains("BUDGET_EXHAUSTED: EPISODE_LIMIT")));
+    service.shutdown();
+  }
+
   private static SimulationEpisodeResult smokeResult(EpisodeEndReason endReason, double coverageRatio) {
     return new SimulationEpisodeResult(
         endReason == EpisodeEndReason.EXIT_REACHED,

@@ -7,4 +7,33 @@ public record HeadlessBatchTrainingResult(
     double successRate,
     double averageReward,
     double averageCollisions,
-    long totalDurationMillis) {}
+    long totalDurationMillis,
+    int budgetEpisodesConsumed,
+    int budgetEpisodesAvailable,
+    long budgetWallClockConsumedMillis,
+    long budgetWallClockAvailableMillis,
+    String budgetExhaustedReason) {
+
+  public HeadlessBatchTrainingResult(
+      int episodesRequested,
+      int episodesCompleted,
+      boolean cancelled,
+      double successRate,
+      double averageReward,
+      double averageCollisions,
+      long totalDurationMillis) {
+    this(
+        episodesRequested,
+        episodesCompleted,
+        cancelled,
+        successRate,
+        averageReward,
+        averageCollisions,
+        totalDurationMillis,
+        0,
+        0,
+        0L,
+        0L,
+        "NONE");
+  }
+}

@@ -66,6 +66,37 @@ class HeadlessBatchTrainingUseCaseTest {
     assertEquals(0.5, result.successRate());
   }
 
+  @Test
+  void shouldExposeBudgetConsumptionWhenRunningHeadlessBatch() {
+    IterativeEpisodeTrainingService trainingService =
+        new StubIterativeTrainingService(
+            new IterativeTrainingSummary(5, 5, false, 0.7, 1.5, 0.4));
+    HeadlessBatchTrainingUseCase useCase =
+        new HeadlessBatchTrainingUseCase(
+            trainingService,
+            new TrainingSessionConfigValidator(),
+            new BalancedExperienceReplaySampler(new EmptyReplayRepository()));
+    MazeDefinition maze =
+        new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
+    TrainingSessionConfig sessionConfig =
+        TrainingSessionConfig.v1(
+            "maze-headless", "heuristic-baseline", Duration.ofSeconds(30), 7L, true, TrainingTargetDifficulty.MEDIUM);
+
+    HeadlessBatchTrainingResult result =
+        useCase.runBatch(
+            sessionConfig,
+            maze,
+            10,
+            ExperienceReplaySamplingStrategy.UNIFORM,
+            new TrainingBudget(5, Duration.ofSeconds(60)));
+
+    assertEquals(10, result.episodesRequested());
+    assertEquals(5, result.episodesCompleted());
+    assertEquals(5, result.budgetEpisodesConsumed());
+    assertEquals(5, result.budgetEpisodesAvailable());
+    assertEquals("EPISODE_LIMIT", result.budgetExhaustedReason());
+  }
+
   private static final class StubIterativeTrainingService implements IterativeEpisodeTrainingService {
 
     private final IterativeTrainingSummary summary;

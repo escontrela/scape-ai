@@ -114,6 +114,16 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
   @Override
   public synchronized CompletableFuture<IterativeTrainingSummary> startBatchTraining(
       MazeDefinition maze, int episodesPerBatch, int batches, Duration timeout) {
+    return startBatchTraining(maze, episodesPerBatch, batches, timeout, TrainingBudget.unlimited());
+  }
+
+  @Override
+  public synchronized CompletableFuture<IterativeTrainingSummary> startBatchTraining(
+      MazeDefinition maze,
+      int episodesPerBatch,
+      int batches,
+      Duration timeout,
+      TrainingBudget budget) {
     if (episodesPerBatch <= 0) {
       throw new IllegalArgumentException("episodesPerBatch must be greater than zero");
     }
@@ -124,7 +134,7 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
     AtomicBoolean cancelled = new AtomicBoolean(false);
     CompletableFuture<IterativeTrainingSummary> future =
         CompletableFuture.supplyAsync(
-            () -> runBatches(maze, episodesPerBatch, batches, timeout, cancelled), executor);
+            () -> runBatches(maze, episodesPerBatch, batches, timeout, budget, cancelled), executor);
 
     TrainingRunHandle handle = new TrainingRunHandle(cancelled, future);
     currentRun.set(handle);
@@ -156,32 +166,82 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
       int episodesPerBatch,
       int batches,
       Duration timeout,
+      TrainingBudget budget,
       AtomicBoolean cancelled) {
+    TrainingBudget effectiveBudget = budget == null ? TrainingBudget.unlimited() : budget;
+    int requestedEpisodes = episodesPerBatch * batches;
+    int budgetEpisodesAvailable =
+        effectiveBudget.hasEpisodeLimit()
+            ? Math.min(requestedEpisodes, effectiveBudget.maxEpisodes())
+            : requestedEpisodes;
+    long budgetWallClockAvailableMillis =
+        effectiveBudget.hasWallClockLimit() ? effectiveBudget.maxWallClock().toMillis() : 0L;
+    long budgetStartedAt = System.currentTimeMillis();
     SmokeRunOutcome smokeRunOutcome = runSmokeRun(maze);
     if (!smokeRunOutcome.passed()) {
       trainingLifecycleEventBus.publish(
           TrainingLifecycleEvent.now(
               TrainingLifecycleEventType.FINISHED,
               "SMOKE-RUN BLOCKED: " + smokeRunOutcome.reason()));
-      return new IterativeTrainingSummary(episodesPerBatch * batches, 0, true, 0.0, 0.0, 0.0);
+      return new IterativeTrainingSummary(
+          requestedEpisodes,
+          0,
+          true,
+          0.0,
+          0.0,
+          0.0,
+          0,
+          budgetEpisodesAvailable,
+          0L,
+          budgetWallClockAvailableMillis,
+          "SMOKE_RUN_BLOCKED");
     }
     int batchesCompleted = 0;
-    int episodesRequested = episodesPerBatch * batches;
+    int episodesRequested = requestedEpisodes;
     int episodesCompleted = 0;
     double successfulEpisodes = 0.0;
     double rewardWeightedSum = 0.0;
     double collisionsWeightedSum = 0.0;
+    String budgetExhaustedReason = "NONE";
     boolean interrupted = false;
 
     for (int batchIndex = 1; batchIndex <= batches; batchIndex++) {
       if (cancelled.get()) {
         break;
       }
+      if (effectiveBudget.hasEpisodeLimit() && episodesCompleted >= effectiveBudget.maxEpisodes()) {
+        budgetExhaustedReason = "EPISODE_LIMIT";
+        break;
+      }
+      long wallClockConsumed = Math.max(0L, System.currentTimeMillis() - budgetStartedAt);
+      if (effectiveBudget.hasWallClockLimit()
+          && wallClockConsumed >= effectiveBudget.maxWallClock().toMillis()) {
+        budgetExhaustedReason = "WALL_CLOCK_LIMIT";
+        break;
+      }
+      int episodesForThisBatch =
+          effectiveBudget.hasEpisodeLimit()
+              ? Math.min(episodesPerBatch, effectiveBudget.maxEpisodes() - episodesCompleted)
+              : episodesPerBatch;
+      if (episodesForThisBatch <= 0) {
+        budgetExhaustedReason = "EPISODE_LIMIT";
+        break;
+      }
       trainingLifecycleEventBus.publish(
           TrainingLifecycleEvent.now(
               TrainingLifecycleEventType.STARTED, "BATCH " + batchIndex + "/" + batches + " STARTED"));
+      int remainingEpisodesBudget = Math.max(0, budgetEpisodesAvailable - episodesCompleted);
       IterativeTrainingSummary batchSummary =
-          iterativeTrainingService.train(maze, episodesPerBatch, timeout, cancelled::get);
+          iterativeTrainingService.train(
+              maze,
+              episodesForThisBatch,
+              timeout,
+              () ->
+                  cancelled.get()
+                      || (effectiveBudget.hasWallClockLimit()
+                          && (System.currentTimeMillis() - budgetStartedAt)
+                              >= effectiveBudget.maxWallClock().toMillis())
+                      || remainingEpisodesBudget <= 0);
       batchesCompleted++;
       episodesCompleted += batchSummary.episodesCompleted();
       successfulEpisodes += batchSummary.successRate() * batchSummary.episodesCompleted();
@@ -192,20 +252,45 @@ public class ApplicationTrainingExecutionService implements TrainingExecutionSer
               TrainingLifecycleEventType.FINISHED,
               "BATCH " + batchIndex + "/" + batches + " FINISHED"));
       if (batchSummary.cancelled()) {
+        if (effectiveBudget.hasWallClockLimit()
+            && (System.currentTimeMillis() - budgetStartedAt)
+                >= effectiveBudget.maxWallClock().toMillis()) {
+          budgetExhaustedReason = "WALL_CLOCK_LIMIT";
+        }
         interrupted = true;
         break;
       }
     }
 
-    boolean runCancelled = cancelled.get() || interrupted || batchesCompleted < batches;
+    if ("NONE".equals(budgetExhaustedReason)
+        && effectiveBudget.hasEpisodeLimit()
+        && episodesCompleted >= effectiveBudget.maxEpisodes()) {
+      budgetExhaustedReason = "EPISODE_LIMIT";
+    }
+    boolean runCancelled =
+        cancelled.get()
+            || interrupted
+            || batchesCompleted < batches
+            || !"NONE".equals(budgetExhaustedReason);
+    if (!"NONE".equals(budgetExhaustedReason)) {
+      trainingLifecycleEventBus.publish(
+          TrainingLifecycleEvent.now(
+              TrainingLifecycleEventType.FINISHED, "BUDGET_EXHAUSTED: " + budgetExhaustedReason));
+    }
     double divisor = episodesCompleted <= 0 ? 1.0 : episodesCompleted;
+    long wallClockConsumed = Math.max(0L, System.currentTimeMillis() - budgetStartedAt);
     return new IterativeTrainingSummary(
         episodesRequested,
         episodesCompleted,
         runCancelled,
         successfulEpisodes / divisor,
         rewardWeightedSum / divisor,
-        collisionsWeightedSum / divisor);
+        collisionsWeightedSum / divisor,
+        episodesCompleted,
+        budgetEpisodesAvailable,
+        wallClockConsumed,
+        budgetWallClockAvailableMillis,
+        budgetExhaustedReason);
   }
 
   private SmokeRunOutcome runSmokeRun(MazeDefinition maze) {
