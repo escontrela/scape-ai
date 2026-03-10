@@ -479,3 +479,59 @@
 - Nuevo `AdaptiveDifficultyService` con ventana móvil configurable (`window-size`) y umbrales de promoción/degradación (`promote-threshold`, `demote-threshold`).
 - La decisión respeta límites (`LOW..HIGH`) y se traza por sesión en el mensaje de inicio (`ADAPT X->Y`, `SR`, `n`), dejando evidencia operativa del ajuste.
 - Configuración `scape.adaptive-difficulty.enabled` permite desactivar la estrategia y mantener comportamiento fijo.
+
+### SCAPE-0052 - Snapshots de estado del episodio para replay debug
+- Objetivo funcional: persistir snapshots ligeros en hitos del episodio para reproducir diagnosticos sin reejecutar el entrenamiento completo.
+- Alcance introducido:
+- Captura compacta por hitos (inicio, mitad, pre-timeout, final) con posicion del agente, metrica clave y semilla efectiva.
+- Reconstruccion determinista de replay de diagnostico a partir de snapshot final + metadatos asociados.
+- Restriccion de impacto: el guardado no debe degradar perceptiblemente la ejecucion estandar.
+
+### SCAPE-0053 - Indice de salud de entrenamiento persistente
+- Objetivo funcional: consolidar una metrica unica de salud para priorizar decisiones de producto y tecnica por evidencia.
+- Alcance introducido:
+- Calculo y persistencia de `trainingHealthIndex` combinando exito, cobertura, entropia y ratio de timeout.
+- Comparativa reciente con orden por indice y señalizacion de regresiones frente a ventana anterior.
+- Versionado explicito de formula para evolucion controlada sin romper historicos.
+
+### SCAPE-0054 - Contrato de metadatos de replay entre sesiones
+- Objetivo funcional: normalizar y versionar metadatos de replay para comparabilidad entre corridas y sesiones.
+- Alcance introducido:
+- Contrato estable de metadatos (`maze`, `policy`, `seed`, `terminationReason`, `mazeCoverageRatio`, `loopEvents`).
+- Persistencia/consulta por `trainingRunId` para recuperar ultimos diagnosticos reproducibles.
+- Compatibilidad futura garantizada mediante campo de version de contrato.
+
+### SCAPE-0055 - Panel UI de diagnostico de timeout y cobertura
+- Objetivo funcional: concentrar en una sola vista operativa las señales de cierre y cobertura del episodio en curso.
+- Alcance introducido:
+- Panel en tiempo real con `terminationReason`, `elapsed`, `remaining` y `mazeCoverageRatio`.
+- Indicadores de alerta cuando hay timeout sin salida o cobertura por debajo de umbral configurable.
+- Limpieza y reinicio del panel al comenzar una nueva sesion sin bloquear JavaFX.
+
+### SCAPE-0056 - Smoke-run determinista previo al entrenamiento largo
+- Objetivo funcional: cortar corridas largas defectuosas antes de consumir tiempo de entrenamiento.
+- Alcance introducido:
+- Ejecucion obligatoria de smoke-run con semilla fija y umbrales minimos de timeout/cobertura.
+- Bloqueo del entrenamiento principal y registro de causa cuando el smoke-run falla.
+- Continuidad del flujo normal cuando el smoke-run cumple criterios.
+
+### SCAPE-0057 - Politica compuesta con fallback DJL->heuristica
+- Objetivo funcional: mejorar estabilidad de decisiones con fallback controlado ante baja confianza o fallo de inferencia DJL.
+- Alcance introducido:
+- `CompositeMovementPolicy` con DJL como primario y politica heuristica determinista como fallback.
+- Trazabilidad por decision indicando si se uso rama primaria o fallback.
+- Pruebas reproducibles que validan reduccion de colisiones/bucles frente a fallo directo de inferencia.
+
+## Iteracion PO 2026-03-10 (automation cycle 9)
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- Estado inicial consolidado: `in_progress=1` (`SCAPE-0052`) y `backlog=2` (`SCAPE-0053` + ticket adicional previo), con correccion de lectura parcial inicial.
+- Se crean tickets de backlog: `SCAPE-0054`, `SCAPE-0055`, `SCAPE-0056`, `SCAPE-0057`.
+- Ajuste de WIP aplicado: `SCAPE-0054` se movio temporalmente a `in_progress` y se retorno a `backlog` para respetar `WIP=1` al detectarse `SCAPE-0052` activo.
+- Estado final MCP confirmado: `in_progress=1` (`SCAPE-0052`) y `backlog=5` (`SCAPE-0053`, `SCAPE-0054`, `SCAPE-0055`, `SCAPE-0056`, `SCAPE-0057`).
+
+### Validacion de repositorio local
+- Repositorio operativo unico usado: `/Users/davidpe/dev/projects/scape-ai` (sin worktrees).
+- Rama obligatoria confirmada: `features-nightly-20260309`.
+- Actualizacion acumulativa aplicada en `docs/features.md` para mantener trazabilidad funcional del backlog vigente.
