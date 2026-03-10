@@ -412,6 +412,9 @@
 - Escenario de referencia con semilla fija para reproducir cobertura desbalanceada.
 - Telemetria minima exigida por episodio: `coverageRatio`, `rightSideCoverage`, `loopEvents`, `uniqueCellsVisited`.
 - Salida documental con hipotesis tecnica principal basada en evidencia del runtime.
+- Implementacion tecnica: `CoverageRegressionSuiteTest#shouldProvideDeterministicLoopAndCoverageBiasDiagnosticFromSeededRandomPolicy` recorre un catalogo fijo de semillas (`20260310..20260410`) sobre el maze de referencia y selecciona la primera semilla reproducible con sesgo y bucle.
+- Registro por episodio consolidado en `SimulationEpisodeResult`: `mazeCoverageRatio` (equivalente operativo de `coverageRatio`), `rightSideCoverage`, `loopEvents` y `uniqueCellsVisited`.
+- Hipotesis tecnica principal (evidencia runtime): la politica aleatoria controlada reinstancia el generador pseudoaleatorio en cada decision cuando se fija semilla por construccion, repitiendo patrones locales y provocando sesgo de cobertura hacia la mitad izquierda (`rightSideCoverage < leftSideCoverage` + `loopEvents > 0` en semilla fija del catalogo diagnostico).
 
 ### SCAPE-0044 - Garantizar exploracion completa del laberinto
 - Objetivo funcional: elevar cobertura global y reducir estancamiento ciclico del agente.

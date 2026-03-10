@@ -412,6 +412,7 @@ public class SimulationEpisodeOrchestrator {
           totalReward,
           collisions,
           loopEvents,
+          currentState.visitedCells().size(),
           netProgress,
           coverage.mazeCoverageRatio(),
           coverage.q1Coverage(),
