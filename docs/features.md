@@ -693,3 +693,47 @@
 - `BalancedExperienceReplaySampler` soporta selección de estrategia y aplica priorización adicional de novedad sobre el pool recuperado.
 - `HeadlessBatchTrainingUseCase` incorpora sobrecarga para ejecutar batch con estrategia explícita sin romper el contrato existente.
 - Benchmark reproducible en tests compara `reward-aware` y `novelty-aware` contra `uniform` mostrando mejora en señal de recompensa absoluta o diversidad de estados siguientes.
+
+## Iteracion PO 2026-03-10 (automation cycle 13)
+
+### SCAPE-0066 - Orquestador de presupuesto de entrenamiento
+- Objetivo funcional: controlar de forma unificada el presupuesto de ejecucion de entrenamiento en UI y modo headless.
+- Alcance introducido:
+- Contrato de presupuesto comun con limites de episodios y tiempo total (`maxEpisodes`, `maxWallClock`).
+- Cierre explicito de sesion al agotar presupuesto, con motivo terminal trazable.
+- Exposicion en resumen de corrida del consumo de presupuesto frente al total configurado.
+
+### SCAPE-0067 - Comparador UI de heatmap corrida vs acumulado
+- Objetivo funcional: comparar cobertura espacial reciente frente a cobertura historica para validar progreso real.
+- Alcance introducido:
+- Vista dual para alternar entre heatmap de corrida activa y heatmap acumulado de ultimas N corridas.
+- Modos visuales superpuesto y dividido sin bloqueo del hilo JavaFX.
+- Leyenda de intensidad compartida para comparacion consistente entre ambas capas.
+
+### SCAPE-0068 - Detector de callejon sin salida temprano
+- Objetivo funcional: finalizar episodios improductivos antes del timeout maximo cuando no hay progreso significativo.
+- Alcance introducido:
+- Deteccion configurable de estancamiento por pasos sin acercamiento a salida ni descubrimiento de celdas nuevas.
+- Nuevo motivo terminal `DEAD_END` para cierre anticipado de episodio.
+- Persistencia diferenciada de `DEAD_END` vs `TIMEOUT` para analitica y regresion.
+
+### SCAPE-0069 - Scheduler de epsilon por fases
+- Objetivo funcional: ajustar exploracion/explotacion del agente segun avance de entrenamiento.
+- Alcance introducido:
+- Scheduler por tramos (`inicio`, `medio`, `final`) con validacion estricta de epsilon en rango `[0,1]`.
+- Aplicacion automatica del epsilon vigente segun progreso de episodios completados.
+- Registro de epsilon medio aplicado en resumen de corrida para comparativas reproducibles.
+
+### SCAPE-0070 - Versionado de configuracion de recompensas
+- Objetivo funcional: asociar resultados de entrenamiento con una version inmutable de formula de recompensa.
+- Alcance introducido:
+- Entidad versionada de reward config con identificador inmutable y timestamp de activacion.
+- Referencia obligatoria desde cada training run hacia la version de recompensa utilizada.
+- Consulta de corridas recientes enriquecida con `rewardVersion` junto a metricas base.
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- Estado inicial detectado: `in_progress=0`, `backlog=1` (`SCAPE-0065`).
+- Ajuste de WIP aplicado: `SCAPE-0065` movido a `in_progress`.
+- Tickets creados en backlog: `SCAPE-0066`, `SCAPE-0067`, `SCAPE-0068`, `SCAPE-0069`, `SCAPE-0070`.
+- Estado final confirmado: `in_progress=1` (`SCAPE-0065`) y `backlog=5` (`SCAPE-0066`, `SCAPE-0067`, `SCAPE-0068`, `SCAPE-0069`, `SCAPE-0070`).
