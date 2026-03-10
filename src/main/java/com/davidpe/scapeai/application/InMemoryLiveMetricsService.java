@@ -31,6 +31,7 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   private final Deque<TrainingTimelineEntry> recentTimeline = new ArrayDeque<>();
   private final AtomicInteger steps = new AtomicInteger(0);
   private final AtomicInteger collisions = new AtomicInteger(0);
+  private final AtomicInteger discoveredCells = new AtomicInteger(0);
   private final AtomicInteger leftVisits = new AtomicInteger(0);
   private final AtomicInteger rightVisits = new AtomicInteger(0);
   private final AtomicLong elapsedMillis = new AtomicLong(0L);
@@ -41,6 +42,7 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   private volatile ScheduledFuture<?> ticker;
   private volatile SimulationSpeed simulationSpeed = SimulationSpeed.NORMAL;
   private volatile boolean episodeActive;
+  private volatile String terminationReason = "IDLE";
 
   @Override
   public synchronized void startEpisode() {
@@ -56,6 +58,7 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     episodeTimeoutMillis = timeout == null ? 0L : Math.max(0L, timeout.toMillis());
     remainingMillis.set(episodeTimeoutMillis);
     episodeStartedAt = System.currentTimeMillis();
+    terminationReason = "IN_PROGRESS";
     episodeActive = true;
     publish(snapshot());
     restartTicker();
@@ -81,6 +84,7 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   public synchronized void resetEpisode() {
     stopTicker();
     episodeActive = false;
+    terminationReason = "IDLE";
     resetSnapshot();
     publish(snapshot());
   }
@@ -111,6 +115,7 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     }
     LiveEpisodeMetrics metrics = snapshot();
     TrainingTimelineStatus status = forcedStatus == null ? classifyEpisode(metrics) : forcedStatus;
+    terminationReason = mapTerminationReason(status);
     recentTimeline.addFirst(
         new TrainingTimelineEntry(status, metrics.accumulatedReward(), metrics.elapsedMillis()));
     while (recentTimeline.size() > 12) {
@@ -162,6 +167,7 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
       accumulatedReward -= 0.8;
     } else {
       accumulatedReward += 0.2;
+      discoveredCells.incrementAndGet();
     }
     if (tickStep % 4 == 0 || tickStep % 4 == 1) {
       rightVisits.incrementAndGet();
@@ -188,6 +194,7 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   private synchronized void resetSnapshot() {
     steps.set(0);
     collisions.set(0);
+    discoveredCells.set(0);
     leftVisits.set(0);
     rightVisits.set(0);
     elapsedMillis.set(0);
@@ -205,6 +212,8 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
         accumulatedReward,
         elapsedMillis.get(),
         remainingMillis.get(),
+        terminationReason,
+        Math.min(1.0, discoveredCells.get() / 40.0),
         (double) left / (double) total,
         (double) right / (double) total);
   }
@@ -241,5 +250,13 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
       return TrainingTimelineStatus.SUCCESS;
     }
     return TrainingTimelineStatus.TIMEOUT;
+  }
+
+  private String mapTerminationReason(TrainingTimelineStatus status) {
+    return switch (status) {
+      case SUCCESS -> "EXIT_REACHED";
+      case TIMEOUT -> "TIMEOUT";
+      case COLLISION_STALL -> "COLLISION_STALL";
+    };
   }
 }

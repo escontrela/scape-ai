@@ -6,5 +6,7 @@ public record LiveEpisodeMetrics(
     double accumulatedReward,
     long elapsedMillis,
     long remainingMillis,
+    String terminationReason,
+    double mazeCoverageRatio,
     double leftSideCoverage,
     double rightSideCoverage) {}

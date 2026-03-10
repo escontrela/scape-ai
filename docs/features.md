@@ -522,6 +522,7 @@
 - Panel en tiempo real con `terminationReason`, `elapsed`, `remaining` y `mazeCoverageRatio`.
 - Indicadores de alerta cuando hay timeout sin salida o cobertura por debajo de umbral configurable.
 - Limpieza y reinicio del panel al comenzar una nueva sesion sin bloquear JavaFX.
+- Implementacion tecnica: `LiveEpisodeMetrics` ahora publica `terminationReason` y `mazeCoverageRatio`; `MainWindow` agrega bloque diagnostico en panel Metrics con alerta parametrizada por `scape.ui.coverage-alert-threshold` (default `0.35`) y actualizacion segura via `Platform.runLater`.
 
 ### SCAPE-0056 - Smoke-run determinista previo al entrenamiento largo
 - Objetivo funcional: cortar corridas largas defectuosas antes de consumir tiempo de entrenamiento.

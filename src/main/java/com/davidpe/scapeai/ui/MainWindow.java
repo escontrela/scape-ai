@@ -54,6 +54,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -90,6 +91,9 @@ public final class MainWindow {
   private Label elapsedValue;
   private Label remainingValue;
   private Label sideCoverageValue;
+  private Label diagnosticTerminationValue;
+  private Label diagnosticCoverageValue;
+  private Label diagnosticAlertValue;
   private Label activePolicyValue;
   private Label activePresetValue;
   private Label activeSpeedValue;
@@ -109,6 +113,7 @@ public final class MainWindow {
   private volatile boolean trajectoryRunning;
   private volatile boolean unexploredOverlayEnabled;
   private volatile boolean miniHeatmapEnabled = true;
+  private final double coverageAlertThreshold;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -120,7 +125,8 @@ public final class MainWindow {
       MazeCoverageSummaryService mazeCoverageSummaryService,
       MazeCatalogService mazeCatalogService,
       MazeViewportRenderer mazeViewportRenderer,
-      TrainingLifecycleSubscriberRouter trainingLifecycleSubscriberRouter) {
+      TrainingLifecycleSubscriberRouter trainingLifecycleSubscriberRouter,
+      @Value("${scape.ui.coverage-alert-threshold:0.35}") double coverageAlertThreshold) {
     this.controlService = controlService;
     this.startTrainingSessionUseCase = startTrainingSessionUseCase;
     this.trainingExecutionService = trainingExecutionService;
@@ -130,6 +136,7 @@ public final class MainWindow {
     this.mazeCoverageSummaryService = mazeCoverageSummaryService;
     this.mazeCatalogService = mazeCatalogService;
     this.mazeViewportRenderer = mazeViewportRenderer;
+    this.coverageAlertThreshold = Math.max(0.0, Math.min(1.0, coverageAlertThreshold));
     trainingLifecycleSubscriberRouter.register(
         "main-window",
         EnumSet.allOf(TrainingLifecycleEventType.class),
@@ -602,6 +609,12 @@ public final class MainWindow {
             metricLine("Elapsed", "00:00"),
             metricLine("Remaining", "00:00"),
             metricLine("Coverage L/R", "0% / 0%"));
+    VBox diagnostics =
+        new VBox(
+            10,
+            metricLine("Termination", "IDLE"),
+            metricLine("Maze Coverage", "0%"),
+            metricLine("Alert", "NOMINAL"));
 
     Label timelineTitle = new Label("RECENT EPISODES");
     timelineTitle.setTextFill(Color.web("#9db2ff"));
@@ -684,6 +697,7 @@ public final class MainWindow {
             14,
             title,
             metrics,
+            diagnostics,
             timelineTitle,
             timelineEntriesBox,
             comparisonTitle,
@@ -756,6 +770,9 @@ public final class MainWindow {
       case "Elapsed" -> elapsedValue = label;
       case "Remaining" -> remainingValue = label;
       case "Coverage L/R" -> sideCoverageValue = label;
+      case "Termination" -> diagnosticTerminationValue = label;
+      case "Maze Coverage" -> diagnosticCoverageValue = label;
+      case "Alert" -> diagnosticAlertValue = label;
       default -> {
       }
     }
@@ -778,6 +795,30 @@ public final class MainWindow {
           }
           if (remainingValue != null) {
             remainingValue.setText(formatElapsed(metrics.remainingMillis()));
+          }
+          if (diagnosticTerminationValue != null) {
+            diagnosticTerminationValue.setText(metrics.terminationReason());
+          }
+          if (diagnosticCoverageValue != null) {
+            diagnosticCoverageValue.setText(
+                String.format(Locale.US, "%.0f%%", metrics.mazeCoverageRatio() * 100.0));
+          }
+          if (diagnosticAlertValue != null) {
+            boolean timeoutAlert =
+                metrics.remainingMillis() == 0L && !"EXIT_REACHED".equals(metrics.terminationReason());
+            boolean lowCoverageAlert =
+                "IN_PROGRESS".equals(metrics.terminationReason())
+                    && metrics.mazeCoverageRatio() < coverageAlertThreshold;
+            if (timeoutAlert) {
+              diagnosticAlertValue.setText("TIMEOUT RISK");
+              diagnosticAlertValue.setTextFill(Color.web("#ff6b8a"));
+            } else if (lowCoverageAlert) {
+              diagnosticAlertValue.setText("LOW COVERAGE");
+              diagnosticAlertValue.setTextFill(Color.web("#ffd166"));
+            } else {
+              diagnosticAlertValue.setText("NOMINAL");
+              diagnosticAlertValue.setTextFill(Color.web("#89ff9a"));
+            }
           }
           if (sideCoverageValue != null) {
             sideCoverageValue.setText(
@@ -1209,6 +1250,10 @@ public final class MainWindow {
           switch (event.type()) {
             case STARTED -> {
               startTrajectoryEpisode();
+              if (diagnosticAlertValue != null) {
+                diagnosticAlertValue.setText("NOMINAL");
+                diagnosticAlertValue.setTextFill(Color.web("#89ff9a"));
+              }
               updateSystemStatus("TRAINING RUNNING", "#89ff9a");
             }
             case PAUSED -> {

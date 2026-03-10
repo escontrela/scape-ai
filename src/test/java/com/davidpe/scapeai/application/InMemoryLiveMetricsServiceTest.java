@@ -21,6 +21,8 @@ class InMemoryLiveMetricsServiceTest {
       assertTrue(firstSnapshot.steps() > 0);
       assertTrue(firstSnapshot.elapsedMillis() > 0);
       assertTrue(firstSnapshot.remainingMillis() < 2_000);
+      assertEquals("IN_PROGRESS", firstSnapshot.terminationReason());
+      assertTrue(firstSnapshot.mazeCoverageRatio() >= 0.0);
       assertTrue(firstSnapshot.leftSideCoverage() >= 0.0);
       assertTrue(firstSnapshot.rightSideCoverage() >= 0.0);
 
@@ -35,6 +37,8 @@ class InMemoryLiveMetricsServiceTest {
       assertEquals(0, secondSnapshot.collisions());
       assertEquals(0.0, secondSnapshot.accumulatedReward(), 0.0001);
       assertEquals(2_000, secondSnapshot.remainingMillis());
+      assertEquals("IN_PROGRESS", secondSnapshot.terminationReason());
+      assertEquals(0.0, secondSnapshot.mazeCoverageRatio(), 0.0001);
       assertEquals(0.0, secondSnapshot.leftSideCoverage(), 0.0001);
       assertEquals(0.0, secondSnapshot.rightSideCoverage(), 0.0001);
     } finally {
@@ -57,6 +61,8 @@ class InMemoryLiveMetricsServiceTest {
       assertEquals(1, holder[0].size());
       assertEquals(1_000, holder[0].get(0).durationMillis());
       assertEquals(TrainingTimelineStatus.TIMEOUT, holder[0].get(0).status());
+      LiveEpisodeMetrics finalSnapshot = captureLatest(service);
+      assertEquals("TIMEOUT", finalSnapshot.terminationReason());
     } finally {
       service.shutdown();
     }
