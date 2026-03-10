@@ -14,12 +14,14 @@ import com.davidpe.scapeai.application.StartTrainingSessionUseCase;
 import com.davidpe.scapeai.application.SimulationSpeed;
 import com.davidpe.scapeai.application.SimulationControlService;
 import com.davidpe.scapeai.application.TrainingTargetDifficulty;
+import com.davidpe.scapeai.application.TrainingExecutionService;
 import com.davidpe.scapeai.application.TrainingLifecycleEvent;
 import com.davidpe.scapeai.application.TrainingLifecycleEventType;
 import com.davidpe.scapeai.application.TrainingLifecycleSubscriberRouter;
 import com.davidpe.scapeai.application.TrainingTimelineEntry;
 import com.davidpe.scapeai.application.TrainingTimelineStatus;
 import com.davidpe.scapeai.application.TrainingPresetOption;
+import com.davidpe.scapeai.application.TrainingPresetService;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
@@ -57,6 +59,8 @@ public final class MainWindow {
 
   private final SimulationControlService controlService;
   private final StartTrainingSessionUseCase startTrainingSessionUseCase;
+  private final TrainingExecutionService trainingExecutionService;
+  private final TrainingPresetService trainingPresetService;
   private final LiveMetricsService liveMetricsService;
   private final RecentRunsComparisonService recentRunsComparisonService;
   private final MazeCoverageSummaryService mazeCoverageSummaryService;
@@ -105,6 +109,8 @@ public final class MainWindow {
   public MainWindow(
       SimulationControlService controlService,
       StartTrainingSessionUseCase startTrainingSessionUseCase,
+      TrainingExecutionService trainingExecutionService,
+      TrainingPresetService trainingPresetService,
       LiveMetricsService liveMetricsService,
       RecentRunsComparisonService recentRunsComparisonService,
       MazeCoverageSummaryService mazeCoverageSummaryService,
@@ -113,6 +119,8 @@ public final class MainWindow {
       TrainingLifecycleSubscriberRouter trainingLifecycleSubscriberRouter) {
     this.controlService = controlService;
     this.startTrainingSessionUseCase = startTrainingSessionUseCase;
+    this.trainingExecutionService = trainingExecutionService;
+    this.trainingPresetService = trainingPresetService;
     this.liveMetricsService = liveMetricsService;
     this.recentRunsComparisonService = recentRunsComparisonService;
     this.mazeCoverageSummaryService = mazeCoverageSummaryService;
@@ -348,6 +356,19 @@ public final class MainWindow {
             setText(empty || item == null ? null : item.label());
           }
         });
+    Label batchLabel = new Label("BATCHES");
+    batchLabel.setTextFill(Color.web("#9db2ff"));
+    batchLabel.setFont(Font.font("Consolas", 12));
+    ComboBox<Integer> batchSelector =
+        new ComboBox<>(FXCollections.observableArrayList(1, 2, 3, 4, 5));
+    batchSelector.getSelectionModel().select(Integer.valueOf(1));
+    batchSelector.setMaxWidth(Double.MAX_VALUE);
+    batchSelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
 
     Button start =
         neonButton(
@@ -373,6 +394,31 @@ public final class MainWindow {
               updateSessionHud(startResult.effectiveSeed(), "visual");
               updateActivePolicyLabel();
               updateActivePresetLabel();
+              var activePreset = trainingPresetService.activePreset();
+              if (activePreset.isEmpty()) {
+                updateSystemStatus("Select a training preset before starting batches.", "#ff6b8a");
+                return;
+              }
+              int batches = batchSelector.getValue() == null ? 1 : Math.max(1, batchSelector.getValue());
+              int episodesPerBatch = Math.max(1, activePreset.get().episodes());
+              trainingExecutionService
+                  .startBatchTraining(selectedMaze, episodesPerBatch, batches, activePreset.get().timeout())
+                  .whenComplete(
+                      (summary, error) ->
+                          Platform.runLater(
+                              () -> {
+                                if (error != null) {
+                                  updateSystemStatus("BATCH TRAINING CANCELLED", "#ffd166");
+                                  return;
+                                }
+                                if (summary.cancelled()) {
+                                  updateSystemStatus("BATCH TRAINING CANCELLED", "#ffd166");
+                                } else {
+                                  updateSystemStatus("BATCH TRAINING FINISHED", "#7ef9ff");
+                                }
+                                refreshRecentRunsAsync();
+                                refreshCoverageSummaryAsync();
+                              }));
             });
     Button pause =
         neonButton(
@@ -386,6 +432,7 @@ public final class MainWindow {
             "Reset",
             "#ff6b8a",
             () -> {
+              trainingExecutionService.cancelTraining();
               controlService.reset();
             });
     Button overlayToggle =
@@ -416,6 +463,8 @@ public final class MainWindow {
             activeSpeedValue,
             targetDifficultyLabel,
             targetDifficultySelector,
+            batchLabel,
+            batchSelector,
             overlayToggle,
             start,
             pause,

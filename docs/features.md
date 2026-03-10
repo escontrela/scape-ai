@@ -456,3 +456,12 @@
 - `in_progress=1`: `SCAPE-0038` (WIP mantenido).
 - `backlog=5`: `SCAPE-0044`, `SCAPE-0045`, `SCAPE-0046`, `SCAPE-0047`, `SCAPE-0048`.
 - No se aplican transiciones de estado en esta iteracion porque el WIP ya cumple objetivo.
+
+## Iteracion PO 2026-03-10 (automation cycle 8)
+
+### SCAPE-0049 - Scheduler de entrenamiento por tandas con guardrails de UI
+- Objetivo funcional: ejecutar tandas consecutivas reutilizando entrenamiento actual sin bloquear UI.
+- Alcance introducido:
+- `TrainingExecutionService` incorpora `startBatchTraining(...)` y `ApplicationTrainingExecutionService` implementa scheduler secuencial de tandas sobre `IterativeEpisodeTrainingService`.
+- Cada tanda publica eventos `STARTED`/`FINISHED` en `TrainingLifecycleEventBus` con detalle `BATCH i/N`, habilitando observabilidad en timeline sin nuevos tipos de evento.
+- `MainWindow` agrega selector de tandas (`1..5`) y dispara ejecución batch usando preset activo; `Reset` cancela entrenamiento en curso antes de emitir comando de reseteo para evitar sesiones huérfanas.

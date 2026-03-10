@@ -9,5 +9,8 @@ public interface TrainingExecutionService {
   CompletableFuture<IterativeTrainingSummary> startTraining(
       MazeDefinition maze, int episodes, Duration timeout);
 
+  CompletableFuture<IterativeTrainingSummary> startBatchTraining(
+      MazeDefinition maze, int episodesPerBatch, int batches, Duration timeout);
+
   void cancelTraining();
 }
