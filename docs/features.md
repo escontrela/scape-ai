@@ -569,5 +569,5 @@
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
 - Se crearon tickets en backlog: `SCAPE-0058` y `SCAPE-0059`.
-- Transicion aplicada: `SCAPE-0056` -> `in_progress` para restaurar WIP operativo.
-- Estado objetivo esperado tras la transicion: `in_progress=1` y `backlog=5`.
+- Transicion aplicada durante validacion: `SCAPE-0056` se movio temporalmente a `in_progress` y se retorno a `backlog` al detectarse `SCAPE-0054` ya activo.
+- Estado final confirmado: `in_progress=1` (`SCAPE-0054`) y `backlog=5` (`SCAPE-0055`, `SCAPE-0056`, `SCAPE-0057`, `SCAPE-0058`, `SCAPE-0059`).
