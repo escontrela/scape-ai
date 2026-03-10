@@ -132,14 +132,39 @@ class SimulationEpisodeOrchestratorTest {
                     : MoveDirection.RIGHT);
     SimulationEpisodeOrchestrator orchestrator =
         new SimulationEpisodeOrchestrator(flow, Duration.ofMillis(140), 4, new FixedStepTime(0, 20));
+    boolean[][] walls = new boolean[][] {{false}, {true}};
     MazeDefinition maze =
-        new MazeDefinition(1, 4, new boolean[1][4], new GridPosition(0, 1), new GridPosition(0, 3));
+        new MazeDefinition(2, 1, walls, new GridPosition(0, 0), new GridPosition(1, 0));
 
     SimulationEpisodeResult result = orchestrator.runEpisode(maze);
 
     assertFalse(result.success());
     assertEquals(EpisodeEndReason.TIMEOUT, result.endReason());
     assertTrue(result.loopEvents() > 0);
+  }
+
+  @Test
+  void shouldFinishEpisodeAsDeadEndBeforeTimeoutWhenNoProgressThresholdIsReached() {
+    SimulationStepFlow flow =
+        flowWithPolicy(context -> MoveDirection.LEFT);
+    SimulationEpisodeOrchestrator orchestrator =
+        new SimulationEpisodeOrchestrator(
+            flow,
+            ExperienceTransitionRecorder.noop(),
+            Duration.ofMillis(400),
+            4,
+            new FixedStepTime(0, 20),
+            () -> 13L,
+            () -> new Random(13L),
+            1,
+            0.0);
+    MazeDefinition maze =
+        new MazeDefinition(1, 4, new boolean[1][4], new GridPosition(0, 1), new GridPosition(0, 3));
+
+    SimulationEpisodeResult result = orchestrator.runEpisode(maze, Duration.ofMillis(400));
+
+    assertEquals(EpisodeEndReason.DEAD_END, result.endReason());
+    assertFalse(result.success());
   }
 
   @Test

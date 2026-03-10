@@ -660,6 +660,13 @@
 - Se agrega leyenda de intensidad compartida (`LOW -> HIGH`) para mantener escala consistente entre ambas fuentes.
 - Implementacion tecnica: `MainWindow.renderMiniHeatmap(...)` combina `trajectory` (corrida activa) y `accumulatedHeatmapFrequencies` (ultimas N corridas) sin bloquear JavaFX, reutilizando carga asíncrona de `PersistentMazeHeatmapService`.
 
+### SCAPE-0068 - Detector de callejon sin salida temprano
+- Objetivo funcional: cortar episodios improductivos cuando no hay progreso real sostenido.
+- `SimulationEpisodeOrchestrator` incorpora umbral configurable `scape.simulation.dead-end-no-progress-limit`.
+- El contador de estancamiento considera pasos sin mejora de distancia y sin descubrimiento de nuevas celdas.
+- El episodio puede cerrar con `EpisodeEndReason.DEAD_END` y se propaga a `terminal_reason` para persistencia/comparativas.
+- Implementacion tecnica: `EpisodeTerminationResolver` y normalizacion JDBC aceptan `DEAD_END`; UI (`MainWindow`) diferencia visualmente `DEAD_END` respecto a `TIMEOUT`.
+
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
 - Estado inicial detectado: `in_progress=0` y `backlog=4` (`SCAPE-0060`, `SCAPE-0061`, `SCAPE-0062`, `SCAPE-0063`).

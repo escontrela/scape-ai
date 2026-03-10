@@ -1190,6 +1190,7 @@ public final class MainWindow {
     return switch (terminalReason.trim().toUpperCase(Locale.ROOT)) {
       case "EXIT_REACHED" -> "#89ff9a";
       case "TIMEOUT" -> "#ffd166";
+      case "DEAD_END" -> "#ff9f43";
       case "ABORTED", "ERROR" -> "#ff6b8a";
       default -> "#5e719f";
     };
@@ -1202,6 +1203,7 @@ public final class MainWindow {
     return switch (terminalReason.trim().toUpperCase(Locale.ROOT)) {
       case "EXIT_REACHED" -> "EXIT";
       case "TIMEOUT" -> "TIMEOUT";
+      case "DEAD_END" -> "DEAD_END";
       case "ABORTED" -> "ABORTED";
       case "ERROR" -> "ERROR";
       default -> terminalReason.toUpperCase(Locale.ROOT);

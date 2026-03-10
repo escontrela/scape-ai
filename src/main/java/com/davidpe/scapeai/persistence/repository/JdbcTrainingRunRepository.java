@@ -259,7 +259,8 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
       return success ? "EXIT_REACHED" : "ABORTED";
     }
     return switch (terminalReason.trim().toUpperCase(java.util.Locale.ROOT)) {
-      case "EXIT_REACHED", "TIMEOUT", "ABORTED", "ERROR" -> terminalReason.trim().toUpperCase(java.util.Locale.ROOT);
+      case "EXIT_REACHED", "TIMEOUT", "DEAD_END", "ABORTED", "ERROR" ->
+          terminalReason.trim().toUpperCase(java.util.Locale.ROOT);
       default -> timeoutReached ? "TIMEOUT" : (success ? "EXIT_REACHED" : "ABORTED");
     };
   }
