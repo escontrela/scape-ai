@@ -13,6 +13,7 @@ public record TrainingRunEntity(
     int discoveredCells,
     int finalDistanceToExit,
     double netProgress,
+    double mazeCoverageRatio,
     double q1Coverage,
     double q2Coverage,
     double q3Coverage,

@@ -50,6 +50,7 @@ class JdbcPersistenceRepositoriesTest {
             discovered_cells INTEGER NOT NULL,
             final_distance_to_exit INTEGER NOT NULL,
             net_progress REAL NOT NULL DEFAULT 0,
+            maze_coverage_ratio REAL NOT NULL DEFAULT 0,
             q1_coverage REAL NOT NULL DEFAULT 0,
             q2_coverage REAL NOT NULL DEFAULT 0,
             q3_coverage REAL NOT NULL DEFAULT 0,
@@ -122,6 +123,7 @@ class JdbcPersistenceRepositoriesTest {
               12,
               4,
               -1.0,
+              0.35,
               0.40,
               0.25,
               0.10,
@@ -144,6 +146,7 @@ class JdbcPersistenceRepositoriesTest {
               19,
               0,
               3.0,
+              0.62,
               0.55,
               0.68,
               0.35,
@@ -179,6 +182,7 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals(19, history.get(0).discoveredCells());
       assertEquals(0, history.get(0).finalDistanceToExit());
       assertEquals(3.0, history.get(0).netProgress());
+      assertEquals(0.62, history.get(0).mazeCoverageRatio());
       assertEquals(0.70, history.get(0).rightSideCoverage());
       assertEquals(1.32, history.get(0).pathEntropy());
       assertEquals(3, sortedAsc.size());

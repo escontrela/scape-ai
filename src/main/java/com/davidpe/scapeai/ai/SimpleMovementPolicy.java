@@ -59,6 +59,9 @@ public class SimpleMovementPolicy implements MovementPolicy {
         score += 3.0;
       }
       score -= recentVisited.getOrDefault(next, 0) * 2.5;
+      if (createsShortLoop(current, next, context.recentPositions())) {
+        score -= 2.2;
+      }
       score -= distanceToExit(next, maze.exit()) * 0.3;
       if (stagnated) {
         score += coveragePotential(next, midCol, leftVisited, rightVisited) * 1.6;
@@ -110,6 +113,17 @@ public class SimpleMovementPolicy implements MovementPolicy {
       return false;
     }
     return opposite(previousDirection) == candidate;
+  }
+
+  private boolean createsShortLoop(
+      GridPosition current, GridPosition candidate, List<GridPosition> recentPositions) {
+    if (recentPositions == null || recentPositions.size() < 3) {
+      return false;
+    }
+    int last = recentPositions.size() - 1;
+    GridPosition previous = recentPositions.get(last - 1);
+    GridPosition twoStepsBack = recentPositions.get(last - 2);
+    return twoStepsBack.equals(current) && previous.equals(candidate);
   }
 
   private MoveDirection opposite(MoveDirection direction) {

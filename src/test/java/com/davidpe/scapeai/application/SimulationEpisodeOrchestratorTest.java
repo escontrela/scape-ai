@@ -189,6 +189,7 @@ class SimulationEpisodeOrchestratorTest {
 
     SimulationEpisodeResult result = orchestrator.runEpisode(maze, Duration.ofMillis(120));
 
+    assertTrue(result.mazeCoverageRatio() >= 0.0 && result.mazeCoverageRatio() <= 1.0);
     assertTrue(result.q1Coverage() >= 0.0 && result.q1Coverage() <= 1.0);
     assertTrue(result.q2Coverage() >= 0.0 && result.q2Coverage() <= 1.0);
     assertTrue(result.q3Coverage() >= 0.0 && result.q3Coverage() <= 1.0);

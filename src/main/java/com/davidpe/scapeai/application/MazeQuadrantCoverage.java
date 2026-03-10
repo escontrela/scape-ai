@@ -5,6 +5,7 @@ import com.davidpe.scapeai.simulation.MazeDefinition;
 import java.util.Set;
 
 public record MazeQuadrantCoverage(
+    double mazeCoverageRatio,
     double q1Coverage,
     double q2Coverage,
     double q3Coverage,
@@ -23,11 +24,17 @@ public record MazeQuadrantCoverage(
     int q2Visited = 0;
     int q3Visited = 0;
     int q4Visited = 0;
+    int traversableTotal = 0;
+    int traversableVisited = 0;
     for (int row = 0; row < maze.rows(); row++) {
       for (int col = 0; col < maze.cols(); col++) {
         GridPosition position = new GridPosition(row, col);
         if (maze.isWall(position)) {
           continue;
+        }
+        traversableTotal++;
+        if (visitedCells.contains(position)) {
+          traversableVisited++;
         }
         boolean top = row < midRow;
         boolean left = col < midCol;
@@ -60,7 +67,8 @@ public record MazeQuadrantCoverage(
     double q4 = ratio(q4Visited, q4Total);
     double left = ratio(q1Visited + q3Visited, q1Total + q3Total);
     double right = ratio(q2Visited + q4Visited, q2Total + q4Total);
-    return new MazeQuadrantCoverage(q1, q2, q3, q4, left, right);
+    double mazeCoverageRatio = ratio(traversableVisited, traversableTotal);
+    return new MazeQuadrantCoverage(mazeCoverageRatio, q1, q2, q3, q4, left, right);
   }
 
   private static double ratio(int value, int total) {

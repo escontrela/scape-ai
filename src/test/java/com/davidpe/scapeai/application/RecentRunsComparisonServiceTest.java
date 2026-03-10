@@ -125,6 +125,7 @@ class RecentRunsComparisonServiceTest {
                 5 + i,
                 2,
                 12 - i,
+                Math.min(1.0, 0.15 + (0.05 * i)),
                 0.10 * i,
                 0.10 * i,
                 0.10 * i,

@@ -407,6 +407,7 @@ public class SimulationEpisodeOrchestrator {
           collisions,
           loopEvents,
           netProgress,
+          coverage.mazeCoverageRatio(),
           coverage.q1Coverage(),
           coverage.q2Coverage(),
           coverage.q3Coverage(),

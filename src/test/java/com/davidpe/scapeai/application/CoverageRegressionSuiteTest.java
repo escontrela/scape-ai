@@ -18,6 +18,7 @@ class CoverageRegressionSuiteTest {
 
   private static final List<Long> FIXED_SEEDS = List.of(20260310L, 20260311L, 20260312L, 20260313L);
   private static final double MIN_RIGHT_SIDE_COVERAGE = 0.40;
+  private static final double MIN_RIGHT_SIDE_COVERAGE_PER_EPISODE = 0.30;
   private static final int MAX_LOOP_EVENTS = 4;
 
   @Test
@@ -30,6 +31,9 @@ class CoverageRegressionSuiteTest {
       SimulationEpisodeResult result = runHeadlessEpisode(maze, seed);
       rightCoverageSum += result.rightSideCoverage();
       worstLoopEvents = Math.max(worstLoopEvents, result.loopEvents());
+      assertTrue(
+          result.rightSideCoverage() >= MIN_RIGHT_SIDE_COVERAGE_PER_EPISODE,
+          "Right coverage below per-episode threshold for seed " + seed + ": " + result.rightSideCoverage());
     }
 
     double averageRightCoverage = rightCoverageSum / FIXED_SEEDS.size();

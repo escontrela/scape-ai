@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS training_runs (
   discovered_cells INTEGER NOT NULL,
   final_distance_to_exit INTEGER NOT NULL,
   net_progress REAL NOT NULL DEFAULT 0,
+  maze_coverage_ratio REAL NOT NULL DEFAULT 0,
   q1_coverage REAL NOT NULL DEFAULT 0,
   q2_coverage REAL NOT NULL DEFAULT 0,
   q3_coverage REAL NOT NULL DEFAULT 0,

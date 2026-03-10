@@ -11,6 +11,7 @@ public record SimulationEpisodeResult(
     int collisions,
     int loopEvents,
     double netProgress,
+    double mazeCoverageRatio,
     double q1Coverage,
     double q2Coverage,
     double q3Coverage,

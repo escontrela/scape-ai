@@ -42,6 +42,10 @@ public class SqliteSchemaMigrator {
       jdbcTemplate.execute(
           "ALTER TABLE training_runs ADD COLUMN net_progress REAL NOT NULL DEFAULT 0");
     }
+    if (!columns.contains("maze_coverage_ratio")) {
+      jdbcTemplate.execute(
+          "ALTER TABLE training_runs ADD COLUMN maze_coverage_ratio REAL NOT NULL DEFAULT 0");
+    }
     if (!columns.contains("q1_coverage")) {
       jdbcTemplate.execute(
           "ALTER TABLE training_runs ADD COLUMN q1_coverage REAL NOT NULL DEFAULT 0");

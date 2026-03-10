@@ -388,6 +388,9 @@
 - SCAPE-0043: calculo de `pathEntropy` por episodio en `SimulationEpisodeOrchestrator` combinando distribucion de movimientos y frecuencia de celdas visitadas.
 - SCAPE-0043: persistencia de `path_entropy` en `training_runs` (schema + migrador + repositorio JDBC) junto a metricas de corrida.
 - SCAPE-0043: comparativa reciente expone entropia por corrida con alerta visual de baja entropia segun umbral configurable `scape.metrics.path-entropy-alert-threshold`.
+- SCAPE-0044: se incorpora `mazeCoverageRatio` como metrica global por episodio (`MazeQuadrantCoverage`) y se propaga a `SimulationEpisodeResult`.
+- SCAPE-0044: persistencia de `maze_coverage_ratio` en `training_runs` (schema + migrador + JDBC) manteniendo desglose por cuadrantes y lados.
+- SCAPE-0044: `SimpleMovementPolicy` agrega guardia anti-oscilacion de trayectoria corta (patron `A->B->A->B`) y la regresion fija por semillas valida umbral minimo de cobertura derecha por episodio.
 
 ## Iteracion PO 2026-03-10 (automation cycle 7)
 
