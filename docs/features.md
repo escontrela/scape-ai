@@ -685,3 +685,11 @@
 - La tarjeta se actualiza en caliente con cambios de seleccion (maze/policy/preset/dificultad) y se fija al iniciar sesion.
 - Al finalizar episodio, la configuracion fijada se conserva para correlacion directa con metricas y timeline.
 - Implementacion tecnica: `MainWindow` incorpora estado `sessionConfigLocked`, refresco reactivo de preview y fijacion con `lockSessionConfigCard(...)` usando la `effectiveSeed` real de `StartTrainingSessionResult`.
+
+### SCAPE-0064 - Muestreo balanceado del replay buffer
+- Objetivo funcional: habilitar muestreo configurable del replay buffer para priorizar transiciones informativas en modo headless.
+- Alcance introducido:
+- `ExperienceReplayRepository` expone estrategia de muestreo configurable (`uniform`, `reward-aware`, `novelty-aware`) con implementación JDBC.
+- `BalancedExperienceReplaySampler` soporta selección de estrategia y aplica priorización adicional de novedad sobre el pool recuperado.
+- `HeadlessBatchTrainingUseCase` incorpora sobrecarga para ejecutar batch con estrategia explícita sin romper el contrato existente.
+- Benchmark reproducible en tests compara `reward-aware` y `novelty-aware` contra `uniform` mostrando mejora en señal de recompensa absoluta o diversidad de estados siguientes.

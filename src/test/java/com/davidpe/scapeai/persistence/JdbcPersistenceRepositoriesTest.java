@@ -8,6 +8,7 @@ import com.davidpe.scapeai.persistence.repository.JdbcMazeCoverageRepository;
 import com.davidpe.scapeai.persistence.repository.JdbcExperienceReplayRepository;
 import com.davidpe.scapeai.persistence.repository.JdbcTrainingPresetRepository;
 import com.davidpe.scapeai.persistence.repository.JdbcTrainingRunRepository;
+import com.davidpe.scapeai.persistence.repository.ExperienceReplaySamplingStrategy;
 import com.davidpe.scapeai.persistence.TrainingPresetEntity;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -185,6 +186,7 @@ class JdbcPersistenceRepositoriesTest {
       replayRepository.save(new ExperienceTransitionEntity(null, "s2", "UP", -0.1, "s3", 3000));
       var replayPage0 = replayRepository.findRecent(0, 2);
       var replayPage1 = replayRepository.findRecent(1, 2);
+      var replayRewardAware = replayRepository.findRecent(0, 2, ExperienceReplaySamplingStrategy.REWARD_AWARE);
       var pendingCoverage = coverageRepository.findPendingCoverageSummary();
       var preset =
           presetRepository.save(
@@ -223,6 +225,8 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals("s2", replayPage0.get(0).stateSummary());
       assertEquals(1, replayPage1.size());
       assertEquals("s0", replayPage1.get(0).stateSummary());
+      assertEquals(2, replayRewardAware.size());
+      assertEquals("s1", replayRewardAware.get(0).stateSummary());
       assertEquals(1, pendingCoverage.size());
       assertEquals("Training Maze", pendingCoverage.get(0).mazeName());
       assertEquals(1L, pendingCoverage.get(0).pendingPolicies());

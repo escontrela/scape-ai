@@ -8,4 +8,9 @@ public interface ExperienceReplayRepository {
   ExperienceTransitionEntity save(ExperienceTransitionEntity transition);
 
   List<ExperienceTransitionEntity> findRecent(int page, int pageSize);
+
+  default List<ExperienceTransitionEntity> findRecent(
+      int page, int pageSize, ExperienceReplaySamplingStrategy strategy) {
+    return findRecent(page, pageSize);
+  }
 }

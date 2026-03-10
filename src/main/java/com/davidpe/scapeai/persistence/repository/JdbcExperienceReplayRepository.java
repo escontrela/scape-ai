@@ -52,16 +52,31 @@ public class JdbcExperienceReplayRepository implements ExperienceReplayRepositor
 
   @Override
   public List<ExperienceTransitionEntity> findRecent(int page, int pageSize) {
+    return findRecent(page, pageSize, ExperienceReplaySamplingStrategy.UNIFORM);
+  }
+
+  @Override
+  public List<ExperienceTransitionEntity> findRecent(
+      int page, int pageSize, ExperienceReplaySamplingStrategy strategy) {
     int safePage = Math.max(0, page);
     int safePageSize = Math.max(1, pageSize);
     int offset = safePage * safePageSize;
+    String orderBy =
+        switch (strategy == null ? ExperienceReplaySamplingStrategy.UNIFORM : strategy) {
+          case UNIFORM -> "created_at_epoch_millis DESC, id DESC";
+          case REWARD_AWARE -> "ABS(reward) DESC, created_at_epoch_millis DESC, id DESC";
+          case NOVELTY_AWARE ->
+              "(LENGTH(next_state_summary) + LENGTH(state_summary)) DESC, created_at_epoch_millis DESC, id DESC";
+        };
+    String sql =
+        "SELECT id, state_summary, action, reward, next_state_summary, created_at_epoch_millis "
+            + "FROM experience_transitions "
+            + "ORDER BY "
+            + orderBy
+            + " "
+            + "LIMIT ? OFFSET ?";
     return jdbcTemplate.query(
-        """
-        SELECT id, state_summary, action, reward, next_state_summary, created_at_epoch_millis
-        FROM experience_transitions
-        ORDER BY created_at_epoch_millis DESC, id DESC
-        LIMIT ? OFFSET ?
-        """,
+        sql,
         (rs, rowNum) ->
             new ExperienceTransitionEntity(
                 rs.getLong("id"),

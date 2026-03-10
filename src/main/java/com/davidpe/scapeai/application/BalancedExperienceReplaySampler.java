@@ -2,9 +2,12 @@ package com.davidpe.scapeai.application;
 
 import com.davidpe.scapeai.persistence.ExperienceTransitionEntity;
 import com.davidpe.scapeai.persistence.repository.ExperienceReplayRepository;
+import com.davidpe.scapeai.persistence.repository.ExperienceReplaySamplingStrategy;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -21,8 +24,15 @@ public class BalancedExperienceReplaySampler {
   }
 
   public List<BalancedReplaySample> sampleRecent(int batchSize) {
+    return sampleRecent(batchSize, ExperienceReplaySamplingStrategy.UNIFORM);
+  }
+
+  public List<BalancedReplaySample> sampleRecent(
+      int batchSize, ExperienceReplaySamplingStrategy strategy) {
     int safeBatchSize = Math.max(1, batchSize);
-    List<ExperienceTransitionEntity> recent = loadRecentPool(safeBatchSize);
+    ExperienceReplaySamplingStrategy effectiveStrategy =
+        strategy == null ? ExperienceReplaySamplingStrategy.UNIFORM : strategy;
+    List<ExperienceTransitionEntity> recent = loadRecentPool(safeBatchSize, effectiveStrategy);
     if (recent.isEmpty()) {
       return List.of();
     }
@@ -62,11 +72,13 @@ public class BalancedExperienceReplaySampler {
     return ExperienceReplayOutcome.TIMEOUT;
   }
 
-  private List<ExperienceTransitionEntity> loadRecentPool(int batchSize) {
+  private List<ExperienceTransitionEntity> loadRecentPool(
+      int batchSize, ExperienceReplaySamplingStrategy strategy) {
     int pageSize = Math.max(batchSize * 3, 24);
     List<ExperienceTransitionEntity> pool = new ArrayList<>();
     for (int page = 0; page < MAX_PAGES; page++) {
-      List<ExperienceTransitionEntity> chunk = experienceReplayRepository.findRecent(page, pageSize);
+      List<ExperienceTransitionEntity> chunk =
+          experienceReplayRepository.findRecent(page, pageSize, strategy);
       if (chunk.isEmpty()) {
         break;
       }
@@ -75,7 +87,24 @@ public class BalancedExperienceReplaySampler {
         break;
       }
     }
+    if (strategy == ExperienceReplaySamplingStrategy.NOVELTY_AWARE) {
+      Map<String, Integer> noveltyFrequency = new HashMap<>();
+      for (ExperienceTransitionEntity transition : pool) {
+        noveltyFrequency.merge(noveltyKey(transition), 1, Integer::sum);
+      }
+      pool.sort(
+          Comparator
+              .comparingInt((ExperienceTransitionEntity transition) -> noveltyFrequency.getOrDefault(noveltyKey(transition), 1))
+              .thenComparingLong(ExperienceTransitionEntity::createdAtEpochMillis)
+              .reversed());
+    }
     return pool;
+  }
+
+  private String noveltyKey(ExperienceTransitionEntity transition) {
+    return (transition.stateSummary() == null ? "" : transition.stateSummary())
+        + "->"
+        + (transition.nextStateSummary() == null ? "" : transition.nextStateSummary());
   }
 
   private void addFromBucket(
