@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.davidpe.scapeai.ai.MovementPolicy;
+import com.davidpe.scapeai.ai.CompositeMovementPolicy;
 import com.davidpe.scapeai.ai.RewardAssessment;
 import com.davidpe.scapeai.ai.RewardEvaluator;
 import com.davidpe.scapeai.ai.RewardSignal;
@@ -304,6 +305,38 @@ class SimulationEpisodeOrchestratorTest {
 
     assertTrue(improved.rightSideCoverage() >= baseline.rightSideCoverage());
     assertTrue(improved.loopEvents() <= baseline.loopEvents());
+  }
+
+  @Test
+  void shouldReduceCollisionsAndLoopsWithCompositeFallbackAgainstDirectFailure() {
+    MazeDefinition maze =
+        new MazeDefinition(1, 4, new boolean[1][4], new GridPosition(0, 0), new GridPosition(0, 3));
+    MovementPolicy directFailurePolicy = context -> MoveDirection.LEFT;
+    CompositeMovementPolicy compositePolicy =
+        new CompositeMovementPolicy(
+            "djl-composite",
+            directFailurePolicy,
+            context -> MoveDirection.RIGHT,
+            0.60);
+
+    SimulationEpisodeResult directFailure =
+        new SimulationEpisodeOrchestrator(
+                flowWithPolicy(directFailurePolicy),
+                Duration.ofMillis(180),
+                6,
+                new FixedStepTime(0, 20))
+            .runEpisode(maze, Duration.ofMillis(180));
+    SimulationEpisodeResult guarded =
+        new SimulationEpisodeOrchestrator(
+                flowWithPolicy(compositePolicy),
+                Duration.ofMillis(180),
+                6,
+                new FixedStepTime(0, 20))
+            .runEpisode(maze, Duration.ofMillis(180));
+
+    assertTrue(guarded.collisions() <= directFailure.collisions());
+    assertTrue(guarded.loopEvents() <= directFailure.loopEvents());
+    assertTrue(guarded.inferenceTraces().stream().anyMatch(PolicyInferenceTrace::fallbackApplied));
   }
 
   private SimulationStepFlow flowWithPolicy(MovementPolicy policy) {

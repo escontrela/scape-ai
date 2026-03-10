@@ -538,6 +538,7 @@
 - `CompositeMovementPolicy` con DJL como primario y politica heuristica determinista como fallback.
 - Trazabilidad por decision indicando si se uso rama primaria o fallback.
 - Pruebas reproducibles que validan reduccion de colisiones/bucles frente a fallo directo de inferencia.
+- Implementacion tecnica: `CompositeMovementPolicy` implementa `InferenceTraceProvider` y aplica fallback por `LOW_CONFIDENCE`, `INVALID_PRIMARY_MOVE` o excepcion; `MovementPolicyConfiguration` publica `djlMovementPolicy` compuesto con umbral configurable `scape.ai.djl-fallback-confidence-threshold`.
 
 ## Iteracion PO 2026-03-10 (automation cycle 9)
 

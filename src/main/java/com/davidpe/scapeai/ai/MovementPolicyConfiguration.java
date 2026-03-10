@@ -4,6 +4,7 @@ import com.davidpe.scapeai.application.SessionRandomSource;
 import com.davidpe.scapeai.ai.infrastructure.djl.DjlDirectionPredictor;
 import com.davidpe.scapeai.ai.infrastructure.djl.DjlMovementPolicyAdapter;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -28,7 +29,10 @@ public class MovementPolicyConfiguration {
   @Bean("djlMovementPolicy")
   public MovementPolicy djlMovementPolicy(
       DjlDirectionPredictor predictor,
-      @Qualifier("heuristicBaselineMovementPolicy") MovementPolicy fallbackPolicy) {
-    return new DjlMovementPolicyAdapter(predictor, fallbackPolicy);
+      @Qualifier("heuristicBaselineMovementPolicy") MovementPolicy fallbackPolicy,
+      @Value("${scape.ai.djl-fallback-confidence-threshold:0.45}") double confidenceThreshold) {
+    MovementPolicy djlPrimaryWithTrace = new DjlMovementPolicyAdapter(predictor, context -> null);
+    return new CompositeMovementPolicy(
+        "djl-composite", djlPrimaryWithTrace, fallbackPolicy, confidenceThreshold);
   }
 }
