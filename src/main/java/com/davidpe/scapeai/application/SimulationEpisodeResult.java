@@ -21,17 +21,81 @@ public record SimulationEpisodeResult(
     double leftSideCoverage,
     double rightSideCoverage,
     double pathEntropy,
+    long effectiveSeed,
+    long timeoutBudgetMillis,
     int explorationDecisions,
     int exploitationDecisions,
+    java.util.List<EpisodeDebugSnapshot> debugSnapshots,
+    EpisodeReplayMetadata replayMetadata,
     List<PolicyInferenceTrace> inferenceTraces) {
 
   public SimulationEpisodeResult {
     terminationReason = java.util.Objects.requireNonNull(terminationReason, "terminationReason must not be null");
     terminatedAtEpochMillis = Math.max(0L, terminatedAtEpochMillis);
+    timeoutBudgetMillis = Math.max(0L, timeoutBudgetMillis);
+    debugSnapshots = debugSnapshots == null ? List.of() : List.copyOf(debugSnapshots);
+    replayMetadata = java.util.Objects.requireNonNull(replayMetadata, "replayMetadata must not be null");
     inferenceTraces = inferenceTraces == null ? List.of() : List.copyOf(inferenceTraces);
   }
 
   public EpisodeEndReason endReason() {
     return terminationReason;
+  }
+
+  public String debugSnapshotsJson() {
+    if (debugSnapshots.isEmpty()) {
+      return "[]";
+    }
+    StringBuilder json = new StringBuilder("[");
+    for (int i = 0; i < debugSnapshots.size(); i++) {
+      EpisodeDebugSnapshot snapshot = debugSnapshots.get(i);
+      if (i > 0) {
+        json.append(',');
+      }
+      json.append('{')
+          .append("\"milestone\":\"")
+          .append(snapshot.milestone())
+          .append("\",\"row\":")
+          .append(snapshot.position().row())
+          .append(",\"col\":")
+          .append(snapshot.position().col())
+          .append(",\"steps\":")
+          .append(snapshot.steps())
+          .append(",\"reward\":")
+          .append(String.format(java.util.Locale.ROOT, "%.3f", snapshot.totalReward()))
+          .append(",\"collisions\":")
+          .append(snapshot.collisions())
+          .append(",\"loops\":")
+          .append(snapshot.loopEvents())
+          .append(",\"uniqueCells\":")
+          .append(snapshot.uniqueCellsVisited())
+          .append(",\"elapsed\":")
+          .append(snapshot.elapsedMillis())
+          .append(",\"remaining\":")
+          .append(snapshot.remainingMillis())
+          .append(",\"seed\":")
+          .append(snapshot.effectiveSeed())
+          .append('}');
+    }
+    return json.append(']').toString();
+  }
+
+  public String replayMetadataJson() {
+    return new StringBuilder()
+        .append('{')
+        .append("\"seed\":")
+        .append(replayMetadata.effectiveSeed())
+        .append(",\"timeoutBudgetMillis\":")
+        .append(replayMetadata.timeoutBudgetMillis())
+        .append(",\"expectedTotalSteps\":")
+        .append(replayMetadata.expectedTotalSteps())
+        .append(",\"expectedFinalRow\":")
+        .append(replayMetadata.expectedFinalPosition().row())
+        .append(",\"expectedFinalCol\":")
+        .append(replayMetadata.expectedFinalPosition().col())
+        .append(",\"expectedEndReason\":\"")
+        .append(replayMetadata.expectedEndReason().name())
+        .append("\"}")
+        .toString();
   }
 }

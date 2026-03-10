@@ -232,6 +232,42 @@ class SimulationEpisodeOrchestratorTest {
   }
 
   @Test
+  void shouldCaptureEpisodeSnapshotsAcrossLifecycleMilestones() {
+    SimulationStepFlow flow = flowWithPolicy(context -> MoveDirection.LEFT);
+    SimulationEpisodeOrchestrator orchestrator =
+        new SimulationEpisodeOrchestrator(flow, Duration.ofMillis(120), new FixedStepTime(0, 30));
+    MazeDefinition maze =
+        new MazeDefinition(3, 3, new boolean[3][3], new GridPosition(1, 1), new GridPosition(0, 2));
+
+    SimulationEpisodeResult result = orchestrator.runEpisode(maze, Duration.ofMillis(120));
+
+    assertTrue(result.debugSnapshots().stream().anyMatch(snapshot -> "START".equals(snapshot.milestone())));
+    assertTrue(result.debugSnapshots().stream().anyMatch(snapshot -> "MIDPOINT".equals(snapshot.milestone())));
+    assertTrue(
+        result.debugSnapshots().stream().anyMatch(snapshot -> "PRE_TIMEOUT".equals(snapshot.milestone())));
+    assertTrue(result.debugSnapshots().stream().anyMatch(snapshot -> "FINAL".equals(snapshot.milestone())));
+    assertTrue(result.effectiveSeed() != 0L || result.debugSnapshots().size() >= 4);
+  }
+
+  @Test
+  void shouldExposeReplayMetadataFromFinalSnapshot() {
+    SimulationStepFlow flow = flowWithPolicy(context -> MoveDirection.RIGHT);
+    SimulationEpisodeOrchestrator orchestrator =
+        new SimulationEpisodeOrchestrator(flow, Duration.ofMillis(140), new FixedStepTime(0, 20));
+    MazeDefinition maze =
+        new MazeDefinition(1, 4, new boolean[1][4], new GridPosition(0, 0), new GridPosition(0, 3));
+
+    SimulationEpisodeResult result = orchestrator.runEpisode(maze, Duration.ofMillis(140));
+
+    assertEquals(result.effectiveSeed(), result.replayMetadata().effectiveSeed());
+    assertEquals(result.totalSteps(), result.replayMetadata().expectedTotalSteps());
+    assertEquals(result.endReason(), result.replayMetadata().expectedEndReason());
+    assertEquals(
+        result.debugSnapshots().get(result.debugSnapshots().size() - 1).position(),
+        result.replayMetadata().expectedFinalPosition());
+  }
+
+  @Test
   void shouldImproveRightCoverageAndReduceLoopsAgainstLegacyBaseline() {
     MazeDefinition maze =
         new MazeDefinition(

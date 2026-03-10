@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -29,7 +28,6 @@ public class SimulationEpisodeOrchestrator {
   private final int loopWindow;
   private final LongSupplier currentTimeMillis;
   private final java.util.function.LongSupplier entropySupplier;
-  private final Supplier<Random> randomSupplier;
   private final double epsilon;
   private final ExperienceTransitionRecorder experienceTransitionRecorder;
 
@@ -76,7 +74,7 @@ public class SimulationEpisodeOrchestrator {
       int loopWindow,
       LongSupplier currentTimeMillis,
       java.util.function.LongSupplier entropySupplier,
-      Supplier<Random> randomSupplier,
+      java.util.function.Supplier<Random> randomSupplier,
       double epsilon) {
     this.simulationStepFlow = simulationStepFlow;
     this.defaultTimeout = defaultTimeout;
@@ -87,7 +85,6 @@ public class SimulationEpisodeOrchestrator {
     if (epsilon < 0.0 || epsilon > 1.0) {
       throw new IllegalArgumentException("scape.ai.epsilon must be in range [0,1]");
     }
-    this.randomSupplier = randomSupplier;
     this.epsilon = epsilon;
   }
 
@@ -119,44 +116,56 @@ public class SimulationEpisodeOrchestrator {
   }
 
   public SimulationEpisodeResult runEpisode(MazeDefinition maze, Duration timeout) {
-    entropySupplier.getAsLong();
+    long effectiveSeed = entropySupplier.getAsLong();
     long startedAt = currentTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
-    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy();
+    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
     EpisodeExecutionState state =
         EpisodeExecutionState.initial(
-            SimulationState.initial(maze.start()), maze.exit(), startedAt, deadline, loopWindow);
+            SimulationState.initial(maze.start()),
+            maze.exit(),
+            startedAt,
+            deadline,
+            loopWindow,
+            effectiveSeed);
     runLoop(maze, state, policy, -1);
-    return state.toResult(currentTimeMillis.getAsLong(), maze);
+    return state.toResult(currentTimeMillis.getAsLong(), maze, timeout.toMillis());
   }
 
   public EpisodeCheckpoint runEpisodeUntilCheckpoint(
       MazeDefinition maze, Duration timeout, int maxSteps) {
-    entropySupplier.getAsLong();
+    long effectiveSeed = entropySupplier.getAsLong();
     long startedAt = currentTimeMillis.getAsLong();
     long deadline = startedAt + timeout.toMillis();
-    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy();
+    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
     EpisodeExecutionState state =
         EpisodeExecutionState.initial(
-            SimulationState.initial(maze.start()), maze.exit(), startedAt, deadline, loopWindow);
+            SimulationState.initial(maze.start()),
+            maze.exit(),
+            startedAt,
+            deadline,
+            loopWindow,
+            effectiveSeed);
     runLoop(maze, state, policy, Math.max(0, maxSteps));
     return state.toCheckpoint(currentTimeMillis.getAsLong());
   }
 
   public SimulationEpisodeResult resumeEpisode(MazeDefinition maze, EpisodeCheckpoint checkpoint) {
-    entropySupplier.getAsLong();
+    long effectiveSeed = entropySupplier.getAsLong();
     long resumedAt = currentTimeMillis.getAsLong();
     long deadline = resumedAt + checkpoint.remainingMillis();
-    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy();
+    EpsilonGreedyMovementPolicyDecorator policy = buildEpisodePolicy(effectiveSeed);
     EpisodeExecutionState state =
-        EpisodeExecutionState.fromCheckpoint(checkpoint, maze.exit(), resumedAt, deadline, loopWindow);
+        EpisodeExecutionState.fromCheckpoint(
+            checkpoint, maze.exit(), resumedAt, deadline, loopWindow, effectiveSeed);
     runLoop(maze, state, policy, -1);
-    return state.toResult(currentTimeMillis.getAsLong(), maze);
+    return state.toResult(
+        currentTimeMillis.getAsLong(), maze, Math.max(0L, checkpoint.elapsedMillis() + checkpoint.remainingMillis()));
   }
 
-  private EpsilonGreedyMovementPolicyDecorator buildEpisodePolicy() {
+  private EpsilonGreedyMovementPolicyDecorator buildEpisodePolicy(long effectiveSeed) {
     MovementPolicy basePolicy = simulationStepFlow.activePolicy();
-    return new EpsilonGreedyMovementPolicyDecorator(basePolicy, epsilon, randomSupplier);
+    return new EpsilonGreedyMovementPolicyDecorator(basePolicy, epsilon, () -> new Random(effectiveSeed));
   }
 
   private void runLoop(
@@ -165,9 +174,12 @@ public class SimulationEpisodeOrchestrator {
       EpsilonGreedyMovementPolicyDecorator policy,
       int maxSteps) {
     int executed = 0;
-    while (!state.currentState.exitReached()
-        && currentTimeMillis.getAsLong() < state.deadline
-        && (maxSteps < 0 || executed < maxSteps)) {
+    while (!state.currentState.exitReached() && (maxSteps < 0 || executed < maxSteps)) {
+      long tickNow = currentTimeMillis.getAsLong();
+      if (tickNow >= state.deadline) {
+        break;
+      }
+      state.captureTimedMilestones(tickNow);
       boolean loopDetected = isLoopDetected(state.currentState.agentPosition(), state.positionCounts);
       if (loopDetected) {
         state.loopEvents++;
@@ -238,14 +250,17 @@ public class SimulationEpisodeOrchestrator {
 
   private static final class EpisodeExecutionState {
 
+    private static final long PRE_TIMEOUT_WINDOW_MILLIS = 1_000L;
     private final long startedAt;
     private final long deadline;
+    private final long effectiveSeed;
     private final GridPosition mazeExit;
     private final int initialDistanceToExit;
     private final Deque<GridPosition> recentPositions;
     private final Map<GridPosition, Integer> positionCounts;
     private final List<GridPosition> trajectory;
     private final List<PolicyInferenceTrace> inferenceTraces;
+    private final List<EpisodeDebugSnapshot> debugSnapshots;
     private final Map<String, Integer> transitionCounts;
     private final Map<MoveDirection, Integer> movementCounts;
     private SimulationState currentState;
@@ -259,10 +274,14 @@ public class SimulationEpisodeOrchestrator {
     private double improvementDistance;
     private double totalReward;
     private long elapsedBeforeSegment;
+    private boolean midpointCaptured;
+    private boolean preTimeoutCaptured;
+    private boolean finalCaptured;
 
     private EpisodeExecutionState(
         long startedAt,
         long deadline,
+        long effectiveSeed,
         GridPosition mazeExit,
         int initialDistanceToExit,
         SimulationState currentState,
@@ -278,10 +297,12 @@ public class SimulationEpisodeOrchestrator {
         Map<GridPosition, Integer> positionCounts,
         List<GridPosition> trajectory,
         List<PolicyInferenceTrace> inferenceTraces,
+        List<EpisodeDebugSnapshot> debugSnapshots,
         Map<String, Integer> transitionCounts,
         Map<MoveDirection, Integer> movementCounts) {
       this.startedAt = startedAt;
       this.deadline = deadline;
+      this.effectiveSeed = effectiveSeed;
       this.mazeExit = mazeExit;
       this.initialDistanceToExit = initialDistanceToExit;
       this.currentState = currentState;
@@ -297,12 +318,18 @@ public class SimulationEpisodeOrchestrator {
       this.positionCounts = positionCounts;
       this.trajectory = trajectory;
       this.inferenceTraces = inferenceTraces;
+      this.debugSnapshots = debugSnapshots;
       this.transitionCounts = transitionCounts;
       this.movementCounts = movementCounts;
     }
 
     static EpisodeExecutionState initial(
-        SimulationState initialState, GridPosition mazeExit, long startedAt, long deadline, int loopWindow) {
+        SimulationState initialState,
+        GridPosition mazeExit,
+        long startedAt,
+        long deadline,
+        int loopWindow,
+        long effectiveSeed) {
       Deque<GridPosition> recent = new ArrayDeque<>();
       Map<GridPosition, Integer> counts = new HashMap<>();
       List<GridPosition> trajectory = new ArrayList<>();
@@ -310,9 +337,11 @@ public class SimulationEpisodeOrchestrator {
       remember(position, recent, counts, loopWindow);
       trajectory.add(position);
       int initialDistance = distanceToExit(initialState.agentPosition(), mazeExit);
-      return new EpisodeExecutionState(
+      EpisodeExecutionState state =
+          new EpisodeExecutionState(
           startedAt,
           deadline,
+          effectiveSeed,
           mazeExit,
           initialDistance,
           initialState,
@@ -328,12 +357,20 @@ public class SimulationEpisodeOrchestrator {
           counts,
           trajectory,
           new ArrayList<>(),
+          new ArrayList<>(),
           new HashMap<>(),
           new EnumMap<>(MoveDirection.class));
+      state.debugSnapshots.add(state.snapshot("START", startedAt));
+      return state;
     }
 
     static EpisodeExecutionState fromCheckpoint(
-        EpisodeCheckpoint checkpoint, GridPosition mazeExit, long resumedAt, long deadline, int loopWindow) {
+        EpisodeCheckpoint checkpoint,
+        GridPosition mazeExit,
+        long resumedAt,
+        long deadline,
+        int loopWindow,
+        long effectiveSeed) {
       Deque<GridPosition> recent = new ArrayDeque<>();
       Map<GridPosition, Integer> counts = new HashMap<>();
       List<GridPosition> sourceRecent = checkpoint.recentPositions();
@@ -351,9 +388,11 @@ public class SimulationEpisodeOrchestrator {
       GridPosition initialPosition =
           trajectory.isEmpty() ? checkpoint.currentState().agentPosition() : trajectory.get(0);
       int initialDistance = distanceToExit(initialPosition, mazeExit);
-      return new EpisodeExecutionState(
+      EpisodeExecutionState state =
+          new EpisodeExecutionState(
           resumedAt,
           deadline,
+          effectiveSeed,
           mazeExit,
           initialDistance,
           checkpoint.currentState(),
@@ -369,8 +408,11 @@ public class SimulationEpisodeOrchestrator {
           counts,
           trajectory,
           new ArrayList<>(),
+          new ArrayList<>(),
           new HashMap<>(),
           new EnumMap<>(MoveDirection.class));
+      state.debugSnapshots.add(state.snapshot("START", resumedAt));
+      return state;
     }
 
     EpisodeCheckpoint toCheckpoint(long currentTime) {
@@ -390,19 +432,45 @@ public class SimulationEpisodeOrchestrator {
           List.copyOf(trajectory));
     }
 
-    SimulationEpisodeResult toResult(long currentTime, MazeDefinition maze) {
+    void captureTimedMilestones(long currentTime) {
+      long elapsed = elapsedMillis(currentTime);
+      long timeoutBudget = timeoutBudgetMillis();
+      if (!midpointCaptured && timeoutBudget > 0 && elapsed >= timeoutBudget / 2L) {
+        debugSnapshots.add(snapshot("MIDPOINT", currentTime));
+        midpointCaptured = true;
+      }
+      long remaining = Math.max(0L, deadline - currentTime);
+      if (!preTimeoutCaptured && remaining <= Math.min(PRE_TIMEOUT_WINDOW_MILLIS, timeoutBudget)) {
+        debugSnapshots.add(snapshot("PRE_TIMEOUT", currentTime));
+        preTimeoutCaptured = true;
+      }
+    }
+
+    SimulationEpisodeResult toResult(long currentTime, MazeDefinition maze, long timeoutBudgetOverride) {
       long elapsed = elapsedMillis(currentTime);
       boolean timeoutReached = !currentState.exitReached() && currentTime >= deadline;
       EpisodeEndReason terminationReason =
           EpisodeTerminationResolver.resolve(currentState.exitReached(), timeoutReached, false);
+      long timeoutBudget = timeoutBudgetOverride > 0 ? timeoutBudgetOverride : timeoutBudgetMillis();
       if (terminationReason == EpisodeEndReason.TIMEOUT) {
-        elapsed = Math.min(elapsed, timeoutBudgetMillis());
+        elapsed = Math.min(elapsed, timeoutBudget);
       }
       long terminatedAt = terminationReason == EpisodeEndReason.TIMEOUT ? deadline : currentTime;
       int finalDistanceToExit = distanceToExit(currentState.agentPosition(), mazeExit);
       double netProgress = (initialDistanceToExit - finalDistanceToExit) + improvementDistance;
       MazeQuadrantCoverage coverage = MazeQuadrantCoverage.from(maze, currentState.visitedCells());
       double pathEntropy = calculatePathEntropy();
+      if (!finalCaptured) {
+        debugSnapshots.add(snapshot("FINAL", currentTime));
+        finalCaptured = true;
+      }
+      EpisodeReplayMetadata replayMetadata =
+          new EpisodeReplayMetadata(
+              effectiveSeed,
+              timeoutBudget,
+              totalSteps,
+              currentState.agentPosition(),
+              terminationReason);
       return new SimulationEpisodeResult(
           currentState.exitReached(),
           totalSteps,
@@ -422,8 +490,12 @@ public class SimulationEpisodeOrchestrator {
           coverage.leftSideCoverage(),
           coverage.rightSideCoverage(),
           pathEntropy,
+          effectiveSeed,
+          timeoutBudget,
           explorationDecisions,
           exploitationDecisions,
+          List.copyOf(debugSnapshots),
+          replayMetadata,
           List.copyOf(inferenceTraces));
     }
 
@@ -433,6 +505,22 @@ public class SimulationEpisodeOrchestrator {
 
     private long timeoutBudgetMillis() {
       return Math.max(0L, elapsedBeforeSegment + (deadline - startedAt));
+    }
+
+    private EpisodeDebugSnapshot snapshot(String milestone, long currentTime) {
+      long elapsed = elapsedMillis(currentTime);
+      long remaining = Math.max(0L, deadline - currentTime);
+      return new EpisodeDebugSnapshot(
+          milestone,
+          currentState.agentPosition(),
+          totalSteps,
+          totalReward,
+          collisions,
+          loopEvents,
+          currentState.visitedCells().size(),
+          elapsed,
+          remaining,
+          effectiveSeed);
     }
 
     private static void remember(
