@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS training_runs (
   maze_id INTEGER NOT NULL,
   policy_id TEXT,
   policy_snapshot TEXT,
+  reward_version TEXT NOT NULL DEFAULT 'v1',
   success INTEGER NOT NULL,
   steps INTEGER NOT NULL,
   elapsed_millis INTEGER NOT NULL,
@@ -38,6 +39,11 @@ CREATE TABLE IF NOT EXISTS training_runs (
   health_index_formula_version TEXT NOT NULL DEFAULT 'v1.0.0',
   created_at_epoch_millis INTEGER NOT NULL,
   FOREIGN KEY (maze_id) REFERENCES mazes(id)
+);
+
+CREATE TABLE IF NOT EXISTS reward_config_versions (
+  version_id TEXT PRIMARY KEY,
+  activated_at_epoch_millis INTEGER NOT NULL
 );
 
 

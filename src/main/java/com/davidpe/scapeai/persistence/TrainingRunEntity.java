@@ -5,6 +5,7 @@ public record TrainingRunEntity(
     long mazeId,
     String policyId,
     String policySnapshot,
+    String rewardVersion,
     boolean success,
     int steps,
     long elapsedMillis,

@@ -674,6 +674,13 @@
 - `DefaultIterativeEpisodeTrainingService` calcula y aplica epsilon por episodio al orquestador.
 - `IterativeTrainingSummary` y `HeadlessBatchTrainingResult` exponen `averageEpsilonApplied` para trazabilidad experimental.
 
+### SCAPE-0070 - Versionado de configuracion de recompensas
+- Objetivo funcional: asociar cada corrida a una version inmutable de configuracion de reward.
+- Persistencia de entidad/version: nueva tabla `reward_config_versions(version_id, activated_at_epoch_millis)`.
+- `training_runs` guarda `reward_version` por corrida y `JdbcTrainingRunRepository` asegura version activa en catalogo.
+- `RecentRunsComparisonService`/UI exponen `rewardVersion` junto con metricas principales para correlacion analitica.
+- Implementacion tecnica: migracion idempotente agrega `reward_version` y tabla de versiones; se inserta `v1` por defecto para compatibilidad.
+
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
 - Estado inicial detectado: `in_progress=0` y `backlog=4` (`SCAPE-0060`, `SCAPE-0061`, `SCAPE-0062`, `SCAPE-0063`).

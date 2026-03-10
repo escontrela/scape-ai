@@ -1148,13 +1148,19 @@ public final class MainWindow {
     health.setFont(Font.font("Consolas", 11));
     health.setTextFill(Color.web(row.healthRegression() ? "#ff6b8a" : "#89ff9a"));
 
+    Label rewardVersion =
+        new Label("RV " + (row.rewardVersion() == null || row.rewardVersion().isBlank() ? "v1" : row.rewardVersion()));
+    rewardVersion.setFont(Font.font("Consolas", 11));
+    rewardVersion.setTextFill(Color.web("#7ef9ff"));
+
     Label elapsed = new Label(formatElapsed(row.elapsedMillis()));
     elapsed.setFont(Font.font("Consolas", 11));
     elapsed.setTextFill(Color.web("#9db2ff"));
 
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
-    return new HBox(8, status, reward, collisions, netProgress, sideCoverage, entropy, health, spacer, elapsed);
+    return new HBox(
+        8, status, reward, collisions, netProgress, sideCoverage, entropy, health, rewardVersion, spacer, elapsed);
   }
 
   private HBox timelineRow(TrainingTimelineEntry entry) {

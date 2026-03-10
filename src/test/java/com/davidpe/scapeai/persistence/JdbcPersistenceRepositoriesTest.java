@@ -43,6 +43,7 @@ class JdbcPersistenceRepositoriesTest {
             maze_id INTEGER NOT NULL,
             policy_id TEXT,
             policy_snapshot TEXT,
+            reward_version TEXT NOT NULL DEFAULT 'v1',
             success INTEGER NOT NULL,
             steps INTEGER NOT NULL,
             elapsed_millis INTEGER NOT NULL,
@@ -67,6 +68,13 @@ class JdbcPersistenceRepositoriesTest {
             training_health_index REAL NOT NULL DEFAULT 0,
             health_index_formula_version TEXT NOT NULL DEFAULT 'v1.0.0',
             created_at_epoch_millis INTEGER NOT NULL
+          )
+          """);
+      jdbcTemplate.execute(
+          """
+          CREATE TABLE reward_config_versions (
+            version_id TEXT PRIMARY KEY,
+            activated_at_epoch_millis INTEGER NOT NULL
           )
           """);
       jdbcTemplate.execute(
@@ -105,7 +113,7 @@ class JdbcPersistenceRepositoriesTest {
       JdbcMazeRepository mazeRepository = new JdbcMazeRepository(jdbcTemplate);
       JdbcMazeCoverageRepository coverageRepository = new JdbcMazeCoverageRepository(jdbcTemplate);
       JdbcTrainingRunRepository runRepository =
-          new JdbcTrainingRunRepository(jdbcTemplate, coverageRepository);
+          new JdbcTrainingRunRepository(jdbcTemplate, coverageRepository, "reward-v1");
       JdbcTrainingPresetRepository presetRepository = new JdbcTrainingPresetRepository(jdbcTemplate);
       JdbcExperienceReplayRepository replayRepository = new JdbcExperienceReplayRepository(jdbcTemplate);
 
@@ -123,6 +131,7 @@ class JdbcPersistenceRepositoriesTest {
               maze.id(),
               "heuristic-baseline",
               "{\"policy\":\"heuristic-baseline\",\"seed\":null}",
+              "reward-v1",
               false,
               24,
               1_500,
@@ -153,6 +162,7 @@ class JdbcPersistenceRepositoriesTest {
               maze.id(),
               "random-controlled",
               "{\"policy\":\"random-controlled\",\"seed\":20260309}",
+              "reward-v2",
               true,
               18,
               1_000,
@@ -207,6 +217,7 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals(true, history.get(0).success());
       assertEquals("random-controlled", history.get(0).policyId());
       assertEquals("{\"policy\":\"random-controlled\",\"seed\":20260309}", history.get(0).policySnapshot());
+      assertEquals("reward-v2", history.get(0).rewardVersion());
       assertEquals(19, history.get(0).discoveredCells());
       assertEquals(0, history.get(0).finalDistanceToExit());
       assertEquals(3.0, history.get(0).netProgress());

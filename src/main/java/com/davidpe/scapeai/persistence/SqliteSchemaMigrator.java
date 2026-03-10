@@ -39,6 +39,9 @@ public class SqliteSchemaMigrator {
     if (!columns.contains("policy_snapshot")) {
       jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN policy_snapshot TEXT");
     }
+    if (!columns.contains("reward_version")) {
+      jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN reward_version TEXT NOT NULL DEFAULT 'v1'");
+    }
     if (!columns.contains("net_progress")) {
       jdbcTemplate.execute(
           "ALTER TABLE training_runs ADD COLUMN net_progress REAL NOT NULL DEFAULT 0");
@@ -109,6 +112,21 @@ public class SqliteSchemaMigrator {
       jdbcTemplate.execute(
           "ALTER TABLE training_runs ADD COLUMN health_index_formula_version TEXT NOT NULL DEFAULT 'v1.0.0'");
     }
+    jdbcTemplate.execute(
+        """
+        CREATE TABLE IF NOT EXISTS reward_config_versions (
+          version_id TEXT PRIMARY KEY,
+          activated_at_epoch_millis INTEGER NOT NULL
+        )
+        """);
+    jdbcTemplate.update(
+        """
+        INSERT INTO reward_config_versions(version_id, activated_at_epoch_millis)
+        SELECT 'v1', CAST(strftime('%s','now') AS INTEGER) * 1000
+        WHERE NOT EXISTS (
+          SELECT 1 FROM reward_config_versions WHERE version_id = 'v1'
+        )
+        """);
   }
 
   private boolean tableExists(String tableName) {

@@ -73,6 +73,7 @@ public class RecentRunsComparisonService {
               entity.pathEntropy(),
               entity.pathEntropy() < pathEntropyAlertThreshold,
               entity.terminalReason(),
+              entity.rewardVersion(),
               entity.trainingHealthIndex(),
               healthRegression,
               entity.healthIndexFormulaVersion(),

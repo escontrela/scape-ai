@@ -161,6 +161,7 @@ class RecentRunsComparisonServiceTest {
                 1L,
                 "heuristic-baseline",
                 "{}",
+                "reward-v1",
                 i % 2 == 0,
                 10 + i,
                 1_000L + i,
