@@ -258,6 +258,56 @@
 - Alcance introducido:
 - Tabla compacta en UI con las ultimas 10 corridas y columnas de exito, recompensa, colisiones y duracion.
 - Ordenacion por fecha y recompensa sin bloqueo del hilo JavaFX.
+
+## Iteration 2026-03-10
+
+### SCAPE-0058 - Contrato unificado de configuracion de sesion
+- Estado de trabajo: in_progress.
+- Objetivo funcional: unificar la configuracion de sesion para UI y modo headless con validaciones consistentes.
+- Alcance funcional planificado:
+- Contrato `TrainingSessionConfig` versionado con campos base (mazeId, policyId, timeout, seed, smokeRunEnabled, difficultyTarget).
+- Validaciones tipadas reutilizables por `StartTrainingSession`, ejecucion headless y UI.
+- Eliminacion de mapeos ad hoc entre capas para reducir deriva de configuracion.
+
+### SCAPE-0059 - Minimap de cobertura acumulada en runtime
+- Estado de trabajo: backlog.
+- Objetivo funcional: mostrar cobertura acumulada del episodio para detectar zonas no exploradas.
+- Alcance funcional planificado:
+- Minimap 2D con intensidad por frecuencia de visita en tiempo real.
+- Resaltado de salida y posicion actual del agente sobre el minimapa.
+- Reinicio automatico del minimapa al iniciar una nueva sesion.
+
+### SCAPE-0060 - Timeout monotonico en orquestador de episodio
+- Estado de trabajo: backlog.
+- Objetivo funcional: estabilizar el corte por timeout evitando efectos del reloj de pared.
+- Alcance funcional planificado:
+- Medicion de tiempo con fuente monotona para calculo de elapsed/restante.
+- Comportamiento consistente en UI (velocidad variable) y modo headless.
+- Prueba automatizada de expiracion reproducible sin dependencia del reloj del sistema.
+
+### SCAPE-0061 - Persistir semantica de finalizacion por episodio
+- Estado de trabajo: backlog.
+- Objetivo funcional: normalizar y persistir el motivo terminal del episodio para comparativas historicas.
+- Alcance funcional planificado:
+- Campo `terminalReason` estandar (`EXIT_REACHED`, `TIMEOUT`, `ABORTED`, `ERROR`) en `training_runs`.
+- Consultas recientes por laberinto incluyen motivo terminal junto a metricas actuales.
+- Visualizacion legible del motivo terminal en componentes de comparativa/timeline.
+
+### SCAPE-0062 - Adaptador de accion valida con mascara de vecinos
+- Estado de trabajo: backlog.
+- Objetivo funcional: reducir colisiones por decisiones invalidas de politicas de movimiento.
+- Alcance funcional planificado:
+- Mascara booleana de movimientos validos en contexto de decision por vecindad local.
+- Adaptador comun para consumo por politicas DJL y heuristica.
+- Validacion por benchmark de reduccion de colisiones frente al baseline actual.
+
+### SCAPE-0063 - Tarjeta UI de configuracion efectiva de sesion
+- Estado de trabajo: backlog.
+- Objetivo funcional: mejorar trazabilidad operativa mostrando la configuracion efectiva usada en cada corrida.
+- Alcance funcional planificado:
+- Tarjeta en `MainWindow` con maze, politica, semilla efectiva, timeout y dificultad objetivo.
+- Actualizacion en cambios de seleccion y fijacion de valores al iniciar sesion.
+- Conservacion del contexto mostrado al finalizar episodio para correlacion con metricas.
 - Reutilizacion de persistencia de metricas existente sin crear almacenamiento duplicado.
 - Implementacion tecnica propuesta: `RecentRunsComparisonViewModel` alimentado por `TrainingRunRepository.findRecentByMazeId`.
 
