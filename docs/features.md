@@ -1040,3 +1040,47 @@
 - No se aplican transiciones ni nuevas altas para preservar `WIP=1` y evitar sobrecargar backlog UI ya planificado.
 - Verificacion de `done` realizada para evitar duplicidad funcional con tickets UI ya cerrados (`SCAPE-0081` a `SCAPE-0084`).
 - Estado final confirmado sin cambios: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0085`, `SCAPE-0086`, `SCAPE-0087`, `SCAPE-0088`, `SCAPE-0089`).
+
+## Iteracion PO 2026-03-20 (automation cycle 20)
+
+### SCAPE-0090 - Escalado DPI y tipografia responsiva del dashboard
+- Objetivo funcional: asegurar legibilidad consistente del dashboard en distintas densidades de pixel de escritorio.
+- Alcance introducido:
+- Escalado adaptativo de tipografia y espaciado base segun DPI detectado.
+- Conservacion de proporciones operativas en escalados 100%, 125% y 150% sin clipping.
+- Base de tokens visuales reutilizables para tamano y spacing en componentes UI criticos.
+
+### SCAPE-0091 - Minimapa operativo con posicion y ruta reciente
+- Objetivo funcional: ofrecer contexto espacial rapido mediante una vista compacta persistente.
+- Alcance introducido:
+- Minimapa sincronizado con el estado del episodio activo.
+- Resaltado de posicion actual, salida y trayectoria corta reciente.
+- Toggle de visibilidad en caliente sin reiniciar la simulacion.
+
+### SCAPE-0092 - Split view para comparar algoritmo activo vs baseline
+- Objetivo funcional: habilitar comparacion visual paralela de comportamiento entre politicas.
+- Alcance introducido:
+- Modo de vista dividida con dos viewports sincronizados temporalmente.
+- Identificacion explicita de politica por panel junto con metricas resumen minimas.
+- Activacion/desactivacion del modo sin perder estado operativo de la sesion principal.
+
+### SCAPE-0093 - Inspector contextual de celdas en hover
+- Objetivo funcional: mejorar la depuracion visual del episodio con inspeccion puntual de celdas.
+- Alcance introducido:
+- Overlay contextual en hover con coordenadas, tipo de celda y estado de visita.
+- Indicador del indice temporal relativo para celdas dentro de la ruta reciente.
+- Restriccion de impacto de rendimiento para mantener fluidez visual en sesiones normales.
+
+### SCAPE-0094 - Presets visuales rapidos para sesiones largas
+- Objetivo funcional: adaptar rapidamente la densidad de informacion visual al tipo de trabajo.
+- Alcance introducido:
+- Presets predefinidos (`operativo`, `enfoque`, `diagnostico`) aplicables con un clic.
+- Cambio de preset en caliente sin reiniciar entrenamiento ni perder contexto actual.
+- Indicador visible del preset activo en cabecera para trazabilidad de estado UI.
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- Estado inicial detectado: `in_progress=1` (`SCAPE-0075`) y `backlog=0`.
+- Creacion de tickets UI en backlog: `SCAPE-0090`, `SCAPE-0091`, `SCAPE-0092`, `SCAPE-0093`, `SCAPE-0094`.
+- Incidencia de payload resuelta: backend rechazo `tagId` (`Tag does not belong to project`), se uso creacion sin tag.
+- Estado final confirmado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0090`, `SCAPE-0091`, `SCAPE-0092`, `SCAPE-0093`, `SCAPE-0094`).
