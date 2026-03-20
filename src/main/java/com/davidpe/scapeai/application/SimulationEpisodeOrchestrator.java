@@ -630,6 +630,7 @@ public class SimulationEpisodeOrchestrator {
           timeoutBudget,
           explorationDecisions,
           exploitationDecisions,
+          List.copyOf(trajectory),
           buildCellVisitFrequencies(),
           List.copyOf(debugSnapshots),
           replayMetadata,

@@ -791,3 +791,11 @@
 - El resumen incorpora desglose terminal por sesion (`EXIT_REACHED`, `TIMEOUT`, `ABORTED`, `ERROR`) con normalizacion defensiva cuando faltan datos en registros antiguos.
 - `TrainingRunRepository` incorpora consulta por `trainingSessionId` y JDBC la implementa sin romper contratos previos de historial por maze.
 - Implementacion tecnica: agregacion calculada sobre `training_runs` de sesion; para sesiones vacias o historicas incompletas el contrato retorna valores seguros (0) sin excepciones.
+
+### SCAPE-0066 - Trayectoria persistente por episodio para inspeccion
+- Objetivo funcional: persistir y recuperar el camino exacto del agente por episodio con lectura independiente de JavaFX runtime.
+- Alcance introducido:
+- `SimulationEpisodeResult` ahora expone la trayectoria ordenada completa y `DefaultIterativeEpisodeTrainingService` la persiste por corrida.
+- Nueva codificacion compacta reversible (`EpisodeTrajectoryCodec`) basada en movimientos relativos (`U/D/L/R/N`) con saltos absolutos para minimizar tamaño en base de datos.
+- `training_runs` incorpora `trajectory_path` (schema + migrador idempotente) y JDBC la lee/escribe en consultas de historial/sesion.
+- Nuevo caso de uso `TrainingEpisodeDetailService` devuelve por `trainingRunId` la trayectoria decodificada, la posicion final y replay metadata para inspeccion tecnica.

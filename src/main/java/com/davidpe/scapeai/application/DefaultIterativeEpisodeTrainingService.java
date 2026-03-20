@@ -219,6 +219,7 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
             episode.pathEntropy(),
             episode.debugSnapshotsJson(),
             episode.replayMetadataJson(),
+            EpisodeTrajectoryCodec.encode(episode.trajectory()),
             CellVisitFrequency.encode(episode.cellVisitFrequencies()),
             episode.terminationReason().name(),
             episode.terminationReason() == EpisodeEndReason.TIMEOUT,

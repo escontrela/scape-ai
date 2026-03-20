@@ -25,6 +25,7 @@ public record TrainingRunEntity(
     double pathEntropy,
     String episodeDebugSnapshots,
     String replayDebugMetadata,
+    String trajectoryPath,
     String cellVisitFrequencies,
     String terminalReason,
     boolean timeoutReached,

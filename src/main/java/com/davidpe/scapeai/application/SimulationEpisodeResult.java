@@ -1,6 +1,7 @@
 package com.davidpe.scapeai.application;
 
 import java.util.List;
+import com.davidpe.scapeai.simulation.GridPosition;
 
 public record SimulationEpisodeResult(
     boolean success,
@@ -25,6 +26,7 @@ public record SimulationEpisodeResult(
     long timeoutBudgetMillis,
     int explorationDecisions,
     int exploitationDecisions,
+    List<GridPosition> trajectory,
     List<CellVisitFrequency> cellVisitFrequencies,
     java.util.List<EpisodeDebugSnapshot> debugSnapshots,
     EpisodeReplayMetadata replayMetadata,
@@ -34,6 +36,7 @@ public record SimulationEpisodeResult(
     terminationReason = java.util.Objects.requireNonNull(terminationReason, "terminationReason must not be null");
     terminatedAtEpochMillis = Math.max(0L, terminatedAtEpochMillis);
     timeoutBudgetMillis = Math.max(0L, timeoutBudgetMillis);
+    trajectory = trajectory == null ? List.of() : List.copyOf(trajectory);
     cellVisitFrequencies = cellVisitFrequencies == null ? List.of() : List.copyOf(cellVisitFrequencies);
     debugSnapshots = debugSnapshots == null ? List.of() : List.copyOf(debugSnapshots);
     replayMetadata = java.util.Objects.requireNonNull(replayMetadata, "replayMetadata must not be null");

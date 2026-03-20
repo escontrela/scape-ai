@@ -63,6 +63,7 @@ class JdbcPersistenceRepositoriesTest {
             path_entropy REAL NOT NULL DEFAULT 0,
             episode_debug_snapshots TEXT,
             replay_debug_metadata TEXT,
+            trajectory_path TEXT,
             cell_visit_frequencies TEXT,
             terminal_reason TEXT NOT NULL DEFAULT 'ABORTED',
             timeout_reached INTEGER NOT NULL DEFAULT 0,
@@ -152,6 +153,7 @@ class JdbcPersistenceRepositoriesTest {
               0.88,
               "[{\"milestone\":\"FINAL\"}]",
               "{\"seed\":20260309}",
+              "0,0RRD",
               "0:0:3;0:1:2;1:1:1",
               "TIMEOUT",
               true,
@@ -184,6 +186,7 @@ class JdbcPersistenceRepositoriesTest {
               1.32,
               "[{\"milestone\":\"FINAL\"}]",
               "{\"seed\":20260310}",
+              "0,0R|2,2",
               "0:0:4;0:1:1;2:2:5",
               "EXIT_REACHED",
               false,
@@ -230,6 +233,7 @@ class JdbcPersistenceRepositoriesTest {
       assertEquals(1.32, history.get(0).pathEntropy());
       assertEquals("[{\"milestone\":\"FINAL\"}]", history.get(0).episodeDebugSnapshots());
       assertEquals("{\"seed\":20260310}", history.get(0).replayDebugMetadata());
+      assertEquals("0,0R|2,2", history.get(0).trajectoryPath());
       assertEquals("0:0:4;0:1:1;2:2:5", history.get(0).cellVisitFrequencies());
       assertTrue(byRunId.isPresent());
       assertEquals(history.get(0).id(), byRunId.get().trainingRunId());

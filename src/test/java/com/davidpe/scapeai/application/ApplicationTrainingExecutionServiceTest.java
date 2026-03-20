@@ -246,6 +246,7 @@ class ApplicationTrainingExecutionServiceTest {
         2_000L,
         1,
         2,
+        List.of(new GridPosition(0, 0), new GridPosition(0, 0)),
         List.of(new CellVisitFrequency(new GridPosition(0, 0), 3)),
         List.of(),
         new EpisodeReplayMetadata(

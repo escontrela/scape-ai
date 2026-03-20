@@ -112,6 +112,9 @@ public class SqliteSchemaMigrator {
     if (!columns.contains("replay_debug_metadata")) {
       jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN replay_debug_metadata TEXT");
     }
+    if (!columns.contains("trajectory_path")) {
+      jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN trajectory_path TEXT");
+    }
     if (!columns.contains("cell_visit_frequencies")) {
       jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN cell_visit_frequencies TEXT");
     }

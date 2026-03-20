@@ -74,6 +74,11 @@ class TrainingSessionSummaryServiceTest {
     }
 
     @Override
+    public Optional<TrainingRunEntity> findById(long trainingRunId) {
+      return rows.stream().filter(run -> run.id() == trainingRunId).findFirst();
+    }
+
+    @Override
     public List<CellVisitFrequency> findAccumulatedCellVisitsByMazeId(long mazeId, int limit) {
       return List.of();
     }
@@ -124,6 +129,7 @@ class TrainingSessionSummaryServiceTest {
           1.0,
           null,
           null,
+          "0,0R",
           null,
           terminalReason,
           timeout,
