@@ -64,6 +64,8 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
@@ -73,6 +75,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
+import javafx.scene.control.TextInputControl;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.Alert;
@@ -89,6 +92,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -101,6 +105,9 @@ public final class MainWindow {
   private static final double FONT_SIZE_METRIC_LABEL = 12.0;
   private static final double FONT_SIZE_METRIC_VALUE = 13.0;
   private static final double FONT_SIZE_METRIC_VALUE_PRIORITY = 15.0;
+  private static final String BASE_FONT_SIZE_KEY = "scape.ui.baseFontSize";
+  private static final String BASE_PADDING_KEY = "scape.ui.basePadding";
+  private static final String BASE_SPACING_KEY = "scape.ui.baseSpacing";
 
   private final SimulationControlService controlService;
   private final StartTrainingSessionUseCase startTrainingSessionUseCase;
@@ -173,6 +180,7 @@ public final class MainWindow {
   private TextArea reviewAsciiArea;
   private TextArea reviewTrajectoryArea;
   private StackPane workspaceStack;
+  private BorderPane rootContent;
   private BorderPane dashboardPane;
   private VBox controlPanel;
   private VBox mazePanel;
@@ -235,6 +243,7 @@ public final class MainWindow {
   private final long notificationDurationMillis;
   private final long notificationDedupWindowMillis;
   private volatile Long activeSessionSeed;
+  private volatile DashboardScaleTokens scaleTokens = DashboardScaleTokens.defaultTokens();
 
   public MainWindow(
       SimulationControlService controlService,
@@ -291,13 +300,13 @@ public final class MainWindow {
   }
 
   public void show(Stage stage) {
-    BorderPane content = new BorderPane();
-    content.setPadding(new Insets(20));
-    content.setStyle("-fx-background-color: linear-gradient(to bottom right, #050812, #0d1122);");
+    rootContent = new BorderPane();
+    rootContent.setPadding(new Insets(20));
+    rootContent.setStyle("-fx-background-color: linear-gradient(to bottom right, #050812, #0d1122);");
 
-    content.setTop(buildHeader());
+    rootContent.setTop(buildHeader());
     controlPanel = buildControlPanel();
-    content.setLeft(controlPanel);
+    rootContent.setLeft(controlPanel);
     dashboardPane = new BorderPane();
     mazePanel = buildMazePanel();
     metricsPanel = buildMetricsPanel();
@@ -310,9 +319,9 @@ public final class MainWindow {
     assetsPanel.setVisible(false);
     assetsPanel.setManaged(false);
     workspaceStack = new StackPane(dashboardPane, reviewPanel, assetsPanel);
-    content.setCenter(workspaceStack);
+    rootContent.setCenter(workspaceStack);
 
-    ScrollPane mainScroll = new ScrollPane(content);
+    ScrollPane mainScroll = new ScrollPane(rootContent);
     mainScroll.getStyleClass().add("neon-scroll-pane");
     mainScroll.setFitToWidth(true);
     mainScroll.setFitToHeight(false);
@@ -339,6 +348,7 @@ public final class MainWindow {
 
     Scene scene = new Scene(root, 1200, 760);
     installKeyboardNavigation(scene);
+    installDpiScaleTracking(scene);
     installResponsiveLayout(scene);
     var neonScrollCss =
         getClass().getResource("/styles/neon-scroll.css");
@@ -348,6 +358,7 @@ public final class MainWindow {
     stage.setTitle("Scape AI Control Panel");
     stage.setScene(scene);
     stage.show();
+    refreshScaleTokens(resolveOutputScale(stage), scene.getWidth());
   }
 
   private HBox buildHeader() {
@@ -1954,12 +1965,72 @@ public final class MainWindow {
     if (scene == null) {
       return;
     }
-    scene.widthProperty().addListener((ignored, oldWidth, newWidth) -> applyResponsiveLayout(newWidth.doubleValue()));
-    scene.heightProperty().addListener((ignored, oldHeight, newHeight) -> applyResponsiveLayout(scene.getWidth()));
-    applyResponsiveLayout(scene.getWidth());
+    scene
+        .widthProperty()
+        .addListener(
+            (ignored, oldWidth, newWidth) ->
+                applyResponsiveLayout(newWidth.doubleValue(), scaleTokens.layoutScale()));
+    scene
+        .heightProperty()
+        .addListener(
+            (ignored, oldHeight, newHeight) ->
+                applyResponsiveLayout(scene.getWidth(), scaleTokens.layoutScale()));
+    applyResponsiveLayout(scene.getWidth(), scaleTokens.layoutScale());
   }
 
-  private void applyResponsiveLayout(double width) {
+  private void installDpiScaleTracking(Scene scene) {
+    if (scene == null) {
+      return;
+    }
+    scene
+        .windowProperty()
+        .addListener(
+            (ignored, oldWindow, newWindow) -> {
+              if (newWindow == null) {
+                return;
+              }
+              hookWindowScaleListeners(newWindow, scene);
+              refreshScaleTokens(resolveOutputScale(newWindow), scene.getWidth());
+            });
+  }
+
+  private void hookWindowScaleListeners(Window window, Scene scene) {
+    window
+        .outputScaleXProperty()
+        .addListener(
+            (ignored, oldScale, newScale) ->
+                refreshScaleTokens(resolveOutputScale(window), scene.getWidth()));
+    window
+        .outputScaleYProperty()
+        .addListener(
+            (ignored, oldScale, newScale) ->
+                refreshScaleTokens(resolveOutputScale(window), scene.getWidth()));
+  }
+
+  private double resolveOutputScale(Window window) {
+    if (window == null) {
+      return 1.0;
+    }
+    double scaleX = window.getOutputScaleX();
+    double scaleY = window.getOutputScaleY();
+    if (scaleX <= 0.0 && scaleY <= 0.0) {
+      return 1.0;
+    }
+    return Math.max(scaleX, scaleY);
+  }
+
+  private void refreshScaleTokens(double outputScale, double width) {
+    scaleTokens = DashboardScaleTokens.forOutputScale(outputScale);
+    if (rootContent != null) {
+      applyScaleRecursively(rootContent, scaleTokens);
+    }
+    if (notificationLayer != null) {
+      applyScaleRecursively(notificationLayer, scaleTokens);
+    }
+    applyResponsiveLayout(width, scaleTokens.layoutScale());
+  }
+
+  private void applyResponsiveLayout(double width, double layoutScale) {
     double safeWidth = Math.max(1024.0, width);
     double controlWidth;
     double metricsWidth;
@@ -1977,20 +2048,88 @@ public final class MainWindow {
       metricsWidth = 390.0;
       viewportHeight = 620.0;
     }
+    double scaledControlWidth = controlWidth * layoutScale;
+    double scaledMetricsWidth = metricsWidth * layoutScale;
+    double scaledViewportHeight = viewportHeight * layoutScale;
     if (controlPanel != null) {
-      controlPanel.setMinWidth(controlWidth);
-      controlPanel.setPrefWidth(controlWidth);
-      controlPanel.setMaxWidth(controlWidth);
+      controlPanel.setMinWidth(scaledControlWidth);
+      controlPanel.setPrefWidth(scaledControlWidth);
+      controlPanel.setMaxWidth(scaledControlWidth);
     }
     if (metricsPanel != null) {
-      metricsPanel.setMinWidth(metricsWidth);
-      metricsPanel.setPrefWidth(metricsWidth);
-      metricsPanel.setMaxWidth(metricsWidth);
+      metricsPanel.setMinWidth(scaledMetricsWidth);
+      metricsPanel.setPrefWidth(scaledMetricsWidth);
+      metricsPanel.setMaxWidth(scaledMetricsWidth);
     }
     if (mazeViewport != null) {
-      mazeViewport.setMinHeight(viewportHeight);
-      mazeViewport.setPrefHeight(viewportHeight);
+      mazeViewport.setMinHeight(scaledViewportHeight);
+      mazeViewport.setPrefHeight(scaledViewportHeight);
     }
+    if (rootContent != null) {
+      rootContent.setPadding(new Insets(20.0 * scaleTokens.spacingScale()));
+    }
+  }
+
+  private void applyScaleRecursively(Node node, DashboardScaleTokens tokens) {
+    if (node == null || tokens == null) {
+      return;
+    }
+    if (node instanceof javafx.scene.control.Labeled labeled && labeled.getFont() != null) {
+      double baseFont =
+          (double)
+              labeled
+                  .getProperties()
+                  .computeIfAbsent(BASE_FONT_SIZE_KEY, ignored -> labeled.getFont().getSize());
+      labeled.setFont(Font.font(labeled.getFont().getFamily(), baseFont * tokens.fontScale()));
+    }
+    if (node instanceof TextInputControl textInputControl && textInputControl.getFont() != null) {
+      double baseFont =
+          (double)
+              textInputControl
+                  .getProperties()
+                  .computeIfAbsent(BASE_FONT_SIZE_KEY, ignored -> textInputControl.getFont().getSize());
+      textInputControl.setFont(
+          Font.font(textInputControl.getFont().getFamily(), baseFont * tokens.fontScale()));
+    }
+    if (node instanceof Region region) {
+      Insets padding = region.getPadding();
+      if (padding != null) {
+        Insets basePadding =
+            (Insets) region.getProperties().computeIfAbsent(BASE_PADDING_KEY, ignored -> padding);
+        region.setPadding(scaleInsets(basePadding, tokens.spacingScale()));
+      }
+    }
+    if (node instanceof VBox vBox) {
+      double baseSpacing =
+          (double) vBox.getProperties().computeIfAbsent(BASE_SPACING_KEY, ignored -> vBox.getSpacing());
+      vBox.setSpacing(baseSpacing * tokens.spacingScale());
+    } else if (node instanceof HBox hBox) {
+      double baseSpacing =
+          (double) hBox.getProperties().computeIfAbsent(BASE_SPACING_KEY, ignored -> hBox.getSpacing());
+      hBox.setSpacing(baseSpacing * tokens.spacingScale());
+    } else if (node instanceof GridPane gridPane) {
+      double baseHgap =
+          (double)
+              gridPane.getProperties().computeIfAbsent(BASE_SPACING_KEY + ".hgap", ignored -> gridPane.getHgap());
+      double baseVgap =
+          (double)
+              gridPane.getProperties().computeIfAbsent(BASE_SPACING_KEY + ".vgap", ignored -> gridPane.getVgap());
+      gridPane.setHgap(baseHgap * tokens.spacingScale());
+      gridPane.setVgap(baseVgap * tokens.spacingScale());
+    }
+    if (node instanceof Parent parent) {
+      for (Node child : parent.getChildrenUnmodifiable()) {
+        applyScaleRecursively(child, tokens);
+      }
+    }
+  }
+
+  private Insets scaleInsets(Insets insets, double factor) {
+    return new Insets(
+        insets.getTop() * factor,
+        insets.getRight() * factor,
+        insets.getBottom() * factor,
+        insets.getLeft() * factor);
   }
 
   private void installFocusStyle(Control control, String accent) {

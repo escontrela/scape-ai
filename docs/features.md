@@ -1049,6 +1049,7 @@
 - Escalado adaptativo de tipografia y espaciado base segun DPI detectado.
 - Conservacion de proporciones operativas en escalados 100%, 125% y 150% sin clipping.
 - Base de tokens visuales reutilizables para tamano y spacing en componentes UI criticos.
+- Implementacion tecnica: `DashboardScaleTokens` centraliza tokens de escala (font/spacing/layout) y `MainWindow` aplica escalado por `outputScaleX/Y` sobre nodos UI y layout responsivo del dashboard.
 
 ### SCAPE-0091 - Minimapa operativo con posicion y ruta reciente
 - Objetivo funcional: ofrecer contexto espacial rapido mediante una vista compacta persistente.
