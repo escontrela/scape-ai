@@ -49,6 +49,7 @@ import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -108,6 +109,7 @@ public final class MainWindow {
   private static final String BASE_FONT_SIZE_KEY = "scape.ui.baseFontSize";
   private static final String BASE_PADDING_KEY = "scape.ui.basePadding";
   private static final String BASE_SPACING_KEY = "scape.ui.baseSpacing";
+  private static final int MINIMAP_RECENT_TRAIL_CELLS = 12;
 
   private final SimulationControlService controlService;
   private final StartTrainingSessionUseCase startTrainingSessionUseCase;
@@ -177,6 +179,8 @@ public final class MainWindow {
   private VBox coverageEntriesBox;
   private VBox reviewEpisodesEntriesBox;
   private GridPane miniHeatmapGrid;
+  private GridPane miniMapGrid;
+  private Label miniMapStatusValue;
   private TextArea reviewAsciiArea;
   private TextArea reviewTrajectoryArea;
   private StackPane workspaceStack;
@@ -202,6 +206,7 @@ public final class MainWindow {
   private volatile boolean trajectoryRunning;
   private volatile boolean unexploredOverlayEnabled;
   private volatile boolean miniHeatmapEnabled = true;
+  private volatile boolean miniMapEnabled = true;
   private volatile boolean episodeDetailsCollapsed;
   private volatile boolean startActionProcessing;
   private volatile boolean focusModeEnabled;
@@ -749,6 +754,13 @@ public final class MainWindow {
           heatmapToggle.setText(miniHeatmapEnabled ? "Mini Heatmap: ON" : "Mini Heatmap: OFF");
           refreshMiniHeatmap();
         });
+    Button minimapToggle = neonButton("Minimap: ON", "#7ef9ff", () -> {});
+    minimapToggle.setOnAction(
+        event -> {
+          miniMapEnabled = !miniMapEnabled;
+          minimapToggle.setText(miniMapEnabled ? "Minimap: ON" : "Minimap: OFF");
+          refreshMiniMap();
+        });
 
     VBox panel =
         new VBox(
@@ -769,6 +781,7 @@ public final class MainWindow {
             batchSelector,
             overlayToggle,
             heatmapToggle,
+            minimapToggle,
             startButton,
             pauseButton,
             resetButton);
@@ -871,6 +884,16 @@ public final class MainWindow {
             + "-fx-border-width: 1;"
             + "-fx-border-radius: 8;"
             + "-fx-background-radius: 8;");
+    miniMapStatusValue = timelinePlaceholder("Minimap idle.");
+    miniMapGrid = new GridPane();
+    miniMapGrid.setHgap(1.0);
+    miniMapGrid.setVgap(1.0);
+    miniMapGrid.setStyle(
+        "-fx-padding: 5;"
+            + "-fx-background-color: rgba(8, 17, 36, 0.96);"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
 
     mazeSelector
         .getSelectionModel()
@@ -890,6 +913,7 @@ public final class MainWindow {
                 resetTrajectoryEpisode();
                 refreshUnexploredOverlay();
                 refreshMiniHeatmap();
+                refreshMiniMap();
                 refreshPersistentHeatmapAsync();
                 refreshRecentRunsAsync();
                 refreshSessionConfigCardPreview();
@@ -907,6 +931,7 @@ public final class MainWindow {
         liveMetricsService.setActiveMaze(firstMaze);
         refreshUnexploredOverlay();
         refreshMiniHeatmap();
+        refreshMiniMap();
         refreshPersistentHeatmapAsync();
         refreshRecentRunsAsync();
         refreshSessionConfigCardPreview();
@@ -934,6 +959,9 @@ public final class MainWindow {
             replayNext,
             episodeDetailsToggleButton,
             focusModeToggleButton);
+    Label minimapTitle = new Label("MINIMAP");
+    minimapTitle.setTextFill(Color.web("#9db2ff"));
+    minimapTitle.setFont(Font.font("Consolas", 12));
 
     VBox panel =
         new VBox(
@@ -947,6 +975,9 @@ public final class MainWindow {
             replayTitle,
             replayStatusValue,
             replayControls,
+            minimapTitle,
+            miniMapStatusValue,
+            miniMapGrid,
             focusModeHud,
             mazeViewport);
     panel.setPadding(new Insets(16));
@@ -955,6 +986,7 @@ public final class MainWindow {
     applyEpisodeDetailsPanelState();
     refreshFocusModeHud();
     refreshReplayEpisodesAsync();
+    refreshMiniMap();
     return panel;
   }
 
@@ -2286,6 +2318,7 @@ public final class MainWindow {
           refreshFocusModeHud();
           refreshContextualStatusPanel();
           renderLiveViewport(metrics);
+          refreshMiniMap();
         });
   }
 
@@ -2308,6 +2341,7 @@ public final class MainWindow {
     if (miniHeatmapEnabled) {
       renderMiniHeatmap(metrics.trajectory(), metrics.currentPosition());
     }
+    refreshMiniMap();
   }
 
   private void applyTimeline(List<TrainingTimelineEntry> entries) {
@@ -2891,6 +2925,7 @@ public final class MainWindow {
     Platform.runLater(() -> mazeViewportRenderer.renderTrajectory(List.copyOf(trajectoryCells)));
     refreshUnexploredOverlay();
     refreshMiniHeatmap();
+    refreshMiniMap();
     trajectoryRunning = true;
   }
 
@@ -2903,6 +2938,7 @@ public final class MainWindow {
     Platform.runLater(mazeViewportRenderer::clearTrajectory);
     Platform.runLater(mazeViewportRenderer::clearUnexploredOverlay);
     refreshMiniHeatmap();
+    refreshMiniMap();
   }
 
   private synchronized void stopTrajectoryTicker() {
@@ -2938,6 +2974,7 @@ public final class MainWindow {
                   if (viewportMode == ViewportMode.RESUME) {
                     mazeViewportRenderer.clearTrajectory();
                     refreshMiniHeatmap();
+                    refreshMiniMap();
                   }
                 });
             return;
@@ -2963,6 +3000,7 @@ public final class MainWindow {
       if (viewportMode == ViewportMode.RESUME) {
         mazeViewportRenderer.clearTrajectory();
         refreshMiniHeatmap();
+        refreshMiniMap();
       }
       refreshContextualStatusPanel();
       return;
@@ -3082,6 +3120,7 @@ public final class MainWindow {
     if (miniHeatmapEnabled) {
       renderMiniHeatmap(frame, frame.get(frame.size() - 1));
     }
+    refreshMiniMap();
     if (unexploredOverlayEnabled) {
       mazeViewportRenderer.renderUnexploredOverlay(frame);
     }
@@ -3190,6 +3229,83 @@ public final class MainWindow {
   private void refreshMiniHeatmap() {
     MiniHeatmapSnapshot snapshot = miniHeatmapSnapshot();
     Platform.runLater(() -> renderMiniHeatmap(snapshot.trajectory(), snapshot.currentPosition()));
+  }
+
+  private void refreshMiniMap() {
+    MiniHeatmapSnapshot snapshot = miniHeatmapSnapshot();
+    Platform.runLater(() -> renderMiniMap(snapshot.trajectory(), snapshot.currentPosition()));
+  }
+
+  private void renderMiniMap(List<GridPosition> trajectory, GridPosition currentPosition) {
+    if (miniMapGrid == null || miniMapStatusValue == null) {
+      return;
+    }
+    miniMapGrid.getChildren().clear();
+    if (!miniMapEnabled || selectedMaze == null) {
+      miniMapStatusValue.setText(miniMapEnabled ? "Select a maze to render minimap." : "Minimap disabled.");
+      return;
+    }
+    double cellSize = Math.max(4.0, Math.min(10.0, 170.0 / Math.max(selectedMaze.rows(), selectedMaze.cols())));
+    List<GridPosition> path = trajectory == null ? List.of() : trajectory;
+    List<GridPosition> recentPath =
+        path.isEmpty()
+            ? List.of()
+            : path.subList(Math.max(0, path.size() - MINIMAP_RECENT_TRAIL_CELLS), path.size());
+    List<GridPosition> reversedRecent = new ArrayList<>(recentPath);
+    Collections.reverse(reversedRecent);
+    java.util.Map<GridPosition, Integer> trailIndex = new java.util.HashMap<>();
+    for (int i = 0; i < reversedRecent.size(); i++) {
+      trailIndex.putIfAbsent(reversedRecent.get(i), i);
+    }
+    for (int row = 0; row < selectedMaze.rows(); row++) {
+      for (int col = 0; col < selectedMaze.cols(); col++) {
+        GridPosition position = new GridPosition(row, col);
+        Rectangle cell = new Rectangle(cellSize, cellSize);
+        cell.setArcWidth(Math.max(2.0, cellSize * 0.45));
+        cell.setArcHeight(Math.max(2.0, cellSize * 0.45));
+        double strokeWidth = 0.25;
+        if (selectedMaze.isWall(position)) {
+          cell.setFill(Color.color(0.08, 0.11, 0.22, 0.92));
+          cell.setStroke(Color.color(0.14, 0.20, 0.32, 0.90));
+        } else {
+          cell.setFill(Color.color(0.07, 0.16, 0.30, 0.95));
+          cell.setStroke(Color.color(0.20, 0.32, 0.56, 0.82));
+          Integer index = trailIndex.get(position);
+          if (index != null) {
+            double intensity = 1.0 - ((double) index / Math.max(1, trailIndex.size()));
+            cell.setFill(Color.color(0.20 + (0.35 * intensity), 0.62 + (0.25 * intensity), 0.85, 0.92));
+            cell.setStroke(Color.color(0.55 + (0.35 * intensity), 0.95, 1.0, 0.88));
+            strokeWidth = 0.55;
+          }
+        }
+        if (position.equals(selectedMaze.exit())) {
+          cell.setFill(Color.color(1.0, 0.76, 0.23, 0.96));
+          cell.setStroke(Color.color(1.0, 0.93, 0.52, 1.0));
+          strokeWidth = 0.9;
+        }
+        if (currentPosition != null && position.equals(currentPosition)) {
+          cell.setFill(Color.color(0.20, 0.98, 0.84, 0.98));
+          cell.setStroke(Color.color(0.86, 1.0, 0.96, 1.0));
+          strokeWidth = 1.1;
+        }
+        cell.setStrokeWidth(strokeWidth);
+        miniMapGrid.add(cell, col, row);
+      }
+    }
+    miniMapStatusValue.setText(
+        "Pos: "
+            + formatGridPosition(currentPosition)
+            + " | Exit: "
+            + formatGridPosition(selectedMaze.exit())
+            + " | Trail: "
+            + recentPath.size());
+  }
+
+  private String formatGridPosition(GridPosition position) {
+    if (position == null) {
+      return "-";
+    }
+    return position.row() + "," + position.col();
   }
 
   private void renderMiniHeatmap(List<GridPosition> trajectory, GridPosition currentPosition) {

@@ -1057,6 +1057,7 @@
 - Minimapa sincronizado con el estado del episodio activo.
 - Resaltado de posicion actual, salida y trayectoria corta reciente.
 - Toggle de visibilidad en caliente sin reiniciar la simulacion.
+- Implementacion tecnica: `MainWindow` agrega panel `MINIMAP` con render compacto por celda, marcador de salida, posicion actual y las ultimas `N=12` celdas de trayectoria; se controla en caliente con `Minimap: ON/OFF`.
 
 ### SCAPE-0092 - Split view para comparar algoritmo activo vs baseline
 - Objetivo funcional: habilitar comparacion visual paralela de comportamiento entre politicas.
