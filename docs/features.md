@@ -815,3 +815,10 @@
 - La pantalla de revision lista sesiones recientes, muestra resumen agregado de sesion y presenta la grafica ASCII generada por `TrainingSessionAsciiTrendRenderer`.
 - La vista incluye listado de episodios por sesion y, al seleccionar uno, renderiza motivo terminal, metricas clave, trayectoria persistida legible y replay metadata.
 - Carga de sesiones/detalles se ejecuta via `recentRunsExecutor` para mantener respuesta UI sin bloquear el hilo JavaFX.
+
+### SCAPE-0069 - Scroll vertical neon en MainWindow
+- Objetivo funcional: permitir scroll vertical del dashboard completo en resoluciones con menor altura sin perder paneles inferiores.
+- Alcance introducido:
+- `MainWindow.show(...)` envuelve el contenido principal en `ScrollPane` con `vbar AS_NEEDED`, `fitToWidth=true` y bloqueo de scroll horizontal.
+- Se agrega estilo visual coherente mediante hoja `styles/neon-scroll.css` con track oscuro y thumb neon para mantener contraste/interaccion.
+- El layout conserva accesibilidad de minimapa, heatmap y bloques inferiores al poder recorrer toda la vista verticalmente sin rediseño estructural.

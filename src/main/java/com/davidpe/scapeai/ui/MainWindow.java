@@ -201,12 +201,12 @@ public final class MainWindow {
   }
 
   public void show(Stage stage) {
-    BorderPane root = new BorderPane();
-    root.setPadding(new Insets(20));
-    root.setStyle("-fx-background-color: linear-gradient(to bottom right, #050812, #0d1122);");
+    BorderPane content = new BorderPane();
+    content.setPadding(new Insets(20));
+    content.setStyle("-fx-background-color: linear-gradient(to bottom right, #050812, #0d1122);");
 
-    root.setTop(buildHeader());
-    root.setLeft(buildControlPanel());
+    content.setTop(buildHeader());
+    content.setLeft(buildControlPanel());
     BorderPane dashboardPane = new BorderPane();
     dashboardPane.setCenter(buildMazePanel());
     dashboardPane.setRight(buildMetricsPanel());
@@ -214,7 +214,20 @@ public final class MainWindow {
     reviewPanel.setVisible(false);
     reviewPanel.setManaged(false);
     workspaceStack = new StackPane(dashboardPane, reviewPanel);
-    root.setCenter(workspaceStack);
+    content.setCenter(workspaceStack);
+
+    ScrollPane mainScroll = new ScrollPane(content);
+    mainScroll.getStyleClass().add("neon-scroll-pane");
+    mainScroll.setFitToWidth(true);
+    mainScroll.setFitToHeight(false);
+    mainScroll.setPannable(true);
+    mainScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    mainScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+    mainScroll.setStyle(
+        "-fx-background-color: transparent;"
+            + "-fx-control-inner-background: transparent;"
+            + "-fx-background-insets: 0;"
+            + "-fx-padding: 0;");
     refreshMiniHeatmap();
     liveMetricsService.subscribe(this::applyMetrics);
     liveMetricsService.subscribeTimeline(this::applyTimeline);
@@ -222,7 +235,12 @@ public final class MainWindow {
     refreshCoverageSummaryAsync();
     refreshReviewSessionsAsync();
 
-    Scene scene = new Scene(root, 1200, 760);
+    Scene scene = new Scene(mainScroll, 1200, 760);
+    var neonScrollCss =
+        getClass().getResource("/styles/neon-scroll.css");
+    if (neonScrollCss != null) {
+      scene.getStylesheets().add(neonScrollCss.toExternalForm());
+    }
     stage.setTitle("Scape AI Control Panel");
     stage.setScene(scene);
     stage.show();

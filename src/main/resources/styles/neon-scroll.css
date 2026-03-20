@@ -1,0 +1,35 @@
+.neon-scroll-pane {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+
+.neon-scroll-pane > .viewport {
+  -fx-background-color: transparent;
+}
+
+.neon-scroll-pane .scroll-bar:vertical {
+  -fx-background-color: rgba(8, 17, 36, 0.92);
+  -fx-pref-width: 12;
+}
+
+.neon-scroll-pane .scroll-bar:vertical .track {
+  -fx-background-color: rgba(18, 28, 56, 0.88);
+  -fx-background-radius: 8;
+  -fx-border-color: rgba(44, 241, 255, 0.35);
+  -fx-border-radius: 8;
+}
+
+.neon-scroll-pane .scroll-bar:vertical .thumb {
+  -fx-background-color: linear-gradient(to bottom, #2cf1ff, #7ef9ff);
+  -fx-background-radius: 8;
+}
+
+.neon-scroll-pane .scroll-bar:vertical .thumb:hover {
+  -fx-background-color: linear-gradient(to bottom, #7ef9ff, #b2fffe);
+}
+
+.neon-scroll-pane .scroll-bar:vertical .increment-button,
+.neon-scroll-pane .scroll-bar:vertical .decrement-button {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
