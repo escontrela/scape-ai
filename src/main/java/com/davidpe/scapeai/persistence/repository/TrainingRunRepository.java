@@ -16,6 +16,8 @@ public interface TrainingRunRepository {
 
   List<TrainingRunEntity> findByTrainingSessionId(String trainingSessionId);
 
+  List<TrainingRunEntity> findSuccessfulByTrainingSessionId(String trainingSessionId, int limit);
+
   Optional<TrainingRunEntity> findById(long trainingRunId);
 
   List<CellVisitFrequency> findAccumulatedCellVisitsByMazeId(long mazeId, int limit);

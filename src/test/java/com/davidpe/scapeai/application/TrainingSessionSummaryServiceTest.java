@@ -74,6 +74,15 @@ class TrainingSessionSummaryServiceTest {
     }
 
     @Override
+    public List<TrainingRunEntity> findSuccessfulByTrainingSessionId(String trainingSessionId, int limit) {
+      return rows.stream()
+          .filter(run -> trainingSessionId.equals(run.trainingSessionId()))
+          .filter(run -> run.success() && "EXIT_REACHED".equals(run.terminalReason()))
+          .limit(Math.max(1, limit))
+          .toList();
+    }
+
+    @Override
     public Optional<TrainingRunEntity> findById(long trainingRunId) {
       return rows.stream().filter(run -> run.id() == trainingRunId).findFirst();
     }

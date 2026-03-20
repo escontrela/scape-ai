@@ -196,6 +196,7 @@ class JdbcPersistenceRepositoriesTest {
 
       var history = runRepository.findByMazeId(maze.id());
       var latestOnly = runRepository.findRecentByMazeId(maze.id(), 1);
+      var successfulBySession = runRepository.findSuccessfulByTrainingSessionId("session-alpha", 10);
       var accumulatedHeatmap = runRepository.findAccumulatedCellVisitsByMazeId(maze.id(), 2);
       var byRunId = runRepository.findReplayDiagnosticByTrainingRunId(history.get(0).id());
       var latestDiagnostics = runRepository.findRecentReplayDiagnostics(2);
@@ -216,6 +217,9 @@ class JdbcPersistenceRepositoriesTest {
 
       assertEquals(2, history.size());
       assertEquals(1, latestOnly.size());
+      assertEquals(1, successfulBySession.size());
+      assertEquals("EXIT_REACHED", successfulBySession.get(0).terminalReason());
+      assertEquals("0,0R|2,2", successfulBySession.get(0).trajectoryPath());
       assertEquals(4, accumulatedHeatmap.size());
       assertEquals(7, accumulatedHeatmap.get(0).visits());
       assertTrue(history.get(0).createdAtEpochMillis() >= history.get(1).createdAtEpochMillis());

@@ -132,6 +132,15 @@ class RecentRunsComparisonServiceTest {
     }
 
     @Override
+    public List<TrainingRunEntity> findSuccessfulByTrainingSessionId(String trainingSessionId, int limit) {
+      return rows.stream()
+          .filter(row -> java.util.Objects.equals(row.trainingSessionId(), trainingSessionId))
+          .filter(row -> row.success() && "EXIT_REACHED".equals(row.terminalReason()))
+          .limit(Math.max(1, limit))
+          .toList();
+    }
+
+    @Override
     public Optional<TrainingRunEntity> findById(long trainingRunId) {
       return rows.stream().filter(row -> row.id() == trainingRunId).findFirst();
     }

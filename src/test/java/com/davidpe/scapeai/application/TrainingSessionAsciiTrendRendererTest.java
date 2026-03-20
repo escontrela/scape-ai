@@ -114,6 +114,14 @@ class TrainingSessionAsciiTrendRendererTest {
     }
 
     @Override
+    public List<TrainingRunEntity> findSuccessfulByTrainingSessionId(String trainingSessionId, int limit) {
+      return runs.stream()
+          .filter(run -> run.success() && "EXIT_REACHED".equals(run.terminalReason()))
+          .limit(Math.max(1, limit))
+          .toList();
+    }
+
+    @Override
     public Optional<TrainingRunEntity> findById(long trainingRunId) {
       return Optional.empty();
     }

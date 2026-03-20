@@ -57,6 +57,11 @@ class TrainingEpisodeDetailServiceTest {
     }
 
     @Override
+    public List<TrainingRunEntity> findSuccessfulByTrainingSessionId(String trainingSessionId, int limit) {
+      return List.of();
+    }
+
+    @Override
     public Optional<TrainingRunEntity> findById(long trainingRunId) {
       return Optional.of(
           new TrainingRunEntity(
