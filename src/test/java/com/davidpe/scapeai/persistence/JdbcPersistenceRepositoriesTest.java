@@ -218,6 +218,7 @@ class JdbcPersistenceRepositoriesTest {
       assertTrue(history.get(0).createdAtEpochMillis() >= history.get(1).createdAtEpochMillis());
       assertEquals(18, history.get(0).steps());
       assertEquals(true, history.get(0).success());
+      assertEquals("session-alpha", history.get(0).trainingSessionId());
       assertEquals("random-controlled", history.get(0).policyId());
       assertEquals("{\"policy\":\"random-controlled\",\"seed\":20260309}", history.get(0).policySnapshot());
       assertEquals("reward-v2", history.get(0).rewardVersion());

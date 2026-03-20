@@ -67,6 +67,11 @@ class PersistentMazeHeatmapServiceTest {
     }
 
     @Override
+    public List<TrainingRunEntity> findByTrainingSessionId(String trainingSessionId) {
+      return List.of();
+    }
+
+    @Override
     public List<CellVisitFrequency> findAccumulatedCellVisitsByMazeId(long mazeId, int limit) {
       return List.of(
           new CellVisitFrequency(new GridPosition(0, 0), 5),

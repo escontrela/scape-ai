@@ -137,6 +137,56 @@ public class JdbcTrainingRunRepository implements TrainingRunRepository {
   }
 
   @Override
+  public List<TrainingRunEntity> findByTrainingSessionId(String trainingSessionId) {
+    if (trainingSessionId == null || trainingSessionId.isBlank()) {
+      return List.of();
+    }
+    return jdbcTemplate.query(
+        """
+        SELECT id, training_session_id, maze_id, policy_id, policy_snapshot, reward_version, success, steps, elapsed_millis, total_reward, collisions, discovered_cells, final_distance_to_exit, net_progress, maze_coverage_ratio, q1_coverage, q2_coverage, q3_coverage, q4_coverage, left_side_coverage, right_side_coverage, path_entropy, episode_debug_snapshots, replay_debug_metadata, cell_visit_frequencies, terminal_reason, timeout_reached, training_health_index, health_index_formula_version, created_at_epoch_millis
+        FROM training_runs
+        WHERE training_session_id = ?
+        ORDER BY created_at_epoch_millis ASC
+        """,
+        (rs, rowNum) ->
+            new TrainingRunEntity(
+                rs.getLong("id"),
+                rs.getString("training_session_id"),
+                rs.getLong("maze_id"),
+                rs.getString("policy_id"),
+                rs.getString("policy_snapshot"),
+                normalizeRewardVersion(rs.getString("reward_version")),
+                rs.getBoolean("success"),
+                rs.getInt("steps"),
+                rs.getLong("elapsed_millis"),
+                rs.getDouble("total_reward"),
+                rs.getInt("collisions"),
+                rs.getInt("discovered_cells"),
+                rs.getInt("final_distance_to_exit"),
+                rs.getDouble("net_progress"),
+                rs.getDouble("maze_coverage_ratio"),
+                rs.getDouble("q1_coverage"),
+                rs.getDouble("q2_coverage"),
+                rs.getDouble("q3_coverage"),
+                rs.getDouble("q4_coverage"),
+                rs.getDouble("left_side_coverage"),
+                rs.getDouble("right_side_coverage"),
+                rs.getDouble("path_entropy"),
+                rs.getString("episode_debug_snapshots"),
+                rs.getString("replay_debug_metadata"),
+                rs.getString("cell_visit_frequencies"),
+                normalizeTerminalReason(
+                    rs.getString("terminal_reason"),
+                    rs.getBoolean("success"),
+                    rs.getBoolean("timeout_reached")),
+                rs.getBoolean("timeout_reached"),
+                rs.getDouble("training_health_index"),
+                rs.getString("health_index_formula_version"),
+                rs.getLong("created_at_epoch_millis")),
+        trainingSessionId.trim());
+  }
+
+  @Override
   public List<TrainingRunEntity> findRecentByMazeId(long mazeId, int limit) {
     return jdbcTemplate.query(
         """

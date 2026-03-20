@@ -125,6 +125,13 @@ class RecentRunsComparisonServiceTest {
     }
 
     @Override
+    public List<TrainingRunEntity> findByTrainingSessionId(String trainingSessionId) {
+      return rows.stream()
+          .filter(row -> java.util.Objects.equals(row.trainingSessionId(), trainingSessionId))
+          .toList();
+    }
+
+    @Override
     public List<CellVisitFrequency> findAccumulatedCellVisitsByMazeId(long mazeId, int limit) {
       return List.of();
     }

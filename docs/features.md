@@ -783,3 +783,11 @@
 - Nueva tabla `training_sessions` con metadatos minimos de revision (`maze_ref`, `policy_id`, `preset_id`, `effective_seed`, `started_at_epoch_millis`, `ended_at_epoch_millis`).
 - Compatibilidad retroactiva garantizada: migracion agrega columna de sesion nullable y no rompe corridas historicas sin sesion asociada.
 - Implementacion tecnica: `TrainingSessionContextHolder` genera `sessionId` por inicio, `DefaultIterativeEpisodeTrainingService` persiste sesiones/runs asociados y `SqliteSchemaMigrator` crea/actualiza esquema idempotente.
+
+### SCAPE-0065 - Resumen agregado de entrenamiento revisable
+- Objetivo funcional: exponer un read model agregado por `trainingSessionId` para inspeccion rapida de entrenamiento.
+- Alcance introducido:
+- Nuevo servicio de aplicacion `TrainingSessionSummaryService` que devuelve episodios totales, exitos, `successRate`, `averageReward`, `averageCollisions`, `averageCoverage` y `totalDurationMillis`.
+- El resumen incorpora desglose terminal por sesion (`EXIT_REACHED`, `TIMEOUT`, `ABORTED`, `ERROR`) con normalizacion defensiva cuando faltan datos en registros antiguos.
+- `TrainingRunRepository` incorpora consulta por `trainingSessionId` y JDBC la implementa sin romper contratos previos de historial por maze.
+- Implementacion tecnica: agregacion calculada sobre `training_runs` de sesion; para sesiones vacias o historicas incompletas el contrato retorna valores seguros (0) sin excepciones.
