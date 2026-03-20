@@ -597,7 +597,7 @@ public final class MainWindow {
               startActionProcessing = true;
               startButton.setText("Starting...");
               updateControlAvailability();
-              updateSystemStatus("START REQUESTED", "#7ef9ff");
+              updateSystemStatus("START REQUESTED", UiSemanticState.IDLE);
               TrainingPresetOption selectedPreset = presetSelector.getValue();
               Long selectedPresetId = selectedPreset == null ? null : selectedPreset.id();
               TrainingTargetDifficulty targetDifficulty = targetDifficultySelector.getValue();
@@ -606,7 +606,9 @@ public final class MainWindow {
                 startActionProcessing = false;
                 startButton.setText("Start");
                 updateControlAvailability();
-                updateSystemStatus("Select a training preset before starting batches.", "#ff6b8a");
+                updateSystemStatus(
+                    "Select a training preset before starting batches.",
+                    UiSemanticState.VALIDATION_ERROR);
                 emitNotification(
                     "validation.preset.missing",
                     "Validation error: select a training preset before starting.",
@@ -629,7 +631,7 @@ public final class MainWindow {
                 startActionProcessing = false;
                 startButton.setText("Start");
                 updateControlAvailability();
-                updateSystemStatus(startResult.message(), "#ff6b8a");
+                updateSystemStatus(startResult.message(), UiSemanticState.VALIDATION_ERROR);
                 emitNotification("validation.start.denied", startResult.message(), "#ff6b8a");
                 return;
               }
@@ -638,7 +640,7 @@ public final class MainWindow {
                 mazeViewportRenderer.renderInto(mazeViewport, startResult.maze());
                 liveMetricsService.setActiveMaze(startResult.maze());
               }
-              updateSystemStatus(startResult.message(), "#89ff9a");
+              updateSystemStatus(startResult.message(), UiSemanticState.RUNNING);
               emitNotification("training.start", "Training started.", "#89ff9a");
               updateSessionHud(startResult.effectiveSeed(), "visual");
               lockSessionConfigCard(startResult.effectiveSeed(), sessionConfig);
@@ -649,7 +651,9 @@ public final class MainWindow {
                 startActionProcessing = false;
                 startButton.setText("Start");
                 updateControlAvailability();
-                updateSystemStatus("Select a training preset before starting batches.", "#ff6b8a");
+                updateSystemStatus(
+                    "Select a training preset before starting batches.",
+                    UiSemanticState.VALIDATION_ERROR);
                 emitNotification(
                     "validation.preset.missing",
                     "Validation error: select a training preset before starting.",
@@ -672,13 +676,13 @@ public final class MainWindow {
                                 startButton.setText("Start");
                                 updateControlAvailability();
                                 if (error != null) {
-                                  updateSystemStatus("BATCH TRAINING CANCELLED", "#ffd166");
+                                  updateSystemStatus("BATCH TRAINING CANCELLED", UiSemanticState.PAUSED);
                                   return;
                                 }
                                 if (summary.cancelled()) {
-                                  updateSystemStatus("BATCH TRAINING CANCELLED", "#ffd166");
+                                  updateSystemStatus("BATCH TRAINING CANCELLED", UiSemanticState.PAUSED);
                                 } else {
-                                  updateSystemStatus("BATCH TRAINING FINISHED", "#7ef9ff");
+                                  updateSystemStatus("BATCH TRAINING FINISHED", UiSemanticState.SUCCESS);
                                 }
                                 refreshRecentRunsAsync();
                                 refreshCoverageSummaryAsync();
@@ -689,7 +693,7 @@ public final class MainWindow {
             "Pause",
             "#ffd166",
             () -> {
-              updateSystemStatus("PAUSE REQUESTED", "#ffd166");
+              updateSystemStatus("PAUSE REQUESTED", UiSemanticState.PAUSED);
               emitNotification("control.pause", "Pause requested.", "#ffd166");
               controlService.pause();
             });
@@ -698,7 +702,7 @@ public final class MainWindow {
             "Reset",
             "#ff6b8a",
             () -> {
-              updateSystemStatus("RESET REQUESTED", "#ff6b8a");
+              updateSystemStatus("RESET REQUESTED", UiSemanticState.TIMEOUT);
               emitNotification("control.reset", "Reset requested.", "#ff6b8a");
               trainingExecutionService.cancelTraining();
               controlService.reset();
@@ -1093,7 +1097,7 @@ public final class MainWindow {
     contextSummaryValue = timelinePlaceholder("Awaiting episode telemetry.");
     contextDetailValue = timelinePlaceholder("Algorithm/speed pending.");
     contextSignalValue = timelinePlaceholder("Signal: IDLE");
-    contextSignalValue.setTextFill(Color.web("#ffd166"));
+    contextSignalValue.setTextFill(Color.web(UiSemanticState.PAUSED.hex()));
 
     VBox panel =
         new VBox(6, title, contextModeValue, contextSummaryValue, contextDetailValue, contextSignalValue);
@@ -1846,10 +1850,10 @@ public final class MainWindow {
           if (event.getCode() == KeyCode.SPACE) {
             if (trajectoryRunning) {
               controlService.pause();
-              updateSystemStatus("SHORTCUT: PAUSE", "#ffd166");
+              updateSystemStatus("SHORTCUT: PAUSE", UiSemanticState.PAUSED);
             } else {
               controlService.start();
-              updateSystemStatus("SHORTCUT: RESUME", "#89ff9a");
+              updateSystemStatus("SHORTCUT: RESUME", UiSemanticState.RUNNING);
             }
             event.consume();
             return;
@@ -1857,7 +1861,7 @@ public final class MainWindow {
           if (event.getCode() == KeyCode.R) {
             trainingExecutionService.cancelTraining();
             controlService.reset();
-            updateSystemStatus("SHORTCUT: RESET", "#ff6b8a");
+            updateSystemStatus("SHORTCUT: RESET", UiSemanticState.TIMEOUT);
             event.consume();
           }
         });
@@ -2039,13 +2043,13 @@ public final class MainWindow {
                     && metrics.mazeCoverageRatio() < coverageAlertThreshold;
             if (timeoutAlert) {
               diagnosticAlertValue.setText("TIMEOUT RISK");
-              diagnosticAlertValue.setTextFill(Color.web("#ff6b8a"));
+              diagnosticAlertValue.setTextFill(Color.web(UiSemanticState.TIMEOUT.hex()));
             } else if (lowCoverageAlert) {
               diagnosticAlertValue.setText("LOW COVERAGE");
-              diagnosticAlertValue.setTextFill(Color.web("#ffd166"));
+              diagnosticAlertValue.setTextFill(Color.web(UiSemanticState.PAUSED.hex()));
             } else {
               diagnosticAlertValue.setText("NOMINAL");
-              diagnosticAlertValue.setTextFill(Color.web("#89ff9a"));
+              diagnosticAlertValue.setTextFill(Color.web(UiSemanticState.RUNNING.hex()));
             }
           }
           if (sideCoverageValue != null) {
@@ -2325,10 +2329,10 @@ public final class MainWindow {
       return "#5e719f";
     }
     return switch (terminalReason.trim().toUpperCase(Locale.ROOT)) {
-      case "EXIT_REACHED" -> "#89ff9a";
-      case "TIMEOUT" -> "#ffd166";
+      case "EXIT_REACHED" -> UiSemanticState.RUNNING.hex();
+      case "TIMEOUT" -> UiSemanticState.PAUSED.hex();
       case "DEAD_END" -> "#ff9f43";
-      case "ABORTED", "ERROR" -> "#ff6b8a";
+      case "ABORTED", "ERROR" -> UiSemanticState.TIMEOUT.hex();
       default -> "#5e719f";
     };
   }
@@ -2476,6 +2480,18 @@ public final class MainWindow {
     }
     systemStatusValue.setText(text);
     systemStatusValue.setTextFill(Color.web(color));
+  }
+
+  private void updateSystemStatus(String text, UiSemanticState state) {
+    updateSystemStatus(text, state.hex());
+  }
+
+  private void applySignalState(Label label, String text, UiSemanticState state) {
+    if (label == null) {
+      return;
+    }
+    label.setText(text);
+    label.setTextFill(Color.web(state.hex()));
   }
 
   private void updateSessionHud(Long seed, String mode) {
@@ -2804,8 +2820,10 @@ public final class MainWindow {
     contextModeValue.setText("Mode: LIVE");
     contextSummaryValue.setText("Episode: " + termination + " | Steps: " + steps);
     contextDetailValue.setText("Algorithm: " + policy + " | Speed: " + speed);
-    contextSignalValue.setText(active ? "Signal: STREAMING" : "Signal: IDLE");
-    contextSignalValue.setTextFill(active ? Color.web("#89ff9a") : Color.web("#ffd166"));
+    applySignalState(
+        contextSignalValue,
+        active ? "Signal: STREAMING" : "Signal: IDLE",
+        active ? UiSemanticState.RUNNING : UiSemanticState.PAUSED);
   }
 
   private void applyResumeContextSummary() {
@@ -2813,8 +2831,7 @@ public final class MainWindow {
     if (replayEpisodes.isEmpty()) {
       contextSummaryValue.setText("No successful episodes available.");
       contextDetailValue.setText("Select/complete successful runs to inspect context.");
-      contextSignalValue.setText("Signal: EMPTY");
-      contextSignalValue.setTextFill(Color.web("#ffd166"));
+      applySignalState(contextSignalValue, "Signal: EMPTY", UiSemanticState.PAUSED);
       return;
     }
     SuccessfulEpisodeReplay replay = activeReplay();
@@ -2824,8 +2841,10 @@ public final class MainWindow {
     contextSummaryValue.setText(
         "Success #" + replay.trainingRunId() + " | Terminal: " + terminalReason);
     contextDetailValue.setText("Duration: " + duration + " | Reward: " + reward);
-    contextSignalValue.setText(replayModeActive ? "Signal: PLAYING" : "Signal: READY");
-    contextSignalValue.setTextFill(replayModeActive ? Color.web("#89ff9a") : Color.web("#7ef9ff"));
+    applySignalState(
+        contextSignalValue,
+        replayModeActive ? "Signal: PLAYING" : "Signal: READY",
+        replayModeActive ? UiSemanticState.RUNNING : UiSemanticState.IDLE);
   }
 
   private void refreshUnexploredOverlay() {
@@ -2974,6 +2993,25 @@ public final class MainWindow {
 
   private record MiniHeatmapSnapshot(List<GridPosition> trajectory, GridPosition currentPosition) {}
 
+  private enum UiSemanticState {
+    RUNNING("#89ff9a"),
+    PAUSED("#ffd166"),
+    SUCCESS("#7ef9ff"),
+    TIMEOUT("#ff6b8a"),
+    VALIDATION_ERROR("#ff6b8a"),
+    IDLE("#7ef9ff");
+
+    private final String hex;
+
+    UiSemanticState(String hex) {
+      this.hex = hex;
+    }
+
+    String hex() {
+      return hex;
+    }
+  }
+
   private enum ViewportMode {
     LIVE("LIVE"),
     RESUME("RESUME");
@@ -3016,19 +3054,19 @@ public final class MainWindow {
               startTrajectoryEpisode();
               if (diagnosticAlertValue != null) {
                 diagnosticAlertValue.setText("NOMINAL");
-                diagnosticAlertValue.setTextFill(Color.web("#89ff9a"));
+                diagnosticAlertValue.setTextFill(Color.web(UiSemanticState.RUNNING.hex()));
               }
-              updateSystemStatus("TRAINING RUNNING", "#89ff9a");
+              updateSystemStatus("TRAINING RUNNING", UiSemanticState.RUNNING);
               emitNotification("event.started", "Training running.", "#89ff9a");
             }
             case PAUSED -> {
               trajectoryRunning = false;
-              updateSystemStatus("TRAINING PAUSED", "#ffd166");
+              updateSystemStatus("TRAINING PAUSED", UiSemanticState.PAUSED);
               emitNotification("event.paused", "Training paused.", "#ffd166");
             }
             case RESUMED -> {
               trajectoryRunning = true;
-              updateSystemStatus("TRAINING RESUMED", "#89ff9a");
+              updateSystemStatus("TRAINING RESUMED", UiSemanticState.RUNNING);
             }
             case FINISHED -> {
               startActionProcessing = false;
@@ -3041,7 +3079,7 @@ public final class MainWindow {
               if (event.detail() != null && event.detail().contains("RESET")) {
                 updateSessionHud(null, "visual");
               }
-              updateSystemStatus("TRAINING FINISHED", "#7ef9ff");
+              updateSystemStatus("TRAINING FINISHED", UiSemanticState.SUCCESS);
               if (lastLiveMetrics != null
                   && "EXIT_REACHED".equalsIgnoreCase(lastLiveMetrics.terminationReason())) {
                 emitNotification("event.success", "Episode success reached exit.", "#89ff9a");
@@ -3054,7 +3092,7 @@ public final class MainWindow {
               }
               trajectoryRunning = false;
               refreshPersistentHeatmapAsync();
-              updateSystemStatus("TRAINING TIMEOUT", "#ff6b8a");
+              updateSystemStatus("TRAINING TIMEOUT", UiSemanticState.TIMEOUT);
               emitNotification("event.timeout", "Episode timeout reached.", "#ff6b8a");
             }
           }

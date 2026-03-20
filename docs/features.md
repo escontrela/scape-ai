@@ -1007,6 +1007,7 @@
 - Tokens visuales para estados `running`, `paused`, `success`, `timeout` y `validation_error`.
 - Aplicacion uniforme de la paleta en badges, banners e indicadores de estado.
 - Reglas de contraste para evitar ambiguedad en estados criticos.
+- Implementacion tecnica: `MainWindow` introduce `UiSemanticState` y reutiliza tokens comunes para banner de estado, alertas diagnosticas y senales de contexto.
 
 ### SCAPE-0088 - Panel lateral colapsable de detalles de episodio
 - Objetivo funcional: exponer diagnostico avanzado sin saturar la vista principal.
