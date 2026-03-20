@@ -7,6 +7,14 @@ import com.davidpe.scapeai.application.MazeCoverageSummaryRow;
 import com.davidpe.scapeai.application.MazeCoverageSummaryService;
 import com.davidpe.scapeai.application.MovementPolicyOption;
 import com.davidpe.scapeai.application.PersistentMazeHeatmapService;
+import com.davidpe.scapeai.application.PersistedAssetCatalogItem;
+import com.davidpe.scapeai.application.PersistedAssetCatalogService;
+import com.davidpe.scapeai.application.PersistedAssetCleanupService;
+import com.davidpe.scapeai.application.PersistedAssetDeletionCandidate;
+import com.davidpe.scapeai.application.PersistedAssetPreview;
+import com.davidpe.scapeai.application.PersistedAssetPreviewService;
+import com.davidpe.scapeai.application.PersistedAssetRef;
+import com.davidpe.scapeai.application.PersistedAssetType;
 import com.davidpe.scapeai.application.RecentRunComparisonRow;
 import com.davidpe.scapeai.application.RecentRunsComparisonService;
 import com.davidpe.scapeai.application.RecentRunsSortOption;
@@ -56,7 +64,9 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
@@ -82,6 +92,9 @@ public final class MainWindow {
   private final LiveMetricsService liveMetricsService;
   private final RecentRunsComparisonService recentRunsComparisonService;
   private final PersistentMazeHeatmapService persistentMazeHeatmapService;
+  private final PersistedAssetCatalogService persistedAssetCatalogService;
+  private final PersistedAssetPreviewService persistedAssetPreviewService;
+  private final PersistedAssetCleanupService persistedAssetCleanupService;
   private final MazeCoverageSummaryService mazeCoverageSummaryService;
   private final TrainingSessionRepository trainingSessionRepository;
   private final TrainingRunRepository trainingRunRepository;
@@ -139,6 +152,13 @@ public final class MainWindow {
   private TextArea reviewTrajectoryArea;
   private StackPane workspaceStack;
   private VBox reviewPanel;
+  private VBox assetsPanel;
+  private ComboBox<PersistedAssetType> assetTypeFilter;
+  private ComboBox<String> assetStateFilter;
+  private ListView<PersistedAssetCatalogItem> assetListView;
+  private TextArea assetPreviewArea;
+  private Label assetsStatusValue;
+  private List<PersistedAssetCatalogItem> assetCatalogCache = List.of();
   private StackPane mazeViewport;
   private MazeDefinition selectedMaze;
   private String selectedMazeName;
@@ -166,6 +186,9 @@ public final class MainWindow {
       LiveMetricsService liveMetricsService,
       RecentRunsComparisonService recentRunsComparisonService,
       PersistentMazeHeatmapService persistentMazeHeatmapService,
+      PersistedAssetCatalogService persistedAssetCatalogService,
+      PersistedAssetPreviewService persistedAssetPreviewService,
+      PersistedAssetCleanupService persistedAssetCleanupService,
       MazeCoverageSummaryService mazeCoverageSummaryService,
       TrainingSessionRepository trainingSessionRepository,
       TrainingRunRepository trainingRunRepository,
@@ -184,6 +207,9 @@ public final class MainWindow {
     this.liveMetricsService = liveMetricsService;
     this.recentRunsComparisonService = recentRunsComparisonService;
     this.persistentMazeHeatmapService = persistentMazeHeatmapService;
+    this.persistedAssetCatalogService = persistedAssetCatalogService;
+    this.persistedAssetPreviewService = persistedAssetPreviewService;
+    this.persistedAssetCleanupService = persistedAssetCleanupService;
     this.mazeCoverageSummaryService = mazeCoverageSummaryService;
     this.trainingSessionRepository = trainingSessionRepository;
     this.trainingRunRepository = trainingRunRepository;
@@ -213,7 +239,10 @@ public final class MainWindow {
     reviewPanel = buildReviewPanel();
     reviewPanel.setVisible(false);
     reviewPanel.setManaged(false);
-    workspaceStack = new StackPane(dashboardPane, reviewPanel);
+    assetsPanel = buildAssetsPanel();
+    assetsPanel.setVisible(false);
+    assetsPanel.setManaged(false);
+    workspaceStack = new StackPane(dashboardPane, reviewPanel, assetsPanel);
     content.setCenter(workspaceStack);
 
     ScrollPane mainScroll = new ScrollPane(content);
@@ -234,6 +263,7 @@ public final class MainWindow {
     refreshRecentRunsAsync();
     refreshCoverageSummaryAsync();
     refreshReviewSessionsAsync();
+    refreshAssetCatalogAsync();
 
     Scene scene = new Scene(mainScroll, 1200, 760);
     var neonScrollCss =
@@ -263,10 +293,12 @@ public final class MainWindow {
     executionModeValue.setFont(Font.font("Consolas", 13));
     executionModeValue.setTextFill(Color.web("#9db2ff"));
 
-    Button dashboardButton = neonButton("Dashboard", "#7ef9ff", () -> setReviewMode(false));
+    Button dashboardButton = neonButton("Dashboard", "#7ef9ff", this::showDashboardMode);
     dashboardButton.setMinWidth(110);
-    Button reviewButton = neonButton("Review", "#ffd166", () -> setReviewMode(true));
+    Button reviewButton = neonButton("Review", "#ffd166", this::showReviewMode);
     reviewButton.setMinWidth(110);
+    Button assetsButton = neonButton("Assets", "#ffb86b", this::showAssetsMode);
+    assetsButton.setMinWidth(110);
 
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -278,6 +310,7 @@ public final class MainWindow {
             spacer,
             dashboardButton,
             reviewButton,
+            assetsButton,
             sessionSeedValue,
             executionModeValue,
             systemStatusValue);
@@ -978,14 +1011,226 @@ public final class MainWindow {
     return panel;
   }
 
-  private void setReviewMode(boolean reviewMode) {
-    if (reviewPanel == null) {
+  private VBox buildAssetsPanel() {
+    Label title = panelTitle("Assets Review");
+    Label filtersTitle = new Label("FILTERS");
+    filtersTitle.setTextFill(Color.web("#9db2ff"));
+    filtersTitle.setFont(Font.font("Consolas", 12));
+
+    assetTypeFilter =
+        new ComboBox<>(
+            FXCollections.observableArrayList(
+                (PersistedAssetType) null,
+                PersistedAssetType.MAZE,
+                PersistedAssetType.TRAINING_RUN,
+                PersistedAssetType.TRAINING_PRESET,
+                PersistedAssetType.TRAINING_SESSION,
+                PersistedAssetType.EXPERIENCE_TRANSITION,
+                PersistedAssetType.MAZE_POLICY_COVERAGE,
+                PersistedAssetType.EXPLORATION_BUDGET));
+    assetTypeFilter.setMaxWidth(Double.MAX_VALUE);
+    assetTypeFilter.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #ffb86b;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    assetTypeFilter.setCellFactory(
+        ignored ->
+            new javafx.scene.control.ListCell<>() {
+              @Override
+              protected void updateItem(PersistedAssetType item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item == null ? "All types" : item.name());
+              }
+            });
+    assetTypeFilter.setButtonCell(
+        new javafx.scene.control.ListCell<>() {
+          @Override
+          protected void updateItem(PersistedAssetType item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty ? null : item == null ? "All types" : item.name());
+          }
+        });
+    assetTypeFilter.getSelectionModel().selectFirst();
+    assetTypeFilter
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener((ignored, oldType, newType) -> applyAssetFilters());
+
+    assetStateFilter = new ComboBox<>(FXCollections.observableArrayList("All states", "Deletable", "Blocked"));
+    assetStateFilter.getSelectionModel().selectFirst();
+    assetStateFilter.setMaxWidth(Double.MAX_VALUE);
+    assetStateFilter.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #ffb86b;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    assetStateFilter
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener((ignored, oldValue, newValue) -> applyAssetFilters());
+
+    assetListView = new ListView<>();
+    assetListView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+    assetListView.setPrefHeight(360);
+    assetListView.setStyle(
+        "-fx-background-color: #081124;"
+            + "-fx-control-inner-background: #081124;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #ffb86b;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    assetListView.setCellFactory(
+        ignored ->
+            new javafx.scene.control.ListCell<>() {
+              @Override
+              protected void updateItem(PersistedAssetCatalogItem item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                  setText(null);
+                  return;
+                }
+                String updated =
+                    item.updatedAtEpochMillis() == null
+                        ? "-"
+                        : Long.toString(item.updatedAtEpochMillis());
+                setText(
+                    item.type()
+                        + " #"
+                        + item.assetId()
+                        + " | updated="
+                        + updated
+                        + " | size~"
+                        + item.estimatedSizeBytes()
+                        + "B");
+              }
+            });
+    assetListView
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldItem, selectedItem) -> {
+              if (selectedItem == null) {
+                assetPreviewArea.setText("Select an asset to inspect preview.");
+                return;
+              }
+              refreshAssetPreviewAsync(selectedItem);
+            });
+
+    assetPreviewArea = readonlyArea("Loading assets...");
+    assetPreviewArea.setPrefRowCount(14);
+    assetPreviewArea.setFont(Font.font("Consolas", 12));
+
+    assetsStatusValue = timelinePlaceholder("Loading persisted assets...");
+    Button refreshButton = neonButton("Refresh Catalog", "#ffb86b", this::refreshAssetCatalogAsync);
+
+    VBox panel =
+        new VBox(
+            10,
+            title,
+            filtersTitle,
+            assetTypeFilter,
+            assetStateFilter,
+            refreshButton,
+            assetsStatusValue,
+            assetListView,
+            new Label("TEXT PREVIEW"),
+            assetPreviewArea);
+    panel.setPadding(new Insets(18));
+    panel.setStyle(panelStyle());
+    panel.setFillWidth(true);
+    return panel;
+  }
+
+  private void refreshAssetCatalogAsync() {
+    recentRunsExecutor.execute(
+        () -> {
+          List<PersistedAssetCatalogItem> items = persistedAssetCatalogService.listAll();
+          Platform.runLater(
+              () -> {
+                assetCatalogCache = items;
+                applyAssetFilters();
+                if (assetsStatusValue != null) {
+                  assetsStatusValue.setText("Assets loaded: " + items.size());
+                }
+              });
+        });
+  }
+
+  private void applyAssetFilters() {
+    if (assetListView == null) {
       return;
     }
-    reviewPanel.setVisible(reviewMode);
-    reviewPanel.setManaged(reviewMode);
-    if (reviewMode) {
+    PersistedAssetType selectedType = assetTypeFilter == null ? null : assetTypeFilter.getValue();
+    String stateFilter = assetStateFilter == null ? "All states" : assetStateFilter.getValue();
+    List<PersistedAssetCatalogItem> filtered =
+        assetCatalogCache.stream()
+            .filter(item -> selectedType == null || item.type() == selectedType)
+            .filter(
+                item -> {
+                  if (stateFilter == null || "All states".equals(stateFilter)) {
+                    return true;
+                  }
+                  List<PersistedAssetDeletionCandidate> evaluated =
+                      persistedAssetCleanupService.evaluate(
+                          List.of(new PersistedAssetRef(item.type(), item.assetId())));
+                  boolean deletable =
+                      !evaluated.isEmpty() && evaluated.get(0) != null && evaluated.get(0).eligible();
+                  return "Deletable".equals(stateFilter) ? deletable : !deletable;
+                })
+            .toList();
+    assetListView.getItems().setAll(filtered);
+    if (filtered.isEmpty()) {
+      assetPreviewArea.setText("No assets for current filters.");
+    }
+  }
+
+  private void refreshAssetPreviewAsync(PersistedAssetCatalogItem item) {
+    recentRunsExecutor.execute(
+        () -> {
+          String preview =
+              persistedAssetPreviewService
+                  .render(item.type(), item.assetId())
+                  .map(PersistedAssetPreview::content)
+                  .orElse("No preview available for this asset.");
+          Platform.runLater(() -> assetPreviewArea.setText(preview));
+        });
+  }
+
+  private void showDashboardMode() {
+    if (reviewPanel != null) {
+      reviewPanel.setVisible(false);
+      reviewPanel.setManaged(false);
+    }
+    if (assetsPanel != null) {
+      assetsPanel.setVisible(false);
+      assetsPanel.setManaged(false);
+    }
+  }
+
+  private void showReviewMode() {
+    if (reviewPanel != null) {
+      reviewPanel.setVisible(true);
+      reviewPanel.setManaged(true);
       refreshReviewSessionsAsync();
+    }
+    if (assetsPanel != null) {
+      assetsPanel.setVisible(false);
+      assetsPanel.setManaged(false);
+    }
+  }
+
+  private void showAssetsMode() {
+    if (assetsPanel != null) {
+      assetsPanel.setVisible(true);
+      assetsPanel.setManaged(true);
+      refreshAssetCatalogAsync();
+    }
+    if (reviewPanel != null) {
+      reviewPanel.setVisible(false);
+      reviewPanel.setManaged(false);
     }
   }
 

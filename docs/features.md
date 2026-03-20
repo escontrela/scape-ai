@@ -848,3 +848,11 @@
 - Politicas de dependencia: bloquea borrado de `MAZE` con runs/cobertura/sesiones dependientes, `TRAINING_SESSION` con runs asociados y `TRAINING_PRESET` con sesiones o budgets asociados.
 - Soporte de resultado parcial (`deleted`, `blocked`, `failed`) para reflejar exito parcial y errores operativos sin abortar toda la seleccion.
 - Trazabilidad operativa minima en logs (`info/warn/error`) por cada intento de eliminacion.
+
+### SCAPE-0073 - Pantalla JavaFX de revision de assets BBDD
+- Objetivo funcional: habilitar una pantalla navegable para inspeccionar assets persistidos desde la aplicacion principal.
+- Alcance introducido:
+- `MainWindow` incorpora nuevo workspace `Assets` accesible desde el header junto a `Dashboard` y `Review`.
+- El panel lista assets persistidos con seleccion multiple y muestra preview textual monoespaciada del asset seleccionado.
+- Filtros minimos incluidos: por tipo de asset y por estado de borrado (`All states`, `Deletable`, `Blocked`).
+- Carga de catalogo y preview ejecutada en `recentRunsExecutor` con actualizacion en `Platform.runLater` para evitar bloqueo del hilo JavaFX.
