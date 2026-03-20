@@ -23,6 +23,8 @@ import com.davidpe.scapeai.application.SimulationSpeed;
 import com.davidpe.scapeai.application.StartTrainingSessionCommand;
 import com.davidpe.scapeai.application.StartTrainingSessionResult;
 import com.davidpe.scapeai.application.StartTrainingSessionUseCase;
+import com.davidpe.scapeai.application.SuccessfulEpisodeReplay;
+import com.davidpe.scapeai.application.SuccessfulEpisodeResumeService;
 import com.davidpe.scapeai.application.TrainingBudget;
 import com.davidpe.scapeai.application.TrainingExecutionService;
 import com.davidpe.scapeai.application.TrainingLifecycleEvent;
@@ -54,6 +56,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -101,6 +104,7 @@ public final class MainWindow {
   private final TrainingSessionSummaryService trainingSessionSummaryService;
   private final TrainingSessionAsciiTrendRenderer trainingSessionAsciiTrendRenderer;
   private final TrainingEpisodeDetailService trainingEpisodeDetailService;
+  private final SuccessfulEpisodeResumeService successfulEpisodeResumeService;
   private final MazeCatalogService mazeCatalogService;
   private final MazeViewportRenderer mazeViewportRenderer;
   private final ScheduledExecutorService trajectoryScheduler =
@@ -168,13 +172,19 @@ public final class MainWindow {
   private volatile boolean trajectoryRunning;
   private volatile boolean unexploredOverlayEnabled;
   private volatile boolean miniHeatmapEnabled = true;
+  private volatile boolean replayModeActive;
   private volatile boolean sessionConfigLocked;
   private volatile TrainingTargetDifficulty selectedTargetDifficulty =
       TrainingTargetDifficulty.MEDIUM;
   private volatile HeatmapComparisonMode heatmapComparisonMode = HeatmapComparisonMode.SUPERPOSED;
   private volatile List<CellVisitFrequency> accumulatedHeatmapFrequencies = List.of();
+  private volatile List<SuccessfulEpisodeReplay> replayEpisodes = List.of();
   private volatile String selectedReviewSessionId;
   private volatile Long selectedReviewRunId;
+  private volatile int replayEpisodeIndex;
+  private volatile int replayTrajectoryIndex;
+  private volatile ScheduledFuture<?> replayTicker;
+  private Label replayStatusValue;
   private final double coverageAlertThreshold;
   private final int persistentHeatmapRuns;
 
@@ -195,6 +205,7 @@ public final class MainWindow {
       TrainingSessionSummaryService trainingSessionSummaryService,
       TrainingSessionAsciiTrendRenderer trainingSessionAsciiTrendRenderer,
       TrainingEpisodeDetailService trainingEpisodeDetailService,
+      SuccessfulEpisodeResumeService successfulEpisodeResumeService,
       MazeCatalogService mazeCatalogService,
       MazeViewportRenderer mazeViewportRenderer,
       TrainingLifecycleSubscriberRouter trainingLifecycleSubscriberRouter,
@@ -216,6 +227,7 @@ public final class MainWindow {
     this.trainingSessionSummaryService = trainingSessionSummaryService;
     this.trainingSessionAsciiTrendRenderer = trainingSessionAsciiTrendRenderer;
     this.trainingEpisodeDetailService = trainingEpisodeDetailService;
+    this.successfulEpisodeResumeService = successfulEpisodeResumeService;
     this.mazeCatalogService = mazeCatalogService;
     this.mazeViewportRenderer = mazeViewportRenderer;
     this.coverageAlertThreshold = Math.max(0.0, Math.min(1.0, coverageAlertThreshold));
@@ -740,10 +752,31 @@ public final class MainWindow {
       }
     }
 
-    VBox panel = new VBox(12, title, sortLabel, sortSelector, mazeSelector, mazeViewport);
+    Label replayTitle = new Label("SUCCESS REPLAY");
+    replayTitle.setTextFill(Color.web("#9db2ff"));
+    replayTitle.setFont(Font.font("Consolas", 12));
+    replayStatusValue = timelinePlaceholder("Replay idle.");
+    Button replayPlay = neonButton("Play", "#7ef9ff", this::playReplay);
+    Button replayPause = neonButton("Pause", "#ffd166", this::pauseReplay);
+    Button replayRestart = neonButton("Restart", "#89ff9a", this::restartReplay);
+    Button replayNext = neonButton("Next Success", "#ffb86b", this::nextReplayEpisode);
+    HBox replayControls = new HBox(8, replayPlay, replayPause, replayRestart, replayNext);
+
+    VBox panel =
+        new VBox(
+            12,
+            title,
+            sortLabel,
+            sortSelector,
+            mazeSelector,
+            replayTitle,
+            replayStatusValue,
+            replayControls,
+            mazeViewport);
     panel.setPadding(new Insets(18));
     panel.setStyle(panelStyle());
     BorderPane.setMargin(panel, new Insets(0, 16, 0, 16));
+    refreshReplayEpisodesAsync();
     return panel;
   }
 
@@ -1672,6 +1705,9 @@ public final class MainWindow {
   }
 
   private void renderLiveViewport(LiveEpisodeMetrics metrics) {
+    if (replayModeActive) {
+      return;
+    }
     if (metrics == null) {
       return;
     }
@@ -2113,6 +2149,155 @@ public final class MainWindow {
     // Live trajectory now comes from LiveMetricsService updates.
   }
 
+  private void refreshReplayEpisodesAsync() {
+    recentRunsExecutor.execute(
+        () -> {
+          List<TrainingSessionEntity> sessions = trainingSessionRepository.findRecent(1);
+          if (sessions.isEmpty()) {
+            Platform.runLater(
+                () -> {
+                  replayEpisodes = List.of();
+                  replayEpisodeIndex = 0;
+                  replayTrajectoryIndex = 0;
+                  if (replayStatusValue != null) {
+                    replayStatusValue.setText("No successful episodes yet.");
+                  }
+                });
+            return;
+          }
+          String sessionId = sessions.get(0).id();
+          List<SuccessfulEpisodeReplay> replays =
+              successfulEpisodeResumeService.listByTrainingSession(sessionId, 40);
+          Platform.runLater(() -> applyReplayEpisodes(sessionId, replays));
+        });
+  }
+
+  private void applyReplayEpisodes(String sessionId, List<SuccessfulEpisodeReplay> replays) {
+    replayEpisodes = replays == null ? List.of() : List.copyOf(replays);
+    replayEpisodeIndex = 0;
+    replayTrajectoryIndex = 0;
+    if (replayEpisodes.isEmpty()) {
+      if (replayStatusValue != null) {
+        replayStatusValue.setText("Session " + sessionId + ": no EXIT_REACHED episodes.");
+      }
+      return;
+    }
+    if (replayStatusValue != null) {
+      replayStatusValue.setText(
+          "Session " + sessionId + ": loaded " + replayEpisodes.size() + " successful replay(s).");
+    }
+    renderReplayFrame();
+  }
+
+  private void playReplay() {
+    if (replayEpisodes.isEmpty()) {
+      if (replayStatusValue != null) {
+        replayStatusValue.setText("No successful episodes available to replay.");
+      }
+      return;
+    }
+    replayModeActive = true;
+    stopReplayTicker();
+    long period = Math.max(40L, liveMetricsService.simulationSpeed().trajectoryTickMillis());
+    replayTicker =
+        trajectoryScheduler.scheduleAtFixedRate(
+            this::advanceReplayFrame, period, period, TimeUnit.MILLISECONDS);
+    if (replayStatusValue != null) {
+      replayStatusValue.setText("Replay playing episode #" + activeReplay().trainingRunId());
+    }
+  }
+
+  private void pauseReplay() {
+    stopReplayTicker();
+    replayModeActive = false;
+    if (replayStatusValue != null && !replayEpisodes.isEmpty()) {
+      replayStatusValue.setText(
+          "Replay paused at step " + replayTrajectoryIndex + " of #" + activeReplay().trainingRunId());
+    }
+  }
+
+  private void restartReplay() {
+    if (replayEpisodes.isEmpty()) {
+      return;
+    }
+    replayModeActive = true;
+    replayTrajectoryIndex = 0;
+    renderReplayFrame();
+    if (replayStatusValue != null) {
+      replayStatusValue.setText("Replay restarted for #" + activeReplay().trainingRunId());
+    }
+  }
+
+  private void nextReplayEpisode() {
+    if (replayEpisodes.isEmpty()) {
+      return;
+    }
+    replayModeActive = true;
+    replayEpisodeIndex = (replayEpisodeIndex + 1) % replayEpisodes.size();
+    replayTrajectoryIndex = 0;
+    renderReplayFrame();
+    if (replayStatusValue != null) {
+      replayStatusValue.setText("Replay switched to #" + activeReplay().trainingRunId());
+    }
+  }
+
+  private void advanceReplayFrame() {
+    if (!replayModeActive || replayEpisodes.isEmpty()) {
+      return;
+    }
+    SuccessfulEpisodeReplay replay = activeReplay();
+    if (replay.trajectory().isEmpty()) {
+      stopReplayTicker();
+      return;
+    }
+    replayTrajectoryIndex = Math.min(replayTrajectoryIndex + 1, replay.trajectory().size());
+    Platform.runLater(this::renderReplayFrame);
+    if (replayTrajectoryIndex >= replay.trajectory().size()) {
+      stopReplayTicker();
+      replayModeActive = false;
+      Platform.runLater(
+          () -> {
+            if (replayStatusValue != null) {
+              replayStatusValue.setText("Replay finished for #" + replay.trainingRunId());
+            }
+          });
+    }
+  }
+
+  private void renderReplayFrame() {
+    if (replayEpisodes.isEmpty()) {
+      return;
+    }
+    SuccessfulEpisodeReplay replay = activeReplay();
+    List<GridPosition> trajectory = replay.trajectory();
+    if (trajectory.isEmpty()) {
+      mazeViewportRenderer.clearTrajectory();
+      return;
+    }
+    int endExclusive = Math.max(1, Math.min(replayTrajectoryIndex + 1, trajectory.size()));
+    List<GridPosition> frame = trajectory.subList(0, endExclusive);
+    mazeViewportRenderer.renderTrajectory(frame);
+    if (miniHeatmapEnabled) {
+      renderMiniHeatmap(frame, frame.get(frame.size() - 1));
+    }
+    if (unexploredOverlayEnabled) {
+      mazeViewportRenderer.renderUnexploredOverlay(frame);
+    }
+  }
+
+  private SuccessfulEpisodeReplay activeReplay() {
+    int safeIndex = Math.max(0, Math.min(replayEpisodeIndex, replayEpisodes.size() - 1));
+    replayEpisodeIndex = safeIndex;
+    return replayEpisodes.get(safeIndex);
+  }
+
+  private synchronized void stopReplayTicker() {
+    if (replayTicker != null) {
+      replayTicker.cancel(false);
+      replayTicker = null;
+    }
+  }
+
   private void refreshUnexploredOverlay() {
     if (!unexploredOverlayEnabled) {
       Platform.runLater(mazeViewportRenderer::clearUnexploredOverlay);
@@ -2281,6 +2466,8 @@ public final class MainWindow {
         () -> {
           switch (event.type()) {
             case STARTED -> {
+              stopReplayTicker();
+              replayModeActive = false;
               startTrajectoryEpisode();
               if (diagnosticAlertValue != null) {
                 diagnosticAlertValue.setText("NOMINAL");
@@ -2299,6 +2486,7 @@ public final class MainWindow {
             case FINISHED -> {
               resetTrajectoryEpisode();
               refreshPersistentHeatmapAsync();
+              refreshReplayEpisodesAsync();
               if (event.detail() != null && event.detail().contains("RESET")) {
                 updateSessionHud(null, "visual");
               }
@@ -2316,6 +2504,7 @@ public final class MainWindow {
   @PreDestroy
   public synchronized void shutdownTrajectoryOverlay() {
     stopTrajectoryTicker();
+    stopReplayTicker();
     trajectoryScheduler.shutdownNow();
     recentRunsExecutor.shutdownNow();
   }
