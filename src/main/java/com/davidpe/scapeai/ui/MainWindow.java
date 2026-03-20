@@ -51,9 +51,11 @@ import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -130,6 +132,8 @@ public final class MainWindow {
   private final SuccessfulEpisodeResumeService successfulEpisodeResumeService;
   private final MazeCatalogService mazeCatalogService;
   private final MazeViewportRenderer mazeViewportRenderer;
+  private final MazeViewportRenderer splitActiveViewportRenderer = new MazeViewportRenderer();
+  private final MazeViewportRenderer splitBaselineViewportRenderer = new MazeViewportRenderer();
   private final ScheduledExecutorService trajectoryScheduler =
       Executors.newSingleThreadScheduledExecutor(
           runnable -> {
@@ -198,6 +202,14 @@ public final class MainWindow {
   private Label assetsStatusValue;
   private List<PersistedAssetCatalogItem> assetCatalogCache = List.of();
   private StackPane mazeViewport;
+  private StackPane splitActiveMazeViewport;
+  private StackPane baselineMazeViewport;
+  private HBox splitViewportRow;
+  private Label splitModeStatusValue;
+  private Label splitActivePolicyValue;
+  private Label splitBaselinePolicyValue;
+  private Label splitActiveMetricsValue;
+  private Label splitBaselineMetricsValue;
   private MazeDefinition selectedMaze;
   private String selectedMazeName;
   private volatile RecentRunsSortOption selectedRecentRunsSort = RecentRunsSortOption.BY_DATE;
@@ -210,6 +222,7 @@ public final class MainWindow {
   private volatile boolean episodeDetailsCollapsed;
   private volatile boolean startActionProcessing;
   private volatile boolean focusModeEnabled;
+  private volatile boolean splitViewEnabled;
   private volatile boolean detailsCollapsedBeforeFocus;
   private volatile boolean replayModeActive;
   private volatile ViewportMode viewportMode = ViewportMode.LIVE;
@@ -218,6 +231,7 @@ public final class MainWindow {
       TrainingTargetDifficulty.MEDIUM;
   private volatile HeatmapComparisonMode heatmapComparisonMode = HeatmapComparisonMode.SUPERPOSED;
   private volatile List<CellVisitFrequency> accumulatedHeatmapFrequencies = List.of();
+  private volatile List<GridPosition> splitBaselineTrajectory = List.of();
   private volatile List<SuccessfulEpisodeReplay> replayEpisodes = List.of();
   private volatile LiveEpisodeMetrics lastLiveMetrics;
   private volatile String selectedReviewSessionId;
@@ -884,6 +898,29 @@ public final class MainWindow {
             + "-fx-border-width: 1;"
             + "-fx-border-radius: 8;"
             + "-fx-background-radius: 8;");
+    splitActiveMazeViewport = new StackPane();
+    splitActiveMazeViewport.setAlignment(Pos.CENTER);
+    splitActiveMazeViewport.setMinHeight(520);
+    splitActiveMazeViewport.setStyle(
+        "-fx-background-color: #0a1329;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-width: 1;"
+            + "-fx-border-radius: 8;"
+            + "-fx-background-radius: 8;");
+    baselineMazeViewport = new StackPane();
+    baselineMazeViewport.setAlignment(Pos.CENTER);
+    baselineMazeViewport.setMinHeight(520);
+    baselineMazeViewport.setStyle(
+        "-fx-background-color: #10172e;"
+            + "-fx-border-color: #ffd166;"
+            + "-fx-border-width: 1;"
+            + "-fx-border-radius: 8;"
+            + "-fx-background-radius: 8;");
+    splitModeStatusValue = timelinePlaceholder("Split view disabled.");
+    splitActivePolicyValue = timelinePlaceholder("ACTIVE: -");
+    splitBaselinePolicyValue = timelinePlaceholder("BASELINE: HEURISTIC_BASELINE");
+    splitActiveMetricsValue = timelinePlaceholder("steps=0 | collisions=0 | reward=0.0");
+    splitBaselineMetricsValue = timelinePlaceholder("steps=0 | collisions=0 | reward=0.0");
     miniMapStatusValue = timelinePlaceholder("Minimap idle.");
     miniMapGrid = new GridPane();
     miniMapGrid.setHgap(1.0);
@@ -908,7 +945,10 @@ public final class MainWindow {
                 selectedMazeName = selectedName;
                 selectedMaze = maze;
                 accumulatedHeatmapFrequencies = List.of();
+                splitBaselineTrajectory = List.of();
                 mazeViewportRenderer.renderInto(mazeViewport, maze);
+                splitActiveViewportRenderer.renderInto(splitActiveMazeViewport, maze);
+                splitBaselineViewportRenderer.renderInto(baselineMazeViewport, maze);
                 liveMetricsService.setActiveMaze(maze);
                 resetTrajectoryEpisode();
                 refreshUnexploredOverlay();
@@ -927,7 +967,10 @@ public final class MainWindow {
         selectedMazeName = mazeSelector.getValue();
         selectedMaze = firstMaze;
         accumulatedHeatmapFrequencies = List.of();
+        splitBaselineTrajectory = List.of();
         mazeViewportRenderer.renderInto(mazeViewport, firstMaze);
+        splitActiveViewportRenderer.renderInto(splitActiveMazeViewport, firstMaze);
+        splitBaselineViewportRenderer.renderInto(baselineMazeViewport, firstMaze);
         liveMetricsService.setActiveMaze(firstMaze);
         refreshUnexploredOverlay();
         refreshMiniHeatmap();
@@ -949,6 +992,14 @@ public final class MainWindow {
     episodeDetailsToggleButton =
         neonButton("Episode Details: ON", "#9db2ff", this::toggleEpisodeDetailsPanel);
     focusModeToggleButton = neonButton("Focus Mode: OFF", "#7ef9ff", this::toggleFocusMode);
+    Button splitViewToggle = neonButton("Split View: OFF", "#ffd166", () -> {});
+    splitViewToggle.setOnAction(
+        event -> {
+          splitViewEnabled = !splitViewEnabled;
+          splitViewToggle.setText(splitViewEnabled ? "Split View: ON" : "Split View: OFF");
+          applySplitViewState();
+          refreshSplitView(trajectorySnapshot(), trajectoryCurrent, lastLiveMetrics);
+        });
     focusModeHud = buildFocusModeHud();
     HBox replayControls =
         new HBox(
@@ -958,7 +1009,21 @@ public final class MainWindow {
             replayRestart,
             replayNext,
             episodeDetailsToggleButton,
-            focusModeToggleButton);
+            focusModeToggleButton,
+            splitViewToggle);
+    VBox activeSplitCard =
+        buildSplitViewportCard(
+            "ACTIVE ALGORITHM",
+            splitActivePolicyValue,
+            splitActiveMetricsValue,
+            splitActiveMazeViewport,
+            "#2cf1ff");
+    VBox baselineSplitCard =
+        buildSplitViewportCard(
+            "BASELINE", splitBaselinePolicyValue, splitBaselineMetricsValue, baselineMazeViewport, "#ffd166");
+    splitViewportRow = new HBox(10, activeSplitCard, baselineSplitCard);
+    splitViewportRow.setVisible(false);
+    splitViewportRow.setManaged(false);
     Label minimapTitle = new Label("MINIMAP");
     minimapTitle.setTextFill(Color.web("#9db2ff"));
     minimapTitle.setFont(Font.font("Consolas", 12));
@@ -975,10 +1040,12 @@ public final class MainWindow {
             replayTitle,
             replayStatusValue,
             replayControls,
+            splitModeStatusValue,
             minimapTitle,
             miniMapStatusValue,
             miniMapGrid,
             focusModeHud,
+            splitViewportRow,
             mazeViewport);
     panel.setPadding(new Insets(16));
     panel.setStyle(panelStyle());
@@ -987,6 +1054,7 @@ public final class MainWindow {
     refreshFocusModeHud();
     refreshReplayEpisodesAsync();
     refreshMiniMap();
+    applySplitViewState();
     return panel;
   }
 
@@ -1012,6 +1080,46 @@ public final class MainWindow {
     hud.setVisible(false);
     hud.setManaged(false);
     return hud;
+  }
+
+  private VBox buildSplitViewportCard(
+      String titleText,
+      Label policyValue,
+      Label metricsValue,
+      StackPane viewport,
+      String accentColor) {
+    Label title = new Label(titleText);
+    title.setTextFill(Color.web("#9db2ff"));
+    title.setFont(Font.font("Consolas", 12));
+    VBox card = new VBox(6, title, policyValue, metricsValue, viewport);
+    VBox.setVgrow(viewport, Priority.ALWAYS);
+    card.setStyle(
+        "-fx-background-color: rgba(8, 17, 36, 0.96);"
+            + "-fx-border-color: "
+            + accentColor
+            + ";"
+            + "-fx-border-radius: 8;"
+            + "-fx-background-radius: 8;"
+            + "-fx-padding: 8;");
+    card.setFillWidth(true);
+    HBox.setHgrow(card, Priority.ALWAYS);
+    return card;
+  }
+
+  private void applySplitViewState() {
+    if (splitViewportRow == null || mazeViewport == null) {
+      return;
+    }
+    splitViewportRow.setVisible(splitViewEnabled);
+    splitViewportRow.setManaged(splitViewEnabled);
+    mazeViewport.setVisible(!splitViewEnabled);
+    mazeViewport.setManaged(!splitViewEnabled);
+    if (splitModeStatusValue != null) {
+      splitModeStatusValue.setText(
+          splitViewEnabled
+              ? "Split view active (ACTIVE vs HEURISTIC_BASELINE)."
+              : "Split view disabled.");
+    }
   }
 
   private void refreshMazeSelector(ComboBox<String> mazeSelector, boolean ascendingDifficulty) {
@@ -2097,6 +2205,14 @@ public final class MainWindow {
       mazeViewport.setMinHeight(scaledViewportHeight);
       mazeViewport.setPrefHeight(scaledViewportHeight);
     }
+    if (splitActiveMazeViewport != null) {
+      splitActiveMazeViewport.setMinHeight(scaledViewportHeight);
+      splitActiveMazeViewport.setPrefHeight(scaledViewportHeight);
+    }
+    if (baselineMazeViewport != null) {
+      baselineMazeViewport.setMinHeight(scaledViewportHeight);
+      baselineMazeViewport.setPrefHeight(scaledViewportHeight);
+    }
     if (rootContent != null) {
       rootContent.setPadding(new Insets(20.0 * scaleTokens.spacingScale()));
     }
@@ -2335,12 +2451,15 @@ public final class MainWindow {
       trajectoryCurrent = metrics.currentPosition();
     }
     mazeViewportRenderer.renderTrajectory(metrics.trajectory());
+    splitActiveViewportRenderer.renderTrajectory(metrics.trajectory());
     if (unexploredOverlayEnabled) {
       mazeViewportRenderer.renderUnexploredOverlay(metrics.trajectory());
+      splitActiveViewportRenderer.renderUnexploredOverlay(metrics.trajectory());
     }
     if (miniHeatmapEnabled) {
       renderMiniHeatmap(metrics.trajectory(), metrics.currentPosition());
     }
+    refreshSplitView(metrics.trajectory(), metrics.currentPosition(), metrics);
     refreshMiniMap();
   }
 
@@ -2923,6 +3042,8 @@ public final class MainWindow {
       trajectoryCells.add(trajectoryCurrent);
     }
     Platform.runLater(() -> mazeViewportRenderer.renderTrajectory(List.copyOf(trajectoryCells)));
+    Platform.runLater(
+        () -> splitActiveViewportRenderer.renderTrajectory(List.copyOf(trajectoryCells)));
     refreshUnexploredOverlay();
     refreshMiniHeatmap();
     refreshMiniMap();
@@ -2936,7 +3057,10 @@ public final class MainWindow {
       trajectoryCurrent = null;
     }
     Platform.runLater(mazeViewportRenderer::clearTrajectory);
+    Platform.runLater(splitActiveViewportRenderer::clearTrajectory);
     Platform.runLater(mazeViewportRenderer::clearUnexploredOverlay);
+    Platform.runLater(splitActiveViewportRenderer::clearUnexploredOverlay);
+    Platform.runLater(splitBaselineViewportRenderer::clearTrajectory);
     refreshMiniHeatmap();
     refreshMiniMap();
   }
@@ -2973,6 +3097,8 @@ public final class MainWindow {
                   }
                   if (viewportMode == ViewportMode.RESUME) {
                     mazeViewportRenderer.clearTrajectory();
+                    splitActiveViewportRenderer.clearTrajectory();
+                    splitBaselineViewportRenderer.clearTrajectory();
                     refreshMiniHeatmap();
                     refreshMiniMap();
                   }
@@ -2999,6 +3125,8 @@ public final class MainWindow {
       }
       if (viewportMode == ViewportMode.RESUME) {
         mazeViewportRenderer.clearTrajectory();
+        splitActiveViewportRenderer.clearTrajectory();
+        splitBaselineViewportRenderer.clearTrajectory();
         refreshMiniHeatmap();
         refreshMiniMap();
       }
@@ -3117,12 +3245,15 @@ public final class MainWindow {
     int endExclusive = Math.max(1, Math.min(replayTrajectoryIndex + 1, trajectory.size()));
     List<GridPosition> frame = trajectory.subList(0, endExclusive);
     mazeViewportRenderer.renderTrajectory(frame);
+    splitActiveViewportRenderer.renderTrajectory(frame);
     if (miniHeatmapEnabled) {
       renderMiniHeatmap(frame, frame.get(frame.size() - 1));
     }
+    refreshSplitView(frame, frame.get(frame.size() - 1), lastLiveMetrics);
     refreshMiniMap();
     if (unexploredOverlayEnabled) {
       mazeViewportRenderer.renderUnexploredOverlay(frame);
+      splitActiveViewportRenderer.renderUnexploredOverlay(frame);
     }
   }
 
@@ -3299,6 +3430,180 @@ public final class MainWindow {
             + formatGridPosition(selectedMaze.exit())
             + " | Trail: "
             + recentPath.size());
+  }
+
+  private void refreshSplitView(
+      List<GridPosition> activeTrajectory,
+      GridPosition activeCurrentPosition,
+      LiveEpisodeMetrics activeMetrics) {
+    if (splitModeStatusValue == null
+        || splitActivePolicyValue == null
+        || splitBaselinePolicyValue == null
+        || splitActiveMetricsValue == null
+        || splitBaselineMetricsValue == null) {
+      return;
+    }
+    splitActivePolicyValue.setText(
+        "ACTIVE: " + controlService.activeMovementPolicy().toUpperCase(Locale.ROOT));
+    splitBaselinePolicyValue.setText("BASELINE: HEURISTIC_BASELINE");
+    if (!splitViewEnabled || selectedMaze == null) {
+      splitModeStatusValue.setText("Split view disabled.");
+      splitBaselineViewportRenderer.clearTrajectory();
+      return;
+    }
+
+    List<GridPosition> safeActiveTrajectory =
+        activeTrajectory == null ? List.of() : List.copyOf(activeTrajectory);
+    int activeSteps =
+        activeMetrics != null ? Math.max(0, activeMetrics.steps()) : Math.max(0, safeActiveTrajectory.size() - 1);
+    int activeCollisions = activeMetrics == null ? 0 : Math.max(0, activeMetrics.collisions());
+    double activeReward =
+        activeMetrics == null ? estimateBaselineReward(safeActiveTrajectory, activeCollisions) : activeMetrics.accumulatedReward();
+    splitActiveMetricsValue.setText(
+        String.format(
+            Locale.US,
+            "steps=%d | collisions=%d | reward=%.1f",
+            activeSteps,
+            activeCollisions,
+            activeReward));
+
+    List<GridPosition> baselineFrame = baselineFrameForStep(activeSteps);
+    GridPosition baselineCurrent =
+        baselineFrame.isEmpty() ? selectedMaze.start() : baselineFrame.get(baselineFrame.size() - 1);
+    splitBaselineViewportRenderer.renderTrajectory(baselineFrame);
+    if (unexploredOverlayEnabled) {
+      splitBaselineViewportRenderer.renderUnexploredOverlay(baselineFrame);
+    } else {
+      splitBaselineViewportRenderer.clearUnexploredOverlay();
+    }
+    int baselineCollisions = estimatedBaselineCollisions(activeSteps);
+    double baselineReward = estimateBaselineReward(baselineFrame, baselineCollisions);
+    splitBaselineMetricsValue.setText(
+        String.format(
+            Locale.US,
+            "steps=%d | collisions=%d | reward=%.1f",
+            Math.max(0, baselineFrame.size() - 1),
+            baselineCollisions,
+            baselineReward));
+    splitModeStatusValue.setText(
+        "Active "
+            + formatGridPosition(activeCurrentPosition)
+            + " vs Baseline "
+            + formatGridPosition(baselineCurrent)
+            + " (sync step "
+            + activeSteps
+            + ")");
+  }
+
+  private List<GridPosition> baselineFrameForStep(int stepCount) {
+    int boundedStepCount = Math.max(0, stepCount);
+    if (splitBaselineTrajectory.isEmpty() || splitBaselineTrajectory.size() <= boundedStepCount) {
+      splitBaselineTrajectory = buildBaselineTrajectory(selectedMaze, Math.max(40, boundedStepCount + 1));
+    }
+    int endExclusive = Math.min(splitBaselineTrajectory.size(), boundedStepCount + 1);
+    return splitBaselineTrajectory.subList(0, endExclusive);
+  }
+
+  private List<GridPosition> buildBaselineTrajectory(MazeDefinition maze, int maxSteps) {
+    if (maze == null || maxSteps <= 0) {
+      return List.of();
+    }
+    List<GridPosition> trajectory = new ArrayList<>();
+    Set<GridPosition> visited = new HashSet<>();
+    GridPosition current = maze.start();
+    trajectory.add(current);
+    visited.add(current);
+    int loops = 0;
+    for (int step = 0; step < maxSteps; step++) {
+      if (current.equals(maze.exit())) {
+        break;
+      }
+      List<GridPosition> candidates = neighborCandidates(maze, current);
+      if (candidates.isEmpty()) {
+        break;
+      }
+      GridPosition next = chooseBaselineCandidate(maze, candidates, visited);
+      if (next == null) {
+        break;
+      }
+      if (visited.contains(next)) {
+        loops++;
+      }
+      if (loops > 8 && trajectory.size() > 4) {
+        next = trajectory.get(Math.max(0, trajectory.size() - 2));
+      }
+      trajectory.add(next);
+      visited.add(next);
+      current = next;
+    }
+    return trajectory;
+  }
+
+  private List<GridPosition> neighborCandidates(MazeDefinition maze, GridPosition position) {
+    if (maze == null || position == null) {
+      return List.of();
+    }
+    List<GridPosition> candidates = new ArrayList<>(4);
+    candidates.add(new GridPosition(position.row() - 1, position.col()));
+    candidates.add(new GridPosition(position.row(), position.col() + 1));
+    candidates.add(new GridPosition(position.row() + 1, position.col()));
+    candidates.add(new GridPosition(position.row(), position.col() - 1));
+    return candidates.stream()
+        .filter(maze::isInside)
+        .filter(candidate -> !maze.isWall(candidate))
+        .toList();
+  }
+
+  private GridPosition chooseBaselineCandidate(
+      MazeDefinition maze, List<GridPosition> candidates, Set<GridPosition> visited) {
+    GridPosition bestUnvisited = null;
+    int bestUnvisitedDistance = Integer.MAX_VALUE;
+    GridPosition bestVisited = null;
+    int bestVisitedDistance = Integer.MAX_VALUE;
+    for (GridPosition candidate : candidates) {
+      int distance = manhattanDistance(candidate, maze.exit());
+      if (visited.contains(candidate)) {
+        if (distance < bestVisitedDistance) {
+          bestVisitedDistance = distance;
+          bestVisited = candidate;
+        }
+      } else if (distance < bestUnvisitedDistance) {
+        bestUnvisitedDistance = distance;
+        bestUnvisited = candidate;
+      }
+    }
+    return bestUnvisited != null ? bestUnvisited : bestVisited;
+  }
+
+  private int manhattanDistance(GridPosition a, GridPosition b) {
+    if (a == null || b == null) {
+      return Integer.MAX_VALUE;
+    }
+    return Math.abs(a.row() - b.row()) + Math.abs(a.col() - b.col());
+  }
+
+  private int estimatedBaselineCollisions(int requestedSteps) {
+    if (selectedMaze == null || splitBaselineTrajectory.isEmpty()) {
+      return 0;
+    }
+    int ideal = manhattanDistance(selectedMaze.start(), selectedMaze.exit());
+    int produced = Math.min(Math.max(0, requestedSteps), Math.max(0, splitBaselineTrajectory.size() - 1));
+    return Math.max(0, produced - ideal);
+  }
+
+  private double estimateBaselineReward(List<GridPosition> trajectory, int collisions) {
+    if (trajectory == null || trajectory.isEmpty() || selectedMaze == null) {
+      return 0.0;
+    }
+    GridPosition current = trajectory.get(trajectory.size() - 1);
+    int distance = manhattanDistance(current, selectedMaze.exit());
+    double reward = (trajectory.size() - 1) * 0.35;
+    reward -= collisions * 1.2;
+    reward -= distance * 0.5;
+    if (current.equals(selectedMaze.exit())) {
+      reward += 18.0;
+    }
+    return reward;
   }
 
   private String formatGridPosition(GridPosition position) {

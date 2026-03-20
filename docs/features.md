@@ -1065,6 +1065,7 @@
 - Modo de vista dividida con dos viewports sincronizados temporalmente.
 - Identificacion explicita de politica por panel junto con metricas resumen minimas.
 - Activacion/desactivacion del modo sin perder estado operativo de la sesion principal.
+- Implementacion tecnica: `MainWindow` incorpora `Split View: ON/OFF` con dos viewports sincronizados por paso (`ACTIVE` y `HEURISTIC_BASELINE`) y tarjetas de metricas minimas (`steps`, `collisions`, `reward`) para ambos paneles.
 
 ### SCAPE-0093 - Inspector contextual de celdas en hover
 - Objetivo funcional: mejorar la depuracion visual del episodio con inspeccion puntual de celdas.
