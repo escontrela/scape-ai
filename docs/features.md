@@ -832,3 +832,11 @@
 - Servicio de aplicacion `PersistedAssetCatalogService` para consultar el catalogo unificado ordenado.
 - Repositorio JDBC tolerante a tablas vacias o migraciones parciales mediante consultas seguras por asset operativo.
 - Cobertura actual del catalogo: `MAZE`, `TRAINING_RUN`, `TRAINING_PRESET`, `TRAINING_SESSION`, `EXPERIENCE_TRANSITION`, `MAZE_POLICY_COVERAGE`, `EXPLORATION_BUDGET`.
+
+### SCAPE-0071 - Preview textual de assets desde BBDD
+- Objetivo funcional: permitir inspeccion rapida de contenido persistido sin editores externos.
+- Alcance introducido:
+- Nuevo servicio `PersistedAssetPreviewService` con renderers dedicados por tipo de asset persistido.
+- Renderers cubren `MAZE`, `TRAINING_RUN`, `TRAINING_PRESET`, `TRAINING_SESSION`, `EXPERIENCE_TRANSITION`, `MAZE_POLICY_COVERAGE` y `EXPLORATION_BUDGET`.
+- Formato textual estable en bloques `clave=valor` con compactacion de payloads largos y truncado configurable para uso directo en JavaFX.
+- Repositorio JDBC `PersistedAssetPreviewRepository` obtiene detalle puntual por tipo/id con tolerancia defensiva a datos incompletos.
