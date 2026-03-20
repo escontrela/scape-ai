@@ -1073,6 +1073,7 @@
 - Overlay contextual en hover con coordenadas, tipo de celda y estado de visita.
 - Indicador del indice temporal relativo para celdas dentro de la ruta reciente.
 - Restriccion de impacto de rendimiento para mantener fluidez visual en sesiones normales.
+- Implementacion tecnica: `MainWindow` instala inspeccion por hover sobre viewports (`LIVE`, `SPLIT_ACTIVE`, `SPLIT_BASELINE`) y actualiza panel `CELL INSPECTOR` con coordenadas, tipo, estado de visita e indice relativo `t-N` sobre ventana reciente de trayectoria.
 
 ### SCAPE-0094 - Presets visuales rapidos para sesiones largas
 - Objetivo funcional: adaptar rapidamente la densidad de informacion visual al tipo de trabajo.

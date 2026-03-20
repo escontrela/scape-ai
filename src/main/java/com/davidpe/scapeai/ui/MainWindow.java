@@ -55,6 +55,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -210,6 +211,8 @@ public final class MainWindow {
   private Label splitBaselinePolicyValue;
   private Label splitActiveMetricsValue;
   private Label splitBaselineMetricsValue;
+  private Label cellInspectorValue;
+  private Label cellInspectorDetailValue;
   private MazeDefinition selectedMaze;
   private String selectedMazeName;
   private volatile RecentRunsSortOption selectedRecentRunsSort = RecentRunsSortOption.BY_DATE;
@@ -931,6 +934,9 @@ public final class MainWindow {
             + "-fx-border-color: #2cf1ff;"
             + "-fx-border-radius: 6;"
             + "-fx-background-radius: 6;");
+    installCellInspector(mazeViewport, "LIVE");
+    installCellInspector(splitActiveMazeViewport, "SPLIT_ACTIVE");
+    installCellInspector(baselineMazeViewport, "SPLIT_BASELINE");
 
     mazeSelector
         .getSelectionModel()
@@ -1027,6 +1033,11 @@ public final class MainWindow {
     Label minimapTitle = new Label("MINIMAP");
     minimapTitle.setTextFill(Color.web("#9db2ff"));
     minimapTitle.setFont(Font.font("Consolas", 12));
+    Label inspectorTitle = new Label("CELL INSPECTOR");
+    inspectorTitle.setTextFill(Color.web("#9db2ff"));
+    inspectorTitle.setFont(Font.font("Consolas", 12));
+    cellInspectorValue = timelinePlaceholder("Hover a cell to inspect metadata.");
+    cellInspectorDetailValue = timelinePlaceholder("Cell type, visited state and recent index appear here.");
 
     VBox panel =
         new VBox(
@@ -1044,6 +1055,9 @@ public final class MainWindow {
             minimapTitle,
             miniMapStatusValue,
             miniMapGrid,
+            inspectorTitle,
+            cellInspectorValue,
+            cellInspectorDetailValue,
             focusModeHud,
             splitViewportRow,
             mazeViewport);
@@ -1120,6 +1134,88 @@ public final class MainWindow {
               ? "Split view active (ACTIVE vs HEURISTIC_BASELINE)."
               : "Split view disabled.");
     }
+  }
+
+  private void installCellInspector(StackPane viewport, String sourceId) {
+    if (viewport == null) {
+      return;
+    }
+    viewport.setOnMouseMoved(
+        event -> {
+          if (selectedMaze == null || cellInspectorValue == null || cellInspectorDetailValue == null) {
+            return;
+          }
+          double width = viewport.getWidth();
+          double height = viewport.getHeight();
+          if (width <= 0.0 || height <= 0.0) {
+            return;
+          }
+          int col = (int) Math.floor((event.getX() / width) * selectedMaze.cols());
+          int row = (int) Math.floor((event.getY() / height) * selectedMaze.rows());
+          GridPosition position = new GridPosition(row, col);
+          if (!selectedMaze.isInside(position)) {
+            return;
+          }
+          applyCellInspectorDetails(sourceId, position);
+        });
+    viewport.setOnMouseExited(event -> resetCellInspector(sourceId));
+  }
+
+  private void applyCellInspectorDetails(String sourceId, GridPosition position) {
+    List<GridPosition> trajectory;
+    if ("SPLIT_BASELINE".equals(sourceId)) {
+      trajectory = splitBaselineTrajectory == null ? List.of() : List.copyOf(splitBaselineTrajectory);
+    } else {
+      trajectory = trajectorySnapshot();
+    }
+    Map<GridPosition, Integer> recentIndex = recentPathIndex(trajectory, 24);
+    boolean visited = trajectory.contains(position);
+    String type;
+    if (selectedMaze.isWall(position)) {
+      type = "WALL";
+    } else if (selectedMaze.start().equals(position)) {
+      type = "START";
+    } else if (selectedMaze.exit().equals(position)) {
+      type = "EXIT";
+    } else {
+      type = "WALKABLE";
+    }
+    Integer relativeIndex = recentIndex.get(position);
+    String relativeText = relativeIndex == null ? "outside recent path" : "t-" + relativeIndex;
+    cellInspectorValue.setText(
+        sourceId
+            + " | cell=("
+            + position.row()
+            + ","
+            + position.col()
+            + ") | type="
+            + type
+            + " | visited="
+            + (visited ? "yes" : "no"));
+    cellInspectorDetailValue.setText("Recent index: " + relativeText);
+  }
+
+  private Map<GridPosition, Integer> recentPathIndex(List<GridPosition> trajectory, int maxCells) {
+    if (trajectory == null || trajectory.isEmpty()) {
+      return Map.of();
+    }
+    int start = Math.max(0, trajectory.size() - Math.max(1, maxCells));
+    Map<GridPosition, Integer> index = new LinkedHashMap<>();
+    int relative = 0;
+    for (int i = trajectory.size() - 1; i >= start; i--) {
+      GridPosition position = trajectory.get(i);
+      index.putIfAbsent(position, relative);
+      relative++;
+    }
+    return index;
+  }
+
+  private void resetCellInspector(String sourceId) {
+    if (cellInspectorValue == null || cellInspectorDetailValue == null) {
+      return;
+    }
+    cellInspectorValue.setText(sourceId + " | hover a cell to inspect metadata.");
+    cellInspectorDetailValue.setText("Cell type, visited state and recent index appear here.");
   }
 
   private void refreshMazeSelector(ComboBox<String> mazeSelector, boolean ascendingDifficulty) {
