@@ -187,6 +187,10 @@ public final class MainWindow {
   private volatile int replayTrajectoryIndex;
   private volatile ScheduledFuture<?> replayTicker;
   private Label replayStatusValue;
+  private Label contextModeValue;
+  private Label contextSummaryValue;
+  private Label contextDetailValue;
+  private Label contextSignalValue;
   private final double coverageAlertThreshold;
   private final int persistentHeatmapRuns;
 
@@ -840,6 +844,7 @@ public final class MainWindow {
 
   private VBox buildMetricsPanel() {
     Label title = panelTitle("Metrics");
+    VBox contextualPanel = buildContextualStatusPanel();
     VBox metrics =
         new VBox(
             10,
@@ -973,6 +978,7 @@ public final class MainWindow {
         new VBox(
             14,
             title,
+            contextualPanel,
             metrics,
             diagnostics,
             effectiveSessionCard,
@@ -991,6 +997,29 @@ public final class MainWindow {
     panel.setMinWidth(240);
     panel.setStyle(panelStyle());
     refreshSessionConfigCardPreview();
+    refreshContextualStatusPanel();
+    return panel;
+  }
+
+  private VBox buildContextualStatusPanel() {
+    Label title = new Label("MODE CONTEXT");
+    title.setTextFill(Color.web("#9db2ff"));
+    title.setFont(Font.font("Consolas", 12));
+
+    contextModeValue = timelinePlaceholder("Mode: LIVE");
+    contextSummaryValue = timelinePlaceholder("Awaiting episode telemetry.");
+    contextDetailValue = timelinePlaceholder("Algorithm/speed pending.");
+    contextSignalValue = timelinePlaceholder("Signal: IDLE");
+    contextSignalValue.setTextFill(Color.web("#ffd166"));
+
+    VBox panel =
+        new VBox(6, title, contextModeValue, contextSummaryValue, contextDetailValue, contextSignalValue);
+    panel.setPadding(new Insets(10));
+    panel.setStyle(
+        "-fx-background-color: #081124;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
     return panel;
   }
 
@@ -1746,6 +1775,7 @@ public final class MainWindow {
                     metrics.leftSideCoverage() * 100.0,
                     metrics.rightSideCoverage() * 100.0));
           }
+          refreshContextualStatusPanel();
           renderLiveViewport(metrics);
         });
   }
@@ -2032,6 +2062,7 @@ public final class MainWindow {
     }
     activePolicyValue.setText(
         "ACTIVE ALGORITHM: " + controlService.activeMovementPolicy().toUpperCase(Locale.ROOT));
+    refreshContextualStatusPanel();
   }
 
   private void selectActivePreset(ComboBox<TrainingPresetOption> selector) {
@@ -2066,6 +2097,7 @@ public final class MainWindow {
     }
     activeSpeedValue.setText(
         "ACTIVE SPEED: " + liveMetricsService.simulationSpeed().name().toUpperCase(Locale.ROOT));
+    refreshContextualStatusPanel();
   }
 
   private void refreshSessionConfigCardPreview() {
@@ -2234,6 +2266,7 @@ public final class MainWindow {
         mazeViewportRenderer.clearTrajectory();
         refreshMiniHeatmap();
       }
+      refreshContextualStatusPanel();
       return;
     }
     if (replayStatusValue != null) {
@@ -2243,6 +2276,7 @@ public final class MainWindow {
     if (viewportMode == ViewportMode.RESUME) {
       renderReplayFrame();
     }
+    refreshContextualStatusPanel();
   }
 
   private void playReplay() {
@@ -2264,6 +2298,7 @@ public final class MainWindow {
     if (replayStatusValue != null) {
       replayStatusValue.setText("Replay playing episode #" + activeReplay().trainingRunId());
     }
+    refreshContextualStatusPanel();
   }
 
   private void pauseReplay() {
@@ -2273,6 +2308,7 @@ public final class MainWindow {
       replayStatusValue.setText(
           "Replay paused at step " + replayTrajectoryIndex + " of #" + activeReplay().trainingRunId());
     }
+    refreshContextualStatusPanel();
   }
 
   private void restartReplay() {
@@ -2288,6 +2324,7 @@ public final class MainWindow {
     if (replayStatusValue != null) {
       replayStatusValue.setText("Replay restarted for #" + activeReplay().trainingRunId());
     }
+    refreshContextualStatusPanel();
   }
 
   private void nextReplayEpisode() {
@@ -2304,6 +2341,7 @@ public final class MainWindow {
     if (replayStatusValue != null) {
       replayStatusValue.setText("Replay switched to #" + activeReplay().trainingRunId());
     }
+    refreshContextualStatusPanel();
   }
 
   private void advanceReplayFrame() {
@@ -2325,6 +2363,7 @@ public final class MainWindow {
             if (replayStatusValue != null) {
               replayStatusValue.setText("Replay finished for #" + replay.trainingRunId());
             }
+            refreshContextualStatusPanel();
           });
     }
   }
@@ -2374,6 +2413,7 @@ public final class MainWindow {
       if (replayStatusValue != null) {
         replayStatusValue.setText("Live mode active.");
       }
+      refreshContextualStatusPanel();
       return;
     }
     refreshReplayEpisodesAsync();
@@ -2382,6 +2422,59 @@ public final class MainWindow {
     } else if (replayStatusValue != null) {
       replayStatusValue.setText("Resume mode: no successful episodes yet.");
     }
+    refreshContextualStatusPanel();
+  }
+
+  private void refreshContextualStatusPanel() {
+    if (contextModeValue == null
+        || contextSummaryValue == null
+        || contextDetailValue == null
+        || contextSignalValue == null) {
+      return;
+    }
+    if (viewportMode == ViewportMode.LIVE) {
+      applyLiveContextSummary();
+      return;
+    }
+    applyResumeContextSummary();
+  }
+
+  private void applyLiveContextSummary() {
+    LiveEpisodeMetrics metrics = lastLiveMetrics;
+    String policy = controlService.activeMovementPolicy().toUpperCase(Locale.ROOT);
+    String speed = liveMetricsService.simulationSpeed().name().toUpperCase(Locale.ROOT);
+    boolean active =
+        metrics != null
+            && "IN_PROGRESS".equalsIgnoreCase(metrics.terminationReason())
+            && !metrics.trajectory().isEmpty();
+    String termination = metrics == null ? "IDLE" : formatTerminalReason(metrics.terminationReason());
+    int steps = metrics == null ? 0 : metrics.steps();
+
+    contextModeValue.setText("Mode: LIVE");
+    contextSummaryValue.setText("Episode: " + termination + " | Steps: " + steps);
+    contextDetailValue.setText("Algorithm: " + policy + " | Speed: " + speed);
+    contextSignalValue.setText(active ? "Signal: STREAMING" : "Signal: IDLE");
+    contextSignalValue.setTextFill(active ? Color.web("#89ff9a") : Color.web("#ffd166"));
+  }
+
+  private void applyResumeContextSummary() {
+    contextModeValue.setText("Mode: RESUME");
+    if (replayEpisodes.isEmpty()) {
+      contextSummaryValue.setText("No successful episodes available.");
+      contextDetailValue.setText("Select/complete successful runs to inspect context.");
+      contextSignalValue.setText("Signal: EMPTY");
+      contextSignalValue.setTextFill(Color.web("#ffd166"));
+      return;
+    }
+    SuccessfulEpisodeReplay replay = activeReplay();
+    String terminalReason = formatTerminalReason(replay.terminalReason());
+    String duration = formatElapsed(replay.elapsedMillis());
+    String reward = String.format(Locale.US, "%.1f", replay.totalReward());
+    contextSummaryValue.setText(
+        "Success #" + replay.trainingRunId() + " | Terminal: " + terminalReason);
+    contextDetailValue.setText("Duration: " + duration + " | Reward: " + reward);
+    contextSignalValue.setText(replayModeActive ? "Signal: PLAYING" : "Signal: READY");
+    contextSignalValue.setTextFill(replayModeActive ? Color.web("#89ff9a") : Color.web("#7ef9ff"));
   }
 
   private void refreshUnexploredOverlay() {
@@ -2599,6 +2692,7 @@ public final class MainWindow {
               updateSystemStatus("TRAINING TIMEOUT", "#ff6b8a");
             }
           }
+          refreshContextualStatusPanel();
         });
   }
 

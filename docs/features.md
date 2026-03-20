@@ -908,6 +908,7 @@
 - Nuevo panel contextual que adapta su contenido segun modo `LIVE` o `RESUME`.
 - En `LIVE`, resumen operativo de episodio activo, velocidad, algoritmo y señal de actividad.
 - En `RESUME`, resumen del exito seleccionado (identificador, motivo terminal, duracion/recompensa) con estado vacio explicito cuando no haya casos.
+- Implementacion tecnica: `MainWindow` agrega tarjeta `MODE CONTEXT` sincronizada con `viewportMode`, `LiveEpisodeMetrics` y replay activo; `SuccessfulEpisodeReplay` incorpora `elapsedMillis` y `totalReward` para exponer duracion/recompensa en `RESUME`.
 
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.

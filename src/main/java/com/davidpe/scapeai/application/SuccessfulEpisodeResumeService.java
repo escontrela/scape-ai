@@ -25,6 +25,8 @@ public class SuccessfulEpisodeResumeService {
                     run.trainingSessionId(),
                     run.terminalReason(),
                     run.createdAtEpochMillis(),
+                    run.elapsedMillis(),
+                    run.totalReward(),
                     EpisodeTrajectoryCodec.decode(run.trajectoryPath()),
                     run.replayDebugMetadata()))
         .toList();
