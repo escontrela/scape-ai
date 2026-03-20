@@ -799,3 +799,11 @@
 - Nueva codificacion compacta reversible (`EpisodeTrajectoryCodec`) basada en movimientos relativos (`U/D/L/R/N`) con saltos absolutos para minimizar tamaño en base de datos.
 - `training_runs` incorpora `trajectory_path` (schema + migrador idempotente) y JDBC la lee/escribe en consultas de historial/sesion.
 - Nuevo caso de uso `TrainingEpisodeDetailService` devuelve por `trainingRunId` la trayectoria decodificada, la posicion final y replay metadata para inspeccion tecnica.
+
+### SCAPE-0067 - Grafica ASCII de tendencia para sesiones
+- Objetivo funcional: proveer una grafica textual monoespaciada para revisar tendencia de sesiones sin dependencias de charting.
+- Alcance introducido:
+- Nuevo servicio `TrainingSessionAsciiTrendRenderer` que renderiza por `trainingSessionId` una vista ASCII con tres pistas: `OUTCOME`, `REWARD` y `COVERAGE`.
+- La grafica codifica exito/fracaso terminal (`E/T/A/X`) y variacion por episodio de reward/cobertura usando escala ASCII compacta apta para controles JavaFX monoespaciados.
+- La salida incluye resumen de sesion (`episodes`, `success`, `timeout`, min/max reward) y puede pintarse sin bloqueo al ser una transformacion pura en memoria.
+- Tests dedicados cubren sesiones cortas, largas y con valores extremos de reward para validar legibilidad y estabilidad del render.
