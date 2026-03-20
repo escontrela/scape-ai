@@ -917,6 +917,14 @@
 - Estilo de foco consistente aplicado a controles principales (`Start`, `Pause`, `Reset`, selector de algoritmo y toggle `LIVE/RESUME`) sin romper el tema neon.
 - Navegacion por `Tab` reforzada marcando controles principales como focus traversable.
 
+### SCAPE-0082 - Sistema de notificaciones in-app no bloqueantes
+- Objetivo funcional: proveer avisos operativos no intrusivos para eventos clave de entrenamiento.
+- Alcance introducido:
+- Capa de toasts en esquina superior derecha (`notificationLayer`) sin bloquear interaccion ni render del viewport.
+- Auto-dismiss configurable (`scape.ui.notification-duration-ms`) y limite de toasts visibles simultaneos.
+- Deduplicacion en rafaga por clave (`scape.ui.notification-dedup-window-ms`) para evitar spam en eventos repetidos.
+- Eventos cubiertos: inicio, pausa, error de validacion de arranque, episodio exitoso y timeout.
+
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
 - Estado inicial detectado: `in_progress=0` y `backlog=5` (`SCAPE-0075` a `SCAPE-0079`).

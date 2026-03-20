@@ -52,11 +52,14 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -85,6 +88,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -198,8 +202,12 @@ public final class MainWindow {
   private Label contextSummaryValue;
   private Label contextDetailValue;
   private Label contextSignalValue;
+  private VBox notificationLayer;
+  private final Map<String, Long> notificationDedupe = new ConcurrentHashMap<>();
   private final double coverageAlertThreshold;
   private final int persistentHeatmapRuns;
+  private final long notificationDurationMillis;
+  private final long notificationDedupWindowMillis;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -223,7 +231,9 @@ public final class MainWindow {
       MazeViewportRenderer mazeViewportRenderer,
       TrainingLifecycleSubscriberRouter trainingLifecycleSubscriberRouter,
       @Value("${scape.ui.coverage-alert-threshold:0.35}") double coverageAlertThreshold,
-      @Value("${scape.ui.persistent-heatmap-runs:12}") int persistentHeatmapRuns) {
+      @Value("${scape.ui.persistent-heatmap-runs:12}") int persistentHeatmapRuns,
+      @Value("${scape.ui.notification-duration-ms:2800}") long notificationDurationMillis,
+      @Value("${scape.ui.notification-dedup-window-ms:900}") long notificationDedupWindowMillis) {
     this.controlService = controlService;
     this.startTrainingSessionUseCase = startTrainingSessionUseCase;
     this.trainingExecutionService = trainingExecutionService;
@@ -245,6 +255,8 @@ public final class MainWindow {
     this.mazeViewportRenderer = mazeViewportRenderer;
     this.coverageAlertThreshold = Math.max(0.0, Math.min(1.0, coverageAlertThreshold));
     this.persistentHeatmapRuns = Math.max(1, persistentHeatmapRuns);
+    this.notificationDurationMillis = Math.max(900L, notificationDurationMillis);
+    this.notificationDedupWindowMillis = Math.max(200L, notificationDedupWindowMillis);
     trainingLifecycleSubscriberRouter.register(
         "main-window",
         EnumSet.allOf(TrainingLifecycleEventType.class),
@@ -290,7 +302,12 @@ public final class MainWindow {
     refreshReviewSessionsAsync();
     refreshAssetCatalogAsync();
 
-    Scene scene = new Scene(mainScroll, 1200, 760);
+    notificationLayer = buildNotificationLayer();
+    StackPane root = new StackPane(mainScroll, notificationLayer);
+    StackPane.setAlignment(notificationLayer, Pos.TOP_RIGHT);
+    StackPane.setMargin(notificationLayer, new Insets(16));
+
+    Scene scene = new Scene(root, 1200, 760);
     installKeyboardNavigation(scene);
     var neonScrollCss =
         getClass().getResource("/styles/neon-scroll.css");
@@ -564,6 +581,10 @@ public final class MainWindow {
               var activePresetBeforeStart = trainingPresetService.activePreset();
               if (activePresetBeforeStart.isEmpty()) {
                 updateSystemStatus("Select a training preset before starting batches.", "#ff6b8a");
+                emitNotification(
+                    "validation.preset.missing",
+                    "Validation error: select a training preset before starting.",
+                    "#ff6b8a");
                 return;
               }
               TrainingSessionConfig sessionConfig =
@@ -580,6 +601,7 @@ public final class MainWindow {
                           selectedMaze, selectedPresetId, sessionConfig));
               if (!startResult.started()) {
                 updateSystemStatus(startResult.message(), "#ff6b8a");
+                emitNotification("validation.start.denied", startResult.message(), "#ff6b8a");
                 return;
               }
               if (startResult.maze() != null) {
@@ -588,6 +610,7 @@ public final class MainWindow {
                 liveMetricsService.setActiveMaze(startResult.maze());
               }
               updateSystemStatus(startResult.message(), "#89ff9a");
+              emitNotification("training.start", "Training started.", "#89ff9a");
               updateSessionHud(startResult.effectiveSeed(), "visual");
               lockSessionConfigCard(startResult.effectiveSeed(), sessionConfig);
               updateActivePolicyLabel();
@@ -595,6 +618,10 @@ public final class MainWindow {
               var activePreset = trainingPresetService.activePreset();
               if (activePreset.isEmpty()) {
                 updateSystemStatus("Select a training preset before starting batches.", "#ff6b8a");
+                emitNotification(
+                    "validation.preset.missing",
+                    "Validation error: select a training preset before starting.",
+                    "#ff6b8a");
                 return;
               }
               int batches =
@@ -1779,6 +1806,52 @@ public final class MainWindow {
             });
   }
 
+  private VBox buildNotificationLayer() {
+    VBox layer = new VBox(8);
+    layer.setAlignment(Pos.TOP_RIGHT);
+    layer.setPickOnBounds(false);
+    layer.setMouseTransparent(true);
+    layer.setMaxWidth(340);
+    return layer;
+  }
+
+  private void emitNotification(String key, String message, String accentHex) {
+    if (notificationLayer == null || message == null || message.isBlank()) {
+      return;
+    }
+    String safeKey = key == null || key.isBlank() ? message.trim() : key.trim();
+    long now = System.currentTimeMillis();
+    Long previous = notificationDedupe.get(safeKey);
+    if (previous != null && now - previous < notificationDedupWindowMillis) {
+      return;
+    }
+    notificationDedupe.put(safeKey, now);
+
+    Label toast = new Label(message);
+    toast.setWrapText(true);
+    toast.setFont(Font.font("Consolas", 12));
+    toast.setTextFill(Color.web("#dce8ff"));
+    toast.setPadding(new Insets(10, 12, 10, 12));
+    toast.setMaxWidth(320);
+    toast.setStyle(
+        "-fx-background-color: rgba(7, 13, 28, 0.96);"
+            + "-fx-border-color: "
+            + accentHex
+            + ";"
+            + "-fx-border-width: 1.4;"
+            + "-fx-border-radius: 8;"
+            + "-fx-background-radius: 8;");
+    toast.setMouseTransparent(true);
+    notificationLayer.getChildren().add(0, toast);
+    while (notificationLayer.getChildren().size() > 4) {
+      notificationLayer.getChildren().remove(notificationLayer.getChildren().size() - 1);
+    }
+
+    PauseTransition dismiss = new PauseTransition(Duration.millis(notificationDurationMillis));
+    dismiss.setOnFinished(event -> notificationLayer.getChildren().remove(toast));
+    dismiss.play();
+  }
+
   private void bindMetricLabel(String metricName, Label label) {
     switch (metricName) {
       case "Steps" -> stepsValue = label;
@@ -2739,10 +2812,12 @@ public final class MainWindow {
                 diagnosticAlertValue.setTextFill(Color.web("#89ff9a"));
               }
               updateSystemStatus("TRAINING RUNNING", "#89ff9a");
+              emitNotification("event.started", "Training running.", "#89ff9a");
             }
             case PAUSED -> {
               trajectoryRunning = false;
               updateSystemStatus("TRAINING PAUSED", "#ffd166");
+              emitNotification("event.paused", "Training paused.", "#ffd166");
             }
             case RESUMED -> {
               trajectoryRunning = true;
@@ -2756,11 +2831,16 @@ public final class MainWindow {
                 updateSessionHud(null, "visual");
               }
               updateSystemStatus("TRAINING FINISHED", "#7ef9ff");
+              if (lastLiveMetrics != null
+                  && "EXIT_REACHED".equalsIgnoreCase(lastLiveMetrics.terminationReason())) {
+                emitNotification("event.success", "Episode success reached exit.", "#89ff9a");
+              }
             }
             case TIMED_OUT -> {
               trajectoryRunning = false;
               refreshPersistentHeatmapAsync();
               updateSystemStatus("TRAINING TIMEOUT", "#ff6b8a");
+              emitNotification("event.timeout", "Episode timeout reached.", "#ff6b8a");
             }
           }
           refreshContextualStatusPanel();
