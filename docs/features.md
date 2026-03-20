@@ -856,3 +856,11 @@
 - El panel lista assets persistidos con seleccion multiple y muestra preview textual monoespaciada del asset seleccionado.
 - Filtros minimos incluidos: por tipo de asset y por estado de borrado (`All states`, `Deletable`, `Blocked`).
 - Carga de catalogo y preview ejecutada en `recentRunsExecutor` con actualizacion en `Platform.runLater` para evitar bloqueo del hilo JavaFX.
+
+### SCAPE-0074 - Flujo UI de confirmacion y ejecucion de limpieza
+- Objetivo funcional: completar la operativa de borrado desde la UI de assets con confirmacion y refresco seguro.
+- Alcance introducido:
+- El panel `Assets` incorpora accion `Delete Selected` con resumen previo de seleccion (tipo/id) y advertencias de dependencias detectadas.
+- Confirmacion explicita via `Alert` antes de ejecutar borrado; cancelacion mantiene estado sin cambios y reporta mensaje operativo.
+- Ejecucion de limpieza en background usando `PersistedAssetCleanupService`, con soporte de exito parcial (`deleted/blocked/failed`) y feedback visible en UI.
+- Tras ejecutar limpieza, el catalogo se recarga sin reiniciar aplicacion para reflejar estado actualizado de BBDD.

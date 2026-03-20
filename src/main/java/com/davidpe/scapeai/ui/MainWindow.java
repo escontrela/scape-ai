@@ -62,12 +62,14 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.Alert;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -1125,6 +1127,7 @@ public final class MainWindow {
 
     assetsStatusValue = timelinePlaceholder("Loading persisted assets...");
     Button refreshButton = neonButton("Refresh Catalog", "#ffb86b", this::refreshAssetCatalogAsync);
+    Button deleteSelectedButton = neonButton("Delete Selected", "#ff6b8a", this::requestAssetDeletion);
 
     VBox panel =
         new VBox(
@@ -1134,6 +1137,7 @@ public final class MainWindow {
             assetTypeFilter,
             assetStateFilter,
             refreshButton,
+            deleteSelectedButton,
             assetsStatusValue,
             assetListView,
             new Label("TEXT PREVIEW"),
@@ -1197,6 +1201,92 @@ public final class MainWindow {
                   .orElse("No preview available for this asset.");
           Platform.runLater(() -> assetPreviewArea.setText(preview));
         });
+  }
+
+  private void requestAssetDeletion() {
+    if (assetListView == null) {
+      return;
+    }
+    List<PersistedAssetCatalogItem> selectedItems = List.copyOf(assetListView.getSelectionModel().getSelectedItems());
+    if (selectedItems.isEmpty()) {
+      assetsStatusValue.setText("Select one or more assets before deleting.");
+      return;
+    }
+    List<PersistedAssetRef> refs =
+        selectedItems.stream().map(item -> new PersistedAssetRef(item.type(), item.assetId())).toList();
+    List<PersistedAssetDeletionCandidate> evaluation = persistedAssetCleanupService.evaluate(refs);
+    String summary = buildDeletionSummary(selectedItems, evaluation);
+
+    Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION);
+    confirmation.setTitle("Confirm Cleanup");
+    confirmation.setHeaderText("Delete selected assets?");
+    confirmation.setContentText(summary);
+    confirmation.getDialogPane().setMinHeight(Region.USE_PREF_SIZE);
+    confirmation.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
+
+    var result = confirmation.showAndWait();
+    if (result.isEmpty() || result.get() != ButtonType.OK) {
+      assetsStatusValue.setText("Cleanup cancelled.");
+      return;
+    }
+
+    assetsStatusValue.setText("Executing cleanup...");
+    recentRunsExecutor.execute(
+        () -> {
+          var cleanupResult = persistedAssetCleanupService.delete(refs);
+          Platform.runLater(
+              () -> {
+                assetsStatusValue.setText(
+                    "Cleanup result: deleted="
+                        + cleanupResult.deleted().size()
+                        + ", blocked="
+                        + cleanupResult.blocked().size()
+                        + ", failed="
+                        + cleanupResult.failed().size());
+                refreshAssetCatalogAsync();
+              });
+        });
+  }
+
+  private String buildDeletionSummary(
+      List<PersistedAssetCatalogItem> selectedItems,
+      List<PersistedAssetDeletionCandidate> evaluation) {
+    StringBuilder builder = new StringBuilder();
+    builder.append("Selected: ").append(selectedItems.size()).append('\n');
+    int index = 0;
+    for (PersistedAssetCatalogItem item : selectedItems) {
+      builder.append("- ").append(item.type()).append(" #").append(item.assetId()).append('\n');
+      index++;
+      if (index >= 8 && selectedItems.size() > index) {
+        builder.append("... +").append(selectedItems.size() - index).append(" more").append('\n');
+        break;
+      }
+    }
+    long blocked = evaluation.stream().filter(candidate -> !candidate.eligible()).count();
+    if (blocked > 0) {
+      builder.append('\n').append("Warnings:").append('\n');
+      int warningIndex = 0;
+      for (PersistedAssetDeletionCandidate candidate : evaluation) {
+        if (!candidate.eligible()) {
+          builder
+              .append("* ")
+              .append(candidate.ref().type())
+              .append(" #")
+              .append(candidate.ref().assetId())
+              .append(" -> ")
+              .append(candidate.validationMessage())
+              .append('\n');
+          warningIndex++;
+          if (warningIndex >= 4 && blocked > warningIndex) {
+            builder.append("* ... +").append(blocked - warningIndex).append(" more blocked").append('\n');
+            break;
+          }
+        }
+      }
+    } else {
+      builder.append('\n').append("No dependency warnings.");
+    }
+    return builder.toString();
   }
 
   private void showDashboardMode() {
