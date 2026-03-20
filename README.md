@@ -655,3 +655,157 @@ src/main/java/com/davidpe/scapeai/
 ---
 
 *Built with ☕ and 🤖 — training one maze at a time.*
+
+---
+
+## Glosario Funcional (Explicado para Profanos de IA)
+
+Este glosario explica el funcionamiento del sistema con palabras simples. La idea es que cualquier persona pueda entender que esta pasando, aunque no tenga experiencia en inteligencia artificial.
+
+### Conceptos base del problema
+
+| Concepto | Explicacion funcional |
+|---|---|
+| Agente | Es el "personaje" que intenta salir del laberinto. No piensa como un humano: prueba movimientos y aprende de los resultados. |
+| Laberinto | Es el escenario de prueba: una rejilla con paredes, espacios libres, una posicion inicial y una salida. |
+| Celda | Cada cuadrito del laberinto. El agente solo puede estar en una celda a la vez. |
+| Pared | Celda bloqueada. Si el agente intenta entrar ahi, se considera choque. |
+| Salida | Objetivo final del episodio. Si el agente llega, se considera exito. |
+| Estado | "Foto" del momento actual: donde esta el agente, que celdas visito, si choco, etc. |
+| Contexto | Informacion que se usa para decidir el siguiente movimiento (entorno cercano, historial reciente, distancia a salida, etc.). |
+
+### Conceptos de ejecucion
+
+| Concepto | Explicacion funcional |
+|---|---|
+| Step (paso) | Unidad minima de avance. En un paso, el agente elige una direccion, el sistema intenta moverlo y calcula el resultado. |
+| Movimiento valido | Movimiento que no se sale del mapa y no atraviesa una pared. |
+| Colision | Intento de moverse contra una pared o a una zona invalida. Se penaliza porque no ayuda a escapar. |
+| Episodio | Un intento completo de escape. Empieza en la salida inicial y termina por exito, timeout o corte por estancamiento. |
+| Fin de episodio | Motivo por el que se cierra un episodio. Los mas comunes son: salida alcanzada, tiempo agotado o callejon sin progreso. |
+| Timeout | Tiempo maximo permitido para un episodio. Si se supera, el intento falla aunque el agente siga moviendose. |
+| Corrida de entrenamiento | Conjunto de muchos episodios ejecutados seguidos para mejorar comportamiento y medir resultados. |
+| Batch (lote) | Grupo de episodios tratados como bloque. Sirve para organizar y resumir entrenamientos largos. |
+| Simulacion en background | El entrenamiento corre en segundo plano para no congelar la interfaz visual. |
+| Cancelacion | Interrupcion voluntaria del entrenamiento actual. Se detiene el proceso sin cerrar la aplicacion. |
+
+### Conceptos de planificacion y control
+
+| Concepto | Explicacion funcional |
+|---|---|
+| Preset de entrenamiento | "Receta" reutilizable con parametros de sesion (episodios, timeout, politica, semilla). Permite repetir escenarios comparables. |
+| Politica de movimiento | Regla que decide hacia donde moverse en cada paso (por ejemplo, aleatoria controlada o heuristica). |
+| Dificultad objetivo | Nivel de complejidad deseado para entrenar (baja, media, alta). Ayuda a seleccionar mazes acordes al objetivo. |
+| Ajuste adaptativo de dificultad | Mecanismo que puede subir o bajar la dificultad segun resultados recientes para no entrenar siempre en un nivel inadecuado. |
+| Velocidad de simulacion | Ritmo visual y de refresco en interfaz. No cambia la logica del aprendizaje, cambia como de rapido se ve. |
+| Modo headless | Ejecucion por lotes sin interfaz grafica para correr pruebas mas rapidas. |
+
+### Conceptos de aleatoriedad y reproducibilidad
+
+| Concepto | Explicacion funcional |
+|---|---|
+| Semilla (seed) | Numero inicial que controla la secuencia aleatoria. Con misma semilla y mismas condiciones, se puede repetir comportamiento. |
+| Aleatoriedad controlada | Uso de decisiones aleatorias, pero con posibilidad de reproducirlas mediante semilla. |
+| Sesion | Ventana de trabajo donde se fija la configuracion efectiva (incluida la semilla efectiva) para una ejecucion. |
+| Semilla efectiva | Semilla realmente usada en la corrida (sea la indicada por usuario o autogenerada). Es clave para auditoria y repeticion. |
+
+### Conceptos de aprendizaje (sin matematicas complicadas)
+
+| Concepto | Explicacion funcional |
+|---|---|
+| Recompensa | Puntuacion que el sistema asigna a cada paso para decir "esto ayudo" o "esto perjudico". |
+| Penalizacion | Recompensa negativa por comportamientos no deseados (choques, bucles, retrocesos improductivos). |
+| Exploracion | Probar rutas nuevas aunque no parezcan la mejor opcion inmediata. Evita quedarse en soluciones pobres. |
+| Explotacion | Aprovechar lo que ya parece funcionar bien (tomar la opcion con mejor expectativa). |
+| Epsilon | Control de equilibrio entre explorar y explotar. Epsilon alto: mas prueba. Epsilon bajo: mas uso de lo aprendido. |
+| Fase de epsilon | Cambio gradual del nivel de exploracion a lo largo del entrenamiento (normalmente mas al inicio, menos al final). |
+| Estancamiento | Situacion en la que el agente no mejora durante varios pasos seguidos. |
+| Bucle | Repeticion de posiciones o trayectorias. Indica que el agente "da vueltas" sin avanzar al objetivo. |
+| Callejon sin salida funcional (dead-end) | Estado practico donde el agente no progresa durante un umbral de pasos, aunque tecnicamente pueda seguir moviendose. |
+| Prueba de humo (smoke-run) | Mini corrida previa para validar que el escenario tiene minimos de calidad antes de lanzar entrenamiento largo. |
+
+### Conceptos de medicion de rendimiento
+
+| Concepto | Explicacion funcional |
+|---|---|
+| Tasa de exito | Porcentaje de episodios en los que el agente logra llegar a la salida. |
+| Recompensa media | Promedio de puntuacion por episodio. Resume calidad global de decisiones. |
+| Colisiones medias | Promedio de choques por episodio. Menor valor suele indicar mejor control de movimiento. |
+| Pasos totales | Cuantos movimientos se hicieron en un episodio. |
+| Tiempo transcurrido | Duracion real de un episodio o de una corrida. |
+| Progreso neto | Cuanto se acerco realmente el agente a la salida, descontando retrocesos. |
+| Cobertura del laberinto | Proporcion del mapa visitada por el agente. Da idea de cuanto exploro. |
+| Cobertura por cuadrante/lado | Reparto de exploracion por zonas del mapa. Sirve para detectar sesgos (por ejemplo, explorar siempre la izquierda). |
+| Entropia de camino | Medida de variedad en elecciones de movimiento. Baja entropia: comportamiento muy repetitivo. |
+| Eventos de bucle | Conteo de veces que se detecta repeticion de patrones de recorrido. |
+| Presupuesto consumido | Cuanto del limite permitido (episodios/tiempo) ya se gasto durante la corrida. |
+| Motivo de agotamiento de presupuesto | Causa de corte global: se alcanzo limite de episodios o limite de tiempo total. |
+
+### Conceptos de presupuesto y limites
+
+| Concepto | Explicacion funcional |
+|---|---|
+| Budget (presupuesto) | Tope de recursos para una corrida. Puede limitar por cantidad de episodios, por tiempo total, o ambos. |
+| Limite de episodios | Numero maximo de intentos permitidos en la corrida, aunque se hayan pedido mas. |
+| Limite de tiempo global | Tiempo maximo total de la corrida completa (no solo de un episodio). |
+| Presupuesto ilimitado | Modo sin topes adicionales de budget (solo aplican limites propios de episodio/configuracion). |
+| Budget de exploracion | "Credito" separado para regular cuanta exploracion extra se permite por preset/politica en sesiones prolongadas. |
+
+### Conceptos de datos y trazabilidad
+
+| Concepto | Explicacion funcional |
+|---|---|
+| Transicion de experiencia | Registro de un antes y despues de cada paso: estado anterior, accion tomada, recompensa y estado siguiente. |
+| Replay | Reutilizacion de experiencias guardadas para analizar o reentrenar sin depender solo de lo que pasa en vivo. |
+| Metadatos de replay | Datos de contexto para reconstruir y verificar una ejecucion (maze, politica, semilla, fin esperado, etc.). |
+| Snapshot de depuracion | Captura puntual de metricas intermedias durante un episodio para entender que estaba pasando en ese instante. |
+| Trazas de inferencia | Huella de como se tomo una decision automatica (confianza, latencia, si hubo fallback). |
+| Historial de corridas | Registro acumulado de resultados para comparar evolucion en el tiempo. |
+| Persistencia | Guardado en base de datos para que el aprendizaje y las metricas no se pierdan al cerrar la app. |
+
+### Como leer el sistema de forma simple
+
+1. Un entrenamiento se divide en lotes (`batch`).
+2. Cada lote contiene varios episodios.
+3. Cada episodio contiene muchos pasos (`step`).
+4. En cada paso se decide movimiento, se simula resultado y se asigna recompensa.
+5. Con muchas repeticiones, se busca subir exito y bajar choques/estancamientos.
+6. Todo queda registrado para comparar avances y repetir pruebas con semilla.
+
+### Que ves realmente en la UI (muy importante)
+
+Cuando ves al agente moviendose continuamente en el laberinto, esa visualizacion cumple una funcion de monitoreo visual y puede dar la sensacion de "actividad permanente".
+
+Para interpretarla correctamente:
+
+1. Lo visible en el panel del laberinto muestra una trayectoria visual en tiempo real para facilitar seguimiento.
+2. El entrenamiento real ocurre en segundo plano, en episodios y lotes, con sus propios resultados y motivos de fin.
+3. Por eso puede pasar que "veas movimiento" aunque en ese instante no estes viendo una ruta que termine en salida.
+4. El indicador de verdad para saber como fue cada corrida no es solo la animacion, sino la tabla de resultados recientes (`LAST 10 RUNS`) y las metricas de estado.
+
+En resumen: usa la animacion como guia visual de actividad, y usa la tabla de corridas para confirmar exito real.
+
+### Como ver episodios exitosos con LAST 10 RUNS
+
+La forma mas fiable de ver que episodios realmente lograron salir es revisar el bloque `LAST 10 RUNS`.
+
+Pasos recomendados:
+
+1. Selecciona el laberinto que te interesa en la UI.
+2. Ejecuta entrenamiento (`Start`) con tu preset.
+3. Espera a que terminen uno o varios lotes.
+4. Mira el panel `LAST 10 RUNS`.
+5. Busca filas con estado/motivo terminal equivalente a exito (`EXIT_REACHED` o etiqueta de salida alcanzada).
+6. Si quieres analizar tendencia, cambia el orden del panel por fecha, reward o progreso neto.
+
+Que te aporta ese panel:
+
+1. Te dice cuales corridas fueron exitosas y cuales no.
+2. Te muestra duracion, recompensa, colisiones y motivo de fin.
+3. Te permite comparar rapidamente si la politica/preset esta mejorando.
+
+Limitacion actual importante:
+
+1. `LAST 10 RUNS` confirma exito por corrida, pero no reproduce por defecto una "pelicula exacta" paso a paso solo de las corridas exitosas.
+2. Para ruta exacta de una corrida concreta hace falta una vista de replay dedicada.
+
