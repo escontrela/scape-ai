@@ -822,3 +822,13 @@
 - `MainWindow.show(...)` envuelve el contenido principal en `ScrollPane` con `vbar AS_NEEDED`, `fitToWidth=true` y bloqueo de scroll horizontal.
 - Se agrega estilo visual coherente mediante hoja `styles/neon-scroll.css` con track oscuro y thumb neon para mantener contraste/interaccion.
 - El layout conserva accesibilidad de minimapa, heatmap y bloques inferiores al poder recorrer toda la vista verticalmente sin rediseño estructural.
+
+## Iteracion DEV 2026-03-20 (automation cycle 15)
+
+### SCAPE-0070 - Catalogo de assets persistidos para revision
+- Objetivo funcional: consolidar un inventario unico de assets en base de datos para inspeccion previa a limpieza.
+- Alcance introducido:
+- Nuevo read model `PersistedAssetCatalogItem` con campos de tipo, identificador, fecha relevante, tamaño estimado y metadatos resumidos.
+- Servicio de aplicacion `PersistedAssetCatalogService` para consultar el catalogo unificado ordenado.
+- Repositorio JDBC tolerante a tablas vacias o migraciones parciales mediante consultas seguras por asset operativo.
+- Cobertura actual del catalogo: `MAZE`, `TRAINING_RUN`, `TRAINING_PRESET`, `TRAINING_SESSION`, `EXPERIENCE_TRANSITION`, `MAZE_POLICY_COVERAGE`, `EXPLORATION_BUDGET`.
