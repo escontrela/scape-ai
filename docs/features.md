@@ -864,3 +864,54 @@
 - Confirmacion explicita via `Alert` antes de ejecutar borrado; cancelacion mantiene estado sin cambios y reporta mensaje operativo.
 - Ejecucion de limpieza en background usando `PersistedAssetCleanupService`, con soporte de exito parcial (`deleted/blocked/failed`) y feedback visible en UI.
 - Tras ejecutar limpieza, el catalogo se recarga sin reiniciar aplicacion para reflejar estado actualizado de BBDD.
+
+## Iteracion PO 2026-03-20 (automation cycle 16)
+
+### SCAPE-0075 - Viewport principal ampliado para entrenamiento
+- Objetivo funcional: elevar legibilidad operativa del entrenamiento con una zona principal de visualizacion mas amplia.
+- Alcance introducido:
+- Sustituir el viewport encajado en casillas por un panel/canvas principal de mayor superficie.
+- Mantener coherencia visual con el lenguaje heatmap ya presente en el producto.
+- Reducir solapes visuales en seguimiento de agente, trayectoria y estados del episodio.
+
+### SCAPE-0076 - Modo live de entrenamiento en viewport unificado
+- Objetivo funcional: consolidar observabilidad en tiempo real del episodio sobre el nuevo viewport principal.
+- Alcance introducido:
+- Modo `LIVE` con refresco continuo de posicion del agente, trayectoria activa y estado operativo relevante.
+- Integracion con el pipeline de runtime/metricas existente sin duplicar fuentes de estado.
+- Garantia de no bloqueo del hilo JavaFX durante refresco visual sostenido.
+
+### SCAPE-0077 - Registro de episodios exitosos para modo resume
+- Objetivo funcional: habilitar base de datos de casos ganadores para analisis visual posterior.
+- Alcance introducido:
+- Persistencia y consulta ordenada de episodios `EXIT_REACHED` con trayectoria y metadatos clave.
+- Frontera clara entre exitos validos y cierres terminales no exitosos.
+- Disponibilidad de listado de exitos desacoplado del estado live en memoria.
+
+### SCAPE-0078 - Motor de replay animado para trayectorias exitosas
+- Objetivo funcional: reproducir visualmente trayectorias exitosas persistidas dentro de la experiencia principal.
+- Alcance introducido:
+- Reproductor con acciones base (`play`, `pause`, `restart`, `next success`) sobre episodios ganadores.
+- Reuso del viewport principal para mantener continuidad visual entre modos.
+- Integracion del replay con el estado operacional sin introducir un segundo lienzo desconectado.
+
+### SCAPE-0079 - Toggle UI entre live y resume de exitos
+- Objetivo funcional: permitir alternancia directa entre observacion en vivo y revision de exitos desde la misma pantalla.
+- Alcance introducido:
+- Control visible de modo (`LIVE`/`RESUME`) en la vista principal.
+- Manejo de estado vacio en `RESUME` cuando todavia no existen exitos acumulados.
+- Cambio de modo consistente sin romper sesion activa ni estado de pausa.
+
+### SCAPE-0080 - Panel contextual de estado live/resume
+- Objetivo funcional: reducir ambiguedad de uso mostrando contexto operativo del modo activo.
+- Alcance introducido:
+- Nuevo panel contextual que adapta su contenido segun modo `LIVE` o `RESUME`.
+- En `LIVE`, resumen operativo de episodio activo, velocidad, algoritmo y señal de actividad.
+- En `RESUME`, resumen del exito seleccionado (identificador, motivo terminal, duracion/recompensa) con estado vacio explicito cuando no haya casos.
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- Estado inicial detectado: `in_progress=0` y `backlog=5` (`SCAPE-0075` a `SCAPE-0079`).
+- Ajuste de WIP aplicado: `SCAPE-0075` movido a `in_progress`.
+- Ticket creado en backlog: `SCAPE-0080`.
+- Estado final confirmado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0076`, `SCAPE-0077`, `SCAPE-0078`, `SCAPE-0079`, `SCAPE-0080`).
