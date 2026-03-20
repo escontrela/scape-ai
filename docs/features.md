@@ -1081,6 +1081,7 @@
 - Presets predefinidos (`operativo`, `enfoque`, `diagnostico`) aplicables con un clic.
 - Cambio de preset en caliente sin reiniciar entrenamiento ni perder contexto actual.
 - Indicador visible del preset activo en cabecera para trazabilidad de estado UI.
+- Implementacion tecnica: `MainWindow` agrega selector `VISUAL PRESET` con modos `Operative`, `Focus` y `Diagnostic` que ajustan en caliente visibilidad/densidad (focus mode, split view y overlays) y publican el preset activo en cabecera (`VISUAL PRESET`).
 
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.

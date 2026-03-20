@@ -169,6 +169,7 @@ public final class MainWindow {
   private Label effectiveTimeoutValue;
   private Label effectiveDifficultyValue;
   private Label systemStatusValue;
+  private Label visualPresetValue;
   private Label sessionSeedValue;
   private Label executionModeValue;
   private Label reviewSessionMetaValue;
@@ -230,6 +231,7 @@ public final class MainWindow {
   private volatile boolean replayModeActive;
   private volatile ViewportMode viewportMode = ViewportMode.LIVE;
   private volatile boolean sessionConfigLocked;
+  private volatile VisualPreset activeVisualPreset = VisualPreset.OPERATIONAL;
   private volatile TrainingTargetDifficulty selectedTargetDifficulty =
       TrainingTargetDifficulty.MEDIUM;
   private volatile HeatmapComparisonMode heatmapComparisonMode = HeatmapComparisonMode.SUPERPOSED;
@@ -247,6 +249,10 @@ public final class MainWindow {
   private Button startButton;
   private Button pauseButton;
   private Button resetButton;
+  private Button overlayToggleButton;
+  private Button miniHeatmapToggleButton;
+  private Button minimapToggleButton;
+  private Button splitViewToggleButton;
   private Button episodeDetailsToggleButton;
   private Button focusModeToggleButton;
   private HBox focusModeHud;
@@ -399,6 +405,9 @@ public final class MainWindow {
     executionModeValue = new Label("MODE: VISUAL");
     executionModeValue.setFont(Font.font("Consolas", 13));
     executionModeValue.setTextFill(Color.web("#9db2ff"));
+    visualPresetValue = new Label("VISUAL PRESET: OPERATIVE");
+    visualPresetValue.setFont(Font.font("Consolas", 13));
+    visualPresetValue.setTextFill(Color.web("#9db2ff"));
 
     Button dashboardButton = neonButton("Dashboard", "#7ef9ff", this::showDashboardMode);
     dashboardButton.setMinWidth(110);
@@ -418,6 +427,7 @@ public final class MainWindow {
             dashboardButton,
             reviewButton,
             assetsButton,
+            visualPresetValue,
             sessionSeedValue,
             executionModeValue,
             systemStatusValue);
@@ -757,6 +767,7 @@ public final class MainWindow {
               controlService.reset();
             });
     Button overlayToggle = neonButton("Unexplored Overlay: OFF", "#8fd8ff", () -> {});
+    overlayToggleButton = overlayToggle;
     overlayToggle.setOnAction(
         event -> {
           unexploredOverlayEnabled = !unexploredOverlayEnabled;
@@ -765,6 +776,7 @@ public final class MainWindow {
           refreshUnexploredOverlay();
         });
     Button heatmapToggle = neonButton("Mini Heatmap: ON", "#9bff9f", () -> {});
+    miniHeatmapToggleButton = heatmapToggle;
     heatmapToggle.setOnAction(
         event -> {
           miniHeatmapEnabled = !miniHeatmapEnabled;
@@ -772,12 +784,54 @@ public final class MainWindow {
           refreshMiniHeatmap();
         });
     Button minimapToggle = neonButton("Minimap: ON", "#7ef9ff", () -> {});
+    minimapToggleButton = minimapToggle;
     minimapToggle.setOnAction(
         event -> {
           miniMapEnabled = !miniMapEnabled;
           minimapToggle.setText(miniMapEnabled ? "Minimap: ON" : "Minimap: OFF");
           refreshMiniMap();
         });
+    Label visualPresetLabel = new Label("VISUAL PRESET");
+    visualPresetLabel.setTextFill(Color.web("#9db2ff"));
+    visualPresetLabel.setFont(Font.font("Consolas", 12));
+    ComboBox<VisualPreset> visualPresetSelector =
+        new ComboBox<>(FXCollections.observableArrayList(VisualPreset.values()));
+    visualPresetSelector.setMaxWidth(Double.MAX_VALUE);
+    visualPresetSelector.getSelectionModel().select(activeVisualPreset);
+    visualPresetSelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    visualPresetSelector.setCellFactory(
+        ignored ->
+            new javafx.scene.control.ListCell<>() {
+              @Override
+              protected void updateItem(VisualPreset item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.label());
+              }
+            });
+    visualPresetSelector.setButtonCell(
+        new javafx.scene.control.ListCell<>() {
+          @Override
+          protected void updateItem(VisualPreset item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty || item == null ? null : item.label());
+          }
+        });
+    installFocusStyle(visualPresetSelector, "#7ef9ff");
+    visualPresetSelector
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldPreset, selectedPreset) -> {
+              if (selectedPreset == null || selectedPreset == oldPreset) {
+                return;
+              }
+              applyVisualPreset(selectedPreset, true);
+            });
 
     VBox panel =
         new VBox(
@@ -796,6 +850,8 @@ public final class MainWindow {
             targetDifficultySelector,
             batchLabel,
             batchSelector,
+            visualPresetLabel,
+            visualPresetSelector,
             overlayToggle,
             heatmapToggle,
             minimapToggle,
@@ -810,6 +866,7 @@ public final class MainWindow {
     installFocusStyle(resetButton, "#ff6b8a");
     updateControlAvailability();
     refreshSessionConfigCardPreview();
+    applyVisualPreset(activeVisualPreset, false);
     return panel;
   }
 
@@ -999,6 +1056,7 @@ public final class MainWindow {
         neonButton("Episode Details: ON", "#9db2ff", this::toggleEpisodeDetailsPanel);
     focusModeToggleButton = neonButton("Focus Mode: OFF", "#7ef9ff", this::toggleFocusMode);
     Button splitViewToggle = neonButton("Split View: OFF", "#ffd166", () -> {});
+    splitViewToggleButton = splitViewToggle;
     splitViewToggle.setOnAction(
         event -> {
           splitViewEnabled = !splitViewEnabled;
@@ -3023,6 +3081,72 @@ public final class MainWindow {
     button.setTooltip(new Tooltip(disabled ? disabledReason : button.getText()));
   }
 
+  private void applyVisualPreset(VisualPreset preset, boolean emitChangeNotification) {
+    activeVisualPreset = preset == null ? VisualPreset.OPERATIONAL : preset;
+    switch (activeVisualPreset) {
+      case OPERATIONAL -> {
+        setFocusModeEnabled(false);
+        episodeDetailsCollapsed = false;
+        splitViewEnabled = false;
+        unexploredOverlayEnabled = false;
+        miniHeatmapEnabled = true;
+        miniMapEnabled = true;
+      }
+      case FOCUS -> {
+        setFocusModeEnabled(true);
+        splitViewEnabled = false;
+        unexploredOverlayEnabled = false;
+        miniHeatmapEnabled = false;
+        miniMapEnabled = false;
+      }
+      case DIAGNOSTIC -> {
+        setFocusModeEnabled(false);
+        episodeDetailsCollapsed = false;
+        splitViewEnabled = true;
+        unexploredOverlayEnabled = true;
+        miniHeatmapEnabled = true;
+        miniMapEnabled = true;
+      }
+    }
+    applyEpisodeDetailsPanelState();
+    applySplitViewState();
+    refreshUnexploredOverlay();
+    refreshMiniHeatmap();
+    refreshMiniMap();
+    refreshSplitView(trajectorySnapshot(), trajectoryCurrent, lastLiveMetrics);
+    refreshVisualPresetHeader();
+    syncVisualToggleLabels();
+    if (emitChangeNotification) {
+      emitNotification(
+          "visual.preset." + activeVisualPreset.name().toLowerCase(Locale.ROOT),
+          "Visual preset set to " + activeVisualPreset.label() + ".",
+          "#7ef9ff");
+    }
+  }
+
+  private void refreshVisualPresetHeader() {
+    if (visualPresetValue == null) {
+      return;
+    }
+    visualPresetValue.setText("VISUAL PRESET: " + activeVisualPreset.label().toUpperCase(Locale.ROOT));
+  }
+
+  private void syncVisualToggleLabels() {
+    if (overlayToggleButton != null) {
+      overlayToggleButton.setText(
+          unexploredOverlayEnabled ? "Unexplored Overlay: ON" : "Unexplored Overlay: OFF");
+    }
+    if (miniHeatmapToggleButton != null) {
+      miniHeatmapToggleButton.setText(miniHeatmapEnabled ? "Mini Heatmap: ON" : "Mini Heatmap: OFF");
+    }
+    if (minimapToggleButton != null) {
+      minimapToggleButton.setText(miniMapEnabled ? "Minimap: ON" : "Minimap: OFF");
+    }
+    if (splitViewToggleButton != null) {
+      splitViewToggleButton.setText(splitViewEnabled ? "Split View: ON" : "Split View: OFF");
+    }
+  }
+
   private void toggleEpisodeDetailsPanel() {
     if (focusModeEnabled) {
       updateSystemStatus(
@@ -3884,6 +4008,22 @@ public final class MainWindow {
     private final String label;
 
     HeatmapComparisonMode(String label) {
+      this.label = label;
+    }
+
+    String label() {
+      return label;
+    }
+  }
+
+  private enum VisualPreset {
+    OPERATIONAL("Operative"),
+    FOCUS("Focus"),
+    DIAGNOSTIC("Diagnostic");
+
+    private final String label;
+
+    VisualPreset(String label) {
       this.label = label;
     }
 
