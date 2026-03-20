@@ -59,10 +59,10 @@ public class JdbcTrainingSessionRepository implements TrainingSessionRepository 
                     rs.getString("id"),
                     rs.getString("maze_ref"),
                     rs.getString("policy_id"),
-                    (Long) rs.getObject("preset_id"),
+                    nullableLong(rs.getObject("preset_id")),
                     rs.getLong("effective_seed"),
                     rs.getLong("started_at_epoch_millis"),
-                    (Long) rs.getObject("ended_at_epoch_millis")),
+                    nullableLong(rs.getObject("ended_at_epoch_millis"))),
             sessionId)
         .stream()
         .findFirst();
@@ -82,10 +82,10 @@ public class JdbcTrainingSessionRepository implements TrainingSessionRepository 
                 rs.getString("id"),
                 rs.getString("maze_ref"),
                 rs.getString("policy_id"),
-                (Long) rs.getObject("preset_id"),
+                nullableLong(rs.getObject("preset_id")),
                 rs.getLong("effective_seed"),
                 rs.getLong("started_at_epoch_millis"),
-                (Long) rs.getObject("ended_at_epoch_millis")),
+                nullableLong(rs.getObject("ended_at_epoch_millis"))),
         Math.max(1, limit));
   }
 
@@ -103,5 +103,9 @@ public class JdbcTrainingSessionRepository implements TrainingSessionRepository 
         endedAtEpochMillis,
         endedAtEpochMillis,
         sessionId);
+  }
+
+  private static Long nullableLong(Object value) {
+    return value instanceof Number number ? number.longValue() : null;
   }
 }
