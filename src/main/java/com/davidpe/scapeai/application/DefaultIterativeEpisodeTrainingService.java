@@ -2,8 +2,10 @@ package com.davidpe.scapeai.application;
 
 import com.davidpe.scapeai.persistence.MazeEntity;
 import com.davidpe.scapeai.persistence.TrainingRunEntity;
+import com.davidpe.scapeai.persistence.TrainingSessionEntity;
 import com.davidpe.scapeai.persistence.repository.MazeRepository;
 import com.davidpe.scapeai.persistence.repository.TrainingRunRepository;
+import com.davidpe.scapeai.persistence.repository.TrainingSessionRepository;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import java.time.Duration;
 import java.util.Optional;
@@ -20,20 +22,23 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
   private final TrainingRunRepository trainingRunRepository;
   private final MazeRepository mazeRepository;
   private final TrainingSessionContextHolder sessionContextHolder;
+  private final TrainingSessionRepository trainingSessionRepository;
 
   @Autowired
   public DefaultIterativeEpisodeTrainingService(
       SimulationEpisodeOrchestrator episodeOrchestrator,
       TrainingRunRepository trainingRunRepository,
       MazeRepository mazeRepository,
-      TrainingSessionContextHolder sessionContextHolder) {
+      TrainingSessionContextHolder sessionContextHolder,
+      TrainingSessionRepository trainingSessionRepository) {
     this(
         episodeOrchestrator,
         TrainingLifecycleEventBus.noop(),
         new EpsilonPhaseScheduler(0.35, 0.20, 0.05),
         trainingRunRepository,
         mazeRepository,
-        sessionContextHolder);
+        sessionContextHolder,
+        trainingSessionRepository);
   }
 
   public DefaultIterativeEpisodeTrainingService(
@@ -43,6 +48,7 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
         episodeOrchestrator,
         trainingLifecycleEventBus,
         new EpsilonPhaseScheduler(0.35, 0.20, 0.05),
+        null,
         null,
         null,
         null);
@@ -55,6 +61,7 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
         new EpsilonPhaseScheduler(0.35, 0.20, 0.05),
         null,
         null,
+        null,
         null);
   }
 
@@ -62,7 +69,14 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
       SimulationEpisodeOrchestrator episodeOrchestrator,
       TrainingLifecycleEventBus trainingLifecycleEventBus,
       EpsilonPhaseScheduler epsilonPhaseScheduler) {
-    this(episodeOrchestrator, trainingLifecycleEventBus, epsilonPhaseScheduler, null, null, null);
+    this(
+        episodeOrchestrator,
+        trainingLifecycleEventBus,
+        epsilonPhaseScheduler,
+        null,
+        null,
+        null,
+        null);
   }
 
   DefaultIterativeEpisodeTrainingService(
@@ -71,13 +85,15 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
       EpsilonPhaseScheduler epsilonPhaseScheduler,
       TrainingRunRepository trainingRunRepository,
       MazeRepository mazeRepository,
-      TrainingSessionContextHolder sessionContextHolder) {
+      TrainingSessionContextHolder sessionContextHolder,
+      TrainingSessionRepository trainingSessionRepository) {
     this.episodeOrchestrator = episodeOrchestrator;
     this.trainingLifecycleEventBus = trainingLifecycleEventBus;
     this.epsilonPhaseScheduler = epsilonPhaseScheduler;
     this.trainingRunRepository = trainingRunRepository;
     this.mazeRepository = mazeRepository;
     this.sessionContextHolder = sessionContextHolder;
+    this.trainingSessionRepository = trainingSessionRepository;
   }
 
   @Override
@@ -158,9 +174,29 @@ public class DefaultIterativeEpisodeTrainingService implements IterativeEpisodeT
       return;
     }
     String policyId = sessionContextHolder != null ? sessionContextHolder.policyId() : "unknown";
+    String trainingSessionId = sessionContextHolder == null ? null : sessionContextHolder.sessionId();
+    if (trainingSessionRepository != null
+        && sessionContextHolder != null
+        && trainingSessionId != null
+        && !trainingSessionId.isBlank()) {
+      long startedAt =
+          sessionContextHolder.startedAtEpochMillis() == null
+              ? episode.terminatedAtEpochMillis()
+              : sessionContextHolder.startedAtEpochMillis();
+      trainingSessionRepository.save(
+          new TrainingSessionEntity(
+              trainingSessionId,
+              sessionContextHolder.mazeName() == null ? "unknown" : sessionContextHolder.mazeName(),
+              policyId == null ? "unknown" : policyId,
+              sessionContextHolder.presetId(),
+              sessionContextHolder.effectiveSeed() == null ? 0L : sessionContextHolder.effectiveSeed(),
+              startedAt,
+              episode.terminatedAtEpochMillis()));
+    }
     TrainingRunEntity entity =
         new TrainingRunEntity(
             null,
+            trainingSessionId,
             mazeId,
             policyId,
             policyId,

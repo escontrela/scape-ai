@@ -29,10 +29,25 @@ public class SqliteSchemaMigrator {
   }
 
   private void migrateTrainingRuns() {
+    jdbcTemplate.execute(
+        """
+        CREATE TABLE IF NOT EXISTS training_sessions (
+          id TEXT PRIMARY KEY,
+          maze_ref TEXT NOT NULL,
+          policy_id TEXT NOT NULL,
+          preset_id INTEGER,
+          effective_seed INTEGER NOT NULL,
+          started_at_epoch_millis INTEGER NOT NULL,
+          ended_at_epoch_millis INTEGER
+        )
+        """);
     if (!tableExists("training_runs")) {
       return;
     }
     Set<String> columns = tableColumns("training_runs");
+    if (!columns.contains("training_session_id")) {
+      jdbcTemplate.execute("ALTER TABLE training_runs ADD COLUMN training_session_id TEXT");
+    }
     if (!columns.contains("collisions")) {
       jdbcTemplate.execute(
           "ALTER TABLE training_runs ADD COLUMN collisions INTEGER NOT NULL DEFAULT 0");
@@ -141,6 +156,8 @@ public class SqliteSchemaMigrator {
           SELECT 1 FROM reward_config_versions WHERE version_id = 'v1'
         )
         """);
+    jdbcTemplate.execute(
+        "CREATE INDEX IF NOT EXISTS idx_training_runs_session_id ON training_runs(training_session_id)");
   }
 
   private boolean tableExists(String tableName) {

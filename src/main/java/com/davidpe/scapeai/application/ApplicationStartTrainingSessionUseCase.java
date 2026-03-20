@@ -92,7 +92,12 @@ public class ApplicationStartTrainingSessionUseCase implements StartTrainingSess
     }
 
     long effectiveSeed = sessionRandomSource.resolveAndApplySeed(sessionConfig.seed());
-    trainingSessionContextHolder.activate(sessionConfig.mazeId(), sessionConfig.policyId());
+    trainingSessionContextHolder.activate(
+        sessionConfig.mazeId(),
+        sessionConfig.policyId(),
+        simulationControlService.activeTrainingPresetId(),
+        effectiveSeed,
+        System.currentTimeMillis());
     explorationBudgetService.startSession(
         simulationControlService.activeTrainingPresetId(),
         simulationControlService.activeMovementPolicy());

@@ -40,6 +40,7 @@ class JdbcPersistenceRepositoriesTest {
           """
           CREATE TABLE training_runs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            training_session_id TEXT,
             maze_id INTEGER NOT NULL,
             policy_id TEXT,
             policy_snapshot TEXT,
@@ -128,6 +129,7 @@ class JdbcPersistenceRepositoriesTest {
       runRepository.save(
           new TrainingRunEntity(
               null,
+              "session-alpha",
               maze.id(),
               "heuristic-baseline",
               "{\"policy\":\"heuristic-baseline\",\"seed\":null}",
@@ -159,6 +161,7 @@ class JdbcPersistenceRepositoriesTest {
       runRepository.save(
           new TrainingRunEntity(
               null,
+              "session-alpha",
               maze.id(),
               "random-controlled",
               "{\"policy\":\"random-controlled\",\"seed\":20260309}",

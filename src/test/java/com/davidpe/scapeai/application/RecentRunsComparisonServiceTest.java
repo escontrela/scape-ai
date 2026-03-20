@@ -158,6 +158,7 @@ class RecentRunsComparisonServiceTest {
         generated.add(
             new TrainingRunEntity(
                 (long) (i + 1),
+                "session-" + (i / 3),
                 1L,
                 "heuristic-baseline",
                 "{}",

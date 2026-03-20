@@ -773,3 +773,13 @@
 - Ajuste de WIP aplicado: `SCAPE-0065` movido a `in_progress`.
 - Tickets creados en backlog: `SCAPE-0066`, `SCAPE-0067`, `SCAPE-0068`, `SCAPE-0069`, `SCAPE-0070`.
 - Estado final confirmado: `in_progress=1` (`SCAPE-0065`) y `backlog=5` (`SCAPE-0066`, `SCAPE-0067`, `SCAPE-0068`, `SCAPE-0069`, `SCAPE-0070`).
+
+## Iteracion DEV 2026-03-20 (automation cycle 14)
+
+### SCAPE-0064 - Identificador persistente de training session
+- Objetivo funcional: agrupar episodios bajo una sesion de entrenamiento persistente para revision unificada.
+- Alcance introducido:
+- Cada `training_runs` nuevo persiste `training_session_id` y reutiliza el mismo id durante toda la ejecucion iniciada desde `StartTrainingSession`.
+- Nueva tabla `training_sessions` con metadatos minimos de revision (`maze_ref`, `policy_id`, `preset_id`, `effective_seed`, `started_at_epoch_millis`, `ended_at_epoch_millis`).
+- Compatibilidad retroactiva garantizada: migracion agrega columna de sesion nullable y no rompe corridas historicas sin sesion asociada.
+- Implementacion tecnica: `TrainingSessionContextHolder` genera `sessionId` por inicio, `DefaultIterativeEpisodeTrainingService` persiste sesiones/runs asociados y `SqliteSchemaMigrator` crea/actualiza esquema idempotente.

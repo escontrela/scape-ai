@@ -2,6 +2,7 @@ package com.davidpe.scapeai.persistence;
 
 public record TrainingRunEntity(
     Long id,
+    String trainingSessionId,
     long mazeId,
     String policyId,
     String policySnapshot,

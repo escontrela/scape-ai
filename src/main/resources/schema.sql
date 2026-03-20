@@ -10,6 +10,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_mazes_name ON mazes(name);
 
 CREATE TABLE IF NOT EXISTS training_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  training_session_id TEXT,
   maze_id INTEGER NOT NULL,
   policy_id TEXT,
   policy_snapshot TEXT,
@@ -38,7 +39,18 @@ CREATE TABLE IF NOT EXISTS training_runs (
   training_health_index REAL NOT NULL DEFAULT 0,
   health_index_formula_version TEXT NOT NULL DEFAULT 'v1.0.0',
   created_at_epoch_millis INTEGER NOT NULL,
-  FOREIGN KEY (maze_id) REFERENCES mazes(id)
+  FOREIGN KEY (maze_id) REFERENCES mazes(id),
+  FOREIGN KEY (training_session_id) REFERENCES training_sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS training_sessions (
+  id TEXT PRIMARY KEY,
+  maze_ref TEXT NOT NULL,
+  policy_id TEXT NOT NULL,
+  preset_id INTEGER,
+  effective_seed INTEGER NOT NULL,
+  started_at_epoch_millis INTEGER NOT NULL,
+  ended_at_epoch_millis INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS reward_config_versions (
