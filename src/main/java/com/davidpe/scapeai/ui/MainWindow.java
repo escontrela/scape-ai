@@ -173,12 +173,14 @@ public final class MainWindow {
   private volatile boolean unexploredOverlayEnabled;
   private volatile boolean miniHeatmapEnabled = true;
   private volatile boolean replayModeActive;
+  private volatile ViewportMode viewportMode = ViewportMode.LIVE;
   private volatile boolean sessionConfigLocked;
   private volatile TrainingTargetDifficulty selectedTargetDifficulty =
       TrainingTargetDifficulty.MEDIUM;
   private volatile HeatmapComparisonMode heatmapComparisonMode = HeatmapComparisonMode.SUPERPOSED;
   private volatile List<CellVisitFrequency> accumulatedHeatmapFrequencies = List.of();
   private volatile List<SuccessfulEpisodeReplay> replayEpisodes = List.of();
+  private volatile LiveEpisodeMetrics lastLiveMetrics;
   private volatile String selectedReviewSessionId;
   private volatile Long selectedReviewRunId;
   private volatile int replayEpisodeIndex;
@@ -666,6 +668,47 @@ public final class MainWindow {
 
   private VBox buildMazePanel() {
     Label title = panelTitle("Maze");
+    Label modeLabel = new Label("VIEW MODE");
+    modeLabel.setTextFill(Color.web("#9db2ff"));
+    modeLabel.setFont(Font.font("Consolas", 12));
+    ComboBox<ViewportMode> modeSelector =
+        new ComboBox<>(FXCollections.observableArrayList(ViewportMode.values()));
+    modeSelector.getSelectionModel().select(viewportMode);
+    modeSelector.setMaxWidth(Double.MAX_VALUE);
+    modeSelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    modeSelector.setCellFactory(
+        ignored ->
+            new javafx.scene.control.ListCell<>() {
+              @Override
+              protected void updateItem(ViewportMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.label());
+              }
+            });
+    modeSelector.setButtonCell(
+        new javafx.scene.control.ListCell<>() {
+          @Override
+          protected void updateItem(ViewportMode item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty || item == null ? null : item.label());
+          }
+        });
+    modeSelector
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldValue, selected) -> {
+              if (selected == null || selected == oldValue) {
+                return;
+              }
+              setViewportMode(selected);
+            });
+
     Label sortLabel = new Label("SORT BY DIFFICULTY");
     sortLabel.setTextFill(Color.web("#9db2ff"));
     sortLabel.setFont(Font.font("Consolas", 12));
@@ -766,6 +809,8 @@ public final class MainWindow {
         new VBox(
             12,
             title,
+            modeLabel,
+            modeSelector,
             sortLabel,
             sortSelector,
             mazeSelector,
@@ -1650,6 +1695,7 @@ public final class MainWindow {
   }
 
   private void applyMetrics(LiveEpisodeMetrics metrics) {
+    lastLiveMetrics = metrics;
     Platform.runLater(
         () -> {
           if (stepsValue != null) {
@@ -1705,7 +1751,7 @@ public final class MainWindow {
   }
 
   private void renderLiveViewport(LiveEpisodeMetrics metrics) {
-    if (replayModeActive) {
+    if (viewportMode == ViewportMode.RESUME || replayModeActive) {
       return;
     }
     if (metrics == null) {
@@ -2162,6 +2208,10 @@ public final class MainWindow {
                   if (replayStatusValue != null) {
                     replayStatusValue.setText("No successful episodes yet.");
                   }
+                  if (viewportMode == ViewportMode.RESUME) {
+                    mazeViewportRenderer.clearTrajectory();
+                    refreshMiniHeatmap();
+                  }
                 });
             return;
           }
@@ -2180,16 +2230,25 @@ public final class MainWindow {
       if (replayStatusValue != null) {
         replayStatusValue.setText("Session " + sessionId + ": no EXIT_REACHED episodes.");
       }
+      if (viewportMode == ViewportMode.RESUME) {
+        mazeViewportRenderer.clearTrajectory();
+        refreshMiniHeatmap();
+      }
       return;
     }
     if (replayStatusValue != null) {
       replayStatusValue.setText(
           "Session " + sessionId + ": loaded " + replayEpisodes.size() + " successful replay(s).");
     }
-    renderReplayFrame();
+    if (viewportMode == ViewportMode.RESUME) {
+      renderReplayFrame();
+    }
   }
 
   private void playReplay() {
+    if (viewportMode != ViewportMode.RESUME) {
+      setViewportMode(ViewportMode.RESUME);
+    }
     if (replayEpisodes.isEmpty()) {
       if (replayStatusValue != null) {
         replayStatusValue.setText("No successful episodes available to replay.");
@@ -2217,6 +2276,9 @@ public final class MainWindow {
   }
 
   private void restartReplay() {
+    if (viewportMode != ViewportMode.RESUME) {
+      setViewportMode(ViewportMode.RESUME);
+    }
     if (replayEpisodes.isEmpty()) {
       return;
     }
@@ -2229,6 +2291,9 @@ public final class MainWindow {
   }
 
   private void nextReplayEpisode() {
+    if (viewportMode != ViewportMode.RESUME) {
+      setViewportMode(ViewportMode.RESUME);
+    }
     if (replayEpisodes.isEmpty()) {
       return;
     }
@@ -2295,6 +2360,27 @@ public final class MainWindow {
     if (replayTicker != null) {
       replayTicker.cancel(false);
       replayTicker = null;
+    }
+  }
+
+  private void setViewportMode(ViewportMode mode) {
+    viewportMode = mode == null ? ViewportMode.LIVE : mode;
+    if (viewportMode == ViewportMode.LIVE) {
+      replayModeActive = false;
+      stopReplayTicker();
+      if (lastLiveMetrics != null) {
+        renderLiveViewport(lastLiveMetrics);
+      }
+      if (replayStatusValue != null) {
+        replayStatusValue.setText("Live mode active.");
+      }
+      return;
+    }
+    refreshReplayEpisodesAsync();
+    if (!replayEpisodes.isEmpty()) {
+      renderReplayFrame();
+    } else if (replayStatusValue != null) {
+      replayStatusValue.setText("Resume mode: no successful episodes yet.");
     }
   }
 
@@ -2443,6 +2529,21 @@ public final class MainWindow {
   }
 
   private record MiniHeatmapSnapshot(List<GridPosition> trajectory, GridPosition currentPosition) {}
+
+  private enum ViewportMode {
+    LIVE("LIVE"),
+    RESUME("RESUME");
+
+    private final String label;
+
+    ViewportMode(String label) {
+      this.label = label;
+    }
+
+    String label() {
+      return label;
+    }
+  }
 
   private enum HeatmapComparisonMode {
     ACTIVE_ONLY("Active"),
