@@ -6,26 +6,26 @@ import com.davidpe.scapeai.application.LiveMetricsService;
 import com.davidpe.scapeai.application.MazeCoverageSummaryRow;
 import com.davidpe.scapeai.application.MazeCoverageSummaryService;
 import com.davidpe.scapeai.application.MovementPolicyOption;
+import com.davidpe.scapeai.application.PersistentMazeHeatmapService;
 import com.davidpe.scapeai.application.RecentRunComparisonRow;
 import com.davidpe.scapeai.application.RecentRunsComparisonService;
 import com.davidpe.scapeai.application.RecentRunsSortOption;
-import com.davidpe.scapeai.application.PersistentMazeHeatmapService;
+import com.davidpe.scapeai.application.SimulationControlService;
+import com.davidpe.scapeai.application.SimulationSpeed;
 import com.davidpe.scapeai.application.StartTrainingSessionCommand;
 import com.davidpe.scapeai.application.StartTrainingSessionResult;
 import com.davidpe.scapeai.application.StartTrainingSessionUseCase;
-import com.davidpe.scapeai.application.SimulationSpeed;
-import com.davidpe.scapeai.application.SimulationControlService;
-import com.davidpe.scapeai.application.TrainingSessionConfig;
-import com.davidpe.scapeai.application.TrainingTargetDifficulty;
+import com.davidpe.scapeai.application.TrainingBudget;
 import com.davidpe.scapeai.application.TrainingExecutionService;
 import com.davidpe.scapeai.application.TrainingLifecycleEvent;
 import com.davidpe.scapeai.application.TrainingLifecycleEventType;
 import com.davidpe.scapeai.application.TrainingLifecycleSubscriberRouter;
-import com.davidpe.scapeai.application.TrainingTimelineEntry;
-import com.davidpe.scapeai.application.TrainingTimelineStatus;
 import com.davidpe.scapeai.application.TrainingPreset;
 import com.davidpe.scapeai.application.TrainingPresetOption;
 import com.davidpe.scapeai.application.TrainingPresetService;
+import com.davidpe.scapeai.application.TrainingSessionConfig;
+import com.davidpe.scapeai.application.TrainingTargetDifficulty;
+import com.davidpe.scapeai.application.TrainingTimelineEntry;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
@@ -124,7 +124,8 @@ public final class MainWindow {
   private volatile boolean unexploredOverlayEnabled;
   private volatile boolean miniHeatmapEnabled = true;
   private volatile boolean sessionConfigLocked;
-  private volatile TrainingTargetDifficulty selectedTargetDifficulty = TrainingTargetDifficulty.MEDIUM;
+  private volatile TrainingTargetDifficulty selectedTargetDifficulty =
+      TrainingTargetDifficulty.MEDIUM;
   private volatile HeatmapComparisonMode heatmapComparisonMode = HeatmapComparisonMode.SUPERPOSED;
   private volatile List<CellVisitFrequency> accumulatedHeatmapFrequencies = List.of();
   private final double coverageAlertThreshold;
@@ -203,7 +204,8 @@ public final class MainWindow {
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
 
-    HBox header = new HBox(12, title, spacer, sessionSeedValue, executionModeValue, systemStatusValue);
+    HBox header =
+        new HBox(12, title, spacer, sessionSeedValue, executionModeValue, systemStatusValue);
     header.setAlignment(Pos.CENTER_LEFT);
     header.setPadding(new Insets(0, 0, 18, 0));
     return header;
@@ -215,7 +217,8 @@ public final class MainWindow {
     algorithmLabel.setTextFill(Color.web("#9db2ff"));
     algorithmLabel.setFont(Font.font("Consolas", 12));
     ComboBox<MovementPolicyOption> algorithmSelector =
-        new ComboBox<>(FXCollections.observableArrayList(controlService.availableMovementPolicies()));
+        new ComboBox<>(
+            FXCollections.observableArrayList(controlService.availableMovementPolicies()));
     algorithmSelector.setMaxWidth(Double.MAX_VALUE);
     algorithmSelector.setStyle(
         "-fx-background-color: #101938;"
@@ -263,7 +266,8 @@ public final class MainWindow {
     presetLabel.setTextFill(Color.web("#9db2ff"));
     presetLabel.setFont(Font.font("Consolas", 12));
     ComboBox<TrainingPresetOption> presetSelector =
-        new ComboBox<>(FXCollections.observableArrayList(controlService.availableTrainingPresets()));
+        new ComboBox<>(
+            FXCollections.observableArrayList(controlService.availableTrainingPresets()));
     presetSelector.setMaxWidth(Double.MAX_VALUE);
     presetSelector.setStyle(
         "-fx-background-color: #101938;"
@@ -437,7 +441,8 @@ public final class MainWindow {
                       targetDifficulty);
               StartTrainingSessionResult startResult =
                   startTrainingSessionUseCase.start(
-                      new StartTrainingSessionCommand(selectedMaze, selectedPresetId, sessionConfig));
+                      new StartTrainingSessionCommand(
+                          selectedMaze, selectedPresetId, sessionConfig));
               if (!startResult.started()) {
                 updateSystemStatus(startResult.message(), "#ff6b8a");
                 return;
@@ -456,10 +461,14 @@ public final class MainWindow {
                 updateSystemStatus("Select a training preset before starting batches.", "#ff6b8a");
                 return;
               }
-              int batches = batchSelector.getValue() == null ? 1 : Math.max(1, batchSelector.getValue());
+              int batches =
+                  batchSelector.getValue() == null ? 1 : Math.max(1, batchSelector.getValue());
               int episodesPerBatch = Math.max(1, activePreset.get().episodes());
+              TrainingBudget budget =
+                  new TrainingBudget(episodesPerBatch * batches, sessionConfig.timeout());
               trainingExecutionService
-                  .startBatchTraining(selectedMaze, episodesPerBatch, batches, sessionConfig.timeout())
+                  .startBatchTraining(
+                      selectedMaze, episodesPerBatch, batches, sessionConfig.timeout(), budget)
                   .whenComplete(
                       (summary, error) ->
                           Platform.runLater(
@@ -492,11 +501,7 @@ public final class MainWindow {
               trainingExecutionService.cancelTraining();
               controlService.reset();
             });
-    Button overlayToggle =
-        neonButton(
-            "Unexplored Overlay: OFF",
-            "#8fd8ff",
-            () -> {});
+    Button overlayToggle = neonButton("Unexplored Overlay: OFF", "#8fd8ff", () -> {});
     overlayToggle.setOnAction(
         event -> {
           unexploredOverlayEnabled = !unexploredOverlayEnabled;
@@ -504,11 +509,7 @@ public final class MainWindow {
               unexploredOverlayEnabled ? "Unexplored Overlay: ON" : "Unexplored Overlay: OFF");
           refreshUnexploredOverlay();
         });
-    Button heatmapToggle =
-        neonButton(
-            "Mini Heatmap: ON",
-            "#9bff9f",
-            () -> {});
+    Button heatmapToggle = neonButton("Mini Heatmap: ON", "#9bff9f", () -> {});
     heatmapToggle.setOnAction(
         event -> {
           miniHeatmapEnabled = !miniHeatmapEnabled;
@@ -562,7 +563,8 @@ public final class MainWindow {
             + "-fx-background-radius: 6;");
 
     ComboBox<String> mazeSelector =
-        new ComboBox<>(FXCollections.observableArrayList(mazeCatalogService.namesByDifficulty(true)));
+        new ComboBox<>(
+            FXCollections.observableArrayList(mazeCatalogService.namesByDifficulty(true)));
     mazeSelector.setMaxWidth(Double.MAX_VALUE);
     mazeSelector.setStyle(
         "-fx-background-color: #101938;"
@@ -674,10 +676,7 @@ public final class MainWindow {
     timelineTitle.setFont(Font.font("Consolas", 12));
 
     timelineEntriesBox = new VBox(6);
-    timelineEntriesBox
-        .getChildren()
-        .add(
-            timelinePlaceholder("No episodes completed yet."));
+    timelineEntriesBox.getChildren().add(timelinePlaceholder("No episodes completed yet."));
 
     Label comparisonTitle = new Label("LAST 10 RUNS");
     comparisonTitle.setTextFill(Color.web("#9db2ff"));
@@ -852,7 +851,12 @@ public final class MainWindow {
       Rectangle swatch = new Rectangle(12, 8);
       swatch.setArcWidth(3);
       swatch.setArcHeight(3);
-      swatch.setFill(Color.color(0.22 + (0.70 * ratio), 0.32 + (0.52 * ratio), 0.78 - (0.58 * ratio), 0.30 + (0.55 * ratio)));
+      swatch.setFill(
+          Color.color(
+              0.22 + (0.70 * ratio),
+              0.32 + (0.52 * ratio),
+              0.78 - (0.58 * ratio),
+              0.30 + (0.55 * ratio)));
       swatch.setStroke(Color.color(0.30, 0.90, 1.0, 0.35));
       swatch.setStrokeWidth(0.3);
       swatches.getChildren().add(swatch);
@@ -932,8 +936,7 @@ public final class MainWindow {
       case "Termination" -> diagnosticTerminationValue = label;
       case "Maze Coverage" -> diagnosticCoverageValue = label;
       case "Alert" -> diagnosticAlertValue = label;
-      default -> {
-      }
+      default -> {}
     }
   }
 
@@ -964,7 +967,8 @@ public final class MainWindow {
           }
           if (diagnosticAlertValue != null) {
             boolean timeoutAlert =
-                metrics.remainingMillis() == 0L && !"EXIT_REACHED".equals(metrics.terminationReason());
+                metrics.remainingMillis() == 0L
+                    && !"EXIT_REACHED".equals(metrics.terminationReason());
             boolean lowCoverageAlert =
                 "IN_PROGRESS".equals(metrics.terminationReason())
                     && metrics.mazeCoverageRatio() < coverageAlertThreshold;
@@ -1014,14 +1018,17 @@ public final class MainWindow {
       Platform.runLater(
           () -> {
             if (recentRunsEntriesBox != null) {
-              recentRunsEntriesBox.getChildren().setAll(timelinePlaceholder("Select a maze to compare runs."));
+              recentRunsEntriesBox
+                  .getChildren()
+                  .setAll(timelinePlaceholder("Select a maze to compare runs."));
             }
           });
       return;
     }
     recentRunsExecutor.execute(
         () -> {
-          List<RecentRunComparisonRow> rows = recentRunsComparisonService.recentRuns(mazeName, sort);
+          List<RecentRunComparisonRow> rows =
+              recentRunsComparisonService.recentRuns(mazeName, sort);
           Platform.runLater(() -> renderRecentRuns(mazeName, sort, rows));
         });
   }
@@ -1093,7 +1100,9 @@ public final class MainWindow {
     for (MazeCoverageSummaryRow row : rows) {
       coverageEntriesBox
           .getChildren()
-          .add(timelinePlaceholder(row.mazeName() + " -> pending policies: " + row.pendingPolicies()));
+          .add(
+              timelinePlaceholder(
+                  row.mazeName() + " -> pending policies: " + row.pendingPolicies()));
       shown++;
       if (shown >= 5) {
         break;
@@ -1131,10 +1140,7 @@ public final class MainWindow {
     Label entropy =
         new Label(
             String.format(
-                Locale.US,
-                "H %.2f%s",
-                row.pathEntropy(),
-                row.lowEntropyAlert() ? " !" : ""));
+                Locale.US, "H %.2f%s", row.pathEntropy(), row.lowEntropyAlert() ? " !" : ""));
     entropy.setFont(Font.font("Consolas", 11));
     entropy.setTextFill(Color.web(row.lowEntropyAlert() ? "#ff6b8a" : "#7ef9ff"));
 
@@ -1149,7 +1155,11 @@ public final class MainWindow {
     health.setTextFill(Color.web(row.healthRegression() ? "#ff6b8a" : "#89ff9a"));
 
     Label rewardVersion =
-        new Label("RV " + (row.rewardVersion() == null || row.rewardVersion().isBlank() ? "v1" : row.rewardVersion()));
+        new Label(
+            "RV "
+                + (row.rewardVersion() == null || row.rewardVersion().isBlank()
+                    ? "v1"
+                    : row.rewardVersion()));
     rewardVersion.setFont(Font.font("Consolas", 11));
     rewardVersion.setTextFill(Color.web("#7ef9ff"));
 
@@ -1160,7 +1170,17 @@ public final class MainWindow {
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
     return new HBox(
-        8, status, reward, collisions, netProgress, sideCoverage, entropy, health, rewardVersion, spacer, elapsed);
+        8,
+        status,
+        reward,
+        collisions,
+        netProgress,
+        sideCoverage,
+        entropy,
+        health,
+        rewardVersion,
+        spacer,
+        elapsed);
   }
 
   private HBox timelineRow(TrainingTimelineEntry entry) {
@@ -1168,8 +1188,7 @@ public final class MainWindow {
     status.setFont(Font.font("Consolas", 12));
     status.setTextFill(Color.web(terminalReasonColor(entry.terminalReason())));
 
-    Label reward =
-        new Label(String.format(Locale.US, "R %.1f", entry.reward()));
+    Label reward = new Label(String.format(Locale.US, "R %.1f", entry.reward()));
     reward.setFont(Font.font("Consolas", 12));
     reward.setTextFill(Color.web("#b8ffcb"));
 
@@ -1234,7 +1253,8 @@ public final class MainWindow {
     if (activePolicyValue == null) {
       return;
     }
-    activePolicyValue.setText("ACTIVE ALGORITHM: " + controlService.activeMovementPolicy().toUpperCase(Locale.ROOT));
+    activePolicyValue.setText(
+        "ACTIVE ALGORITHM: " + controlService.activeMovementPolicy().toUpperCase(Locale.ROOT));
   }
 
   private void selectActivePreset(ComboBox<TrainingPresetOption> selector) {
@@ -1258,7 +1278,8 @@ public final class MainWindow {
       return;
     }
     Long activePresetId = controlService.activeTrainingPresetId();
-    String text = activePresetId == null ? "ACTIVE PRESET: NONE" : "ACTIVE PRESET: #" + activePresetId;
+    String text =
+        activePresetId == null ? "ACTIVE PRESET: NONE" : "ACTIVE PRESET: #" + activePresetId;
     activePresetValue.setText(text);
   }
 
@@ -1295,12 +1316,18 @@ public final class MainWindow {
   }
 
   private void applySessionConfigCard(
-      String mazeName, String policy, Long seed, java.time.Duration timeout, TrainingTargetDifficulty difficulty) {
+      String mazeName,
+      String policy,
+      Long seed,
+      java.time.Duration timeout,
+      TrainingTargetDifficulty difficulty) {
     if (effectiveMazeValue != null) {
-      effectiveMazeValue.setText("Maze: " + (mazeName == null || mazeName.isBlank() ? "-" : mazeName));
+      effectiveMazeValue.setText(
+          "Maze: " + (mazeName == null || mazeName.isBlank() ? "-" : mazeName));
     }
     if (effectivePolicyValue != null) {
-      effectivePolicyValue.setText("Policy: " + (policy == null || policy.isBlank() ? "-" : policy));
+      effectivePolicyValue.setText(
+          "Policy: " + (policy == null || policy.isBlank() ? "-" : policy));
     }
     if (effectiveSeedCardValue != null) {
       effectiveSeedCardValue.setText(seed == null ? "Seed: AUTO" : "Seed: " + seed);
@@ -1341,7 +1368,8 @@ public final class MainWindow {
       sessionSeedValue.setText(seed == null ? "SEED: -" : "SEED: " + seed);
     }
     if (executionModeValue != null) {
-      executionModeValue.setText("MODE: " + (mode == null ? "VISUAL" : mode.toUpperCase(Locale.ROOT)));
+      executionModeValue.setText(
+          "MODE: " + (mode == null ? "VISUAL" : mode.toUpperCase(Locale.ROOT)));
     }
   }
 
@@ -1450,7 +1478,9 @@ public final class MainWindow {
   private synchronized void restartTrajectoryTicker() {
     stopTrajectoryTicker();
     long period = liveMetricsService.simulationSpeed().trajectoryTickMillis();
-    trajectoryTicker = trajectoryScheduler.scheduleAtFixedRate(this::advanceTrajectoryOverlay, period, period, TimeUnit.MILLISECONDS);
+    trajectoryTicker =
+        trajectoryScheduler.scheduleAtFixedRate(
+            this::advanceTrajectoryOverlay, period, period, TimeUnit.MILLISECONDS);
   }
 
   private void refreshUnexploredOverlay() {
@@ -1485,7 +1515,8 @@ public final class MainWindow {
     }
     java.util.Map<GridPosition, Integer> accumulatedVisits = new java.util.HashMap<>();
     for (CellVisitFrequency frequency : accumulatedHeatmapFrequencies) {
-      if (!selectedMaze.isInside(frequency.position()) || selectedMaze.isWall(frequency.position())) {
+      if (!selectedMaze.isInside(frequency.position())
+          || selectedMaze.isWall(frequency.position())) {
         continue;
       }
       accumulatedVisits.put(frequency.position(), Math.max(0, frequency.visits()));
@@ -1508,7 +1539,8 @@ public final class MainWindow {
         } else {
           int activeCount = activeVisits.getOrDefault(position, 0);
           int accumulatedCount = accumulatedVisits.getOrDefault(position, 0);
-          double activeIntensity = activeCount <= 0 ? 0.0 : (double) activeCount / (double) maxVisits;
+          double activeIntensity =
+              activeCount <= 0 ? 0.0 : (double) activeCount / (double) maxVisits;
           double accumulatedIntensity =
               accumulatedCount <= 0 ? 0.0 : (double) accumulatedCount / (double) maxVisits;
           boolean leftHalf = col < (selectedMaze.cols() / 2);
@@ -1560,7 +1592,12 @@ public final class MainWindow {
             }
           }
           cell.setFill(Color.color(red, green, blue, alpha));
-          cell.setStroke(Color.color(0.26, 0.88, 1.0, 0.16 + (0.35 * Math.max(activeIntensity, accumulatedIntensity))));
+          cell.setStroke(
+              Color.color(
+                  0.26,
+                  0.88,
+                  1.0,
+                  0.16 + (0.35 * Math.max(activeIntensity, accumulatedIntensity))));
           if (position.equals(selectedMaze.exit())) {
             cell.setFill(Color.color(1.0, 0.78, 0.24, 0.95));
             cell.setStroke(Color.color(1.0, 0.93, 0.55, 0.95));

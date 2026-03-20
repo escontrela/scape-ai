@@ -33,7 +33,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
             randomSource,
             noOpExplorationBudgetService(),
             adaptiveDifficultyDisabledService(),
-            new TrainingSessionConfigValidator());
+            new TrainingSessionConfigValidator(),
+            new TrainingSessionContextHolder());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -64,7 +65,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
             randomSource,
             noOpExplorationBudgetService(),
             adaptiveDifficultyDisabledService(),
-            new TrainingSessionConfigValidator());
+            new TrainingSessionConfigValidator(),
+            new TrainingSessionContextHolder());
 
     StartTrainingSessionResult result =
         useCase.start(
@@ -90,7 +92,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
             randomSource,
             noOpExplorationBudgetService(),
             adaptiveDifficultyDisabledService(),
-            new TrainingSessionConfigValidator());
+            new TrainingSessionConfigValidator(),
+            new TrainingSessionContextHolder());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -119,7 +122,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
             randomSource,
             noOpExplorationBudgetService(),
             adaptiveDifficultyDisabledService(),
-            new TrainingSessionConfigValidator());
+            new TrainingSessionConfigValidator(),
+            new TrainingSessionContextHolder());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -149,7 +153,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
             randomSource,
             noOpExplorationBudgetService(),
             adaptiveDifficultyDisabledService(),
-            new TrainingSessionConfigValidator());
+            new TrainingSessionConfigValidator(),
+            new TrainingSessionContextHolder());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -179,7 +184,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
             randomSource,
             noOpExplorationBudgetService(),
             adaptive,
-            new TrainingSessionConfigValidator());
+            new TrainingSessionConfigValidator(),
+            new TrainingSessionContextHolder());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
@@ -208,7 +214,8 @@ class ApplicationStartTrainingSessionUseCaseTest {
             randomSource,
             noOpExplorationBudgetService(),
             adaptive,
-            new TrainingSessionConfigValidator());
+            new TrainingSessionConfigValidator(),
+            new TrainingSessionContextHolder());
     MazeDefinition maze =
         new MazeDefinition(2, 2, new boolean[2][2], new GridPosition(0, 0), new GridPosition(1, 1));
 
