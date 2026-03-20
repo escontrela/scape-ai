@@ -162,6 +162,9 @@ public final class MainWindow {
   private TextArea reviewAsciiArea;
   private TextArea reviewTrajectoryArea;
   private StackPane workspaceStack;
+  private VBox controlPanel;
+  private VBox mazePanel;
+  private VBox metricsPanel;
   private VBox reviewPanel;
   private VBox assetsPanel;
   private ComboBox<PersistedAssetType> assetTypeFilter;
@@ -269,10 +272,13 @@ public final class MainWindow {
     content.setStyle("-fx-background-color: linear-gradient(to bottom right, #050812, #0d1122);");
 
     content.setTop(buildHeader());
-    content.setLeft(buildControlPanel());
+    controlPanel = buildControlPanel();
+    content.setLeft(controlPanel);
     BorderPane dashboardPane = new BorderPane();
-    dashboardPane.setCenter(buildMazePanel());
-    dashboardPane.setRight(buildMetricsPanel());
+    mazePanel = buildMazePanel();
+    metricsPanel = buildMetricsPanel();
+    dashboardPane.setCenter(mazePanel);
+    dashboardPane.setRight(metricsPanel);
     reviewPanel = buildReviewPanel();
     reviewPanel.setVisible(false);
     reviewPanel.setManaged(false);
@@ -309,6 +315,7 @@ public final class MainWindow {
 
     Scene scene = new Scene(root, 1200, 760);
     installKeyboardNavigation(scene);
+    installResponsiveLayout(scene);
     var neonScrollCss =
         getClass().getResource("/styles/neon-scroll.css");
     if (neonScrollCss != null) {
@@ -1779,6 +1786,49 @@ public final class MainWindow {
             event.consume();
           }
         });
+  }
+
+  private void installResponsiveLayout(Scene scene) {
+    if (scene == null) {
+      return;
+    }
+    scene.widthProperty().addListener((ignored, oldWidth, newWidth) -> applyResponsiveLayout(newWidth.doubleValue()));
+    scene.heightProperty().addListener((ignored, oldHeight, newHeight) -> applyResponsiveLayout(scene.getWidth()));
+    applyResponsiveLayout(scene.getWidth());
+  }
+
+  private void applyResponsiveLayout(double width) {
+    double safeWidth = Math.max(1024.0, width);
+    double controlWidth;
+    double metricsWidth;
+    double viewportHeight;
+    if (safeWidth <= 1440.0) {
+      controlWidth = 240.0;
+      metricsWidth = 270.0;
+      viewportHeight = 440.0;
+    } else if (safeWidth <= 2200.0) {
+      controlWidth = 280.0;
+      metricsWidth = 320.0;
+      viewportHeight = 520.0;
+    } else {
+      controlWidth = 340.0;
+      metricsWidth = 390.0;
+      viewportHeight = 620.0;
+    }
+    if (controlPanel != null) {
+      controlPanel.setMinWidth(controlWidth);
+      controlPanel.setPrefWidth(controlWidth);
+      controlPanel.setMaxWidth(controlWidth);
+    }
+    if (metricsPanel != null) {
+      metricsPanel.setMinWidth(metricsWidth);
+      metricsPanel.setPrefWidth(metricsWidth);
+      metricsPanel.setMaxWidth(metricsWidth);
+    }
+    if (mazeViewport != null) {
+      mazeViewport.setMinHeight(viewportHeight);
+      mazeViewport.setPrefHeight(viewportHeight);
+    }
   }
 
   private void installFocusStyle(Control control, String accent) {

@@ -925,6 +925,13 @@
 - Deduplicacion en rafaga por clave (`scape.ui.notification-dedup-window-ms`) para evitar spam en eventos repetidos.
 - Eventos cubiertos: inicio, pausa, error de validacion de arranque, episodio exitoso y timeout.
 
+### SCAPE-0083 - Layout adaptativo para resoluciones de desktop
+- Objetivo funcional: mantener jerarquia visual y legibilidad en resoluciones desktop heterogeneas.
+- Alcance introducido:
+- Reglas de breakpoint en `MainWindow` para perfiles `compact` (<=1440), `balanced` (<=2200) y `wide` (>2200).
+- Ajuste dinamico de anchos de panel lateral de controles, panel de metricas y altura util del viewport sin recrear nodos.
+- Aplicacion reactiva via listeners de `Scene` para transiciones suaves sin perdida de estado visible.
+
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
 - Estado inicial detectado: `in_progress=0` y `backlog=5` (`SCAPE-0075` a `SCAPE-0079`).
