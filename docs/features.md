@@ -999,6 +999,7 @@
 - Estados visuales consistentes para controles criticos (`hover`, `activo`, `deshabilitado`, `procesando`).
 - Confirmacion visual al ejecutar `start`, `pause`, `reset` y cambio de algoritmo.
 - Explicacion contextual de estados deshabilitados mediante microtexto o tooltip.
+- Implementacion tecnica: `MainWindow` aplica estados visuales de boton por interaccion, feedback instantaneo por accion y tooltips de causa para deshabilitado.
 
 ### SCAPE-0087 - Paleta semantica por estado de entrenamiento
 - Objetivo funcional: identificar rapidamente el estado operativo del entrenamiento mediante codificacion visual semantica.

@@ -74,6 +74,7 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.Alert;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -188,6 +189,7 @@ public final class MainWindow {
   private volatile boolean trajectoryRunning;
   private volatile boolean unexploredOverlayEnabled;
   private volatile boolean miniHeatmapEnabled = true;
+  private volatile boolean startActionProcessing;
   private volatile boolean replayModeActive;
   private volatile ViewportMode viewportMode = ViewportMode.LIVE;
   private volatile boolean sessionConfigLocked;
@@ -420,6 +422,10 @@ public final class MainWindow {
               controlService.selectMovementPolicy(selected.id());
               updateActivePolicyLabel();
               refreshSessionConfigCardPreview();
+              emitNotification(
+                  "control.algorithm",
+                  "Algorithm changed to " + selected.label() + ".",
+                  "#7ef9ff");
             });
 
     activePolicyValue = new Label();
@@ -588,11 +594,18 @@ public final class MainWindow {
             "Start",
             "#22e6ff",
             () -> {
+              startActionProcessing = true;
+              startButton.setText("Starting...");
+              updateControlAvailability();
+              updateSystemStatus("START REQUESTED", "#7ef9ff");
               TrainingPresetOption selectedPreset = presetSelector.getValue();
               Long selectedPresetId = selectedPreset == null ? null : selectedPreset.id();
               TrainingTargetDifficulty targetDifficulty = targetDifficultySelector.getValue();
               var activePresetBeforeStart = trainingPresetService.activePreset();
               if (activePresetBeforeStart.isEmpty()) {
+                startActionProcessing = false;
+                startButton.setText("Start");
+                updateControlAvailability();
                 updateSystemStatus("Select a training preset before starting batches.", "#ff6b8a");
                 emitNotification(
                     "validation.preset.missing",
@@ -613,6 +626,9 @@ public final class MainWindow {
                       new StartTrainingSessionCommand(
                           selectedMaze, selectedPresetId, sessionConfig));
               if (!startResult.started()) {
+                startActionProcessing = false;
+                startButton.setText("Start");
+                updateControlAvailability();
                 updateSystemStatus(startResult.message(), "#ff6b8a");
                 emitNotification("validation.start.denied", startResult.message(), "#ff6b8a");
                 return;
@@ -630,6 +646,9 @@ public final class MainWindow {
               updateActivePresetLabel();
               var activePreset = trainingPresetService.activePreset();
               if (activePreset.isEmpty()) {
+                startActionProcessing = false;
+                startButton.setText("Start");
+                updateControlAvailability();
                 updateSystemStatus("Select a training preset before starting batches.", "#ff6b8a");
                 emitNotification(
                     "validation.preset.missing",
@@ -649,6 +668,9 @@ public final class MainWindow {
                       (summary, error) ->
                           Platform.runLater(
                               () -> {
+                                startActionProcessing = false;
+                                startButton.setText("Start");
+                                updateControlAvailability();
                                 if (error != null) {
                                   updateSystemStatus("BATCH TRAINING CANCELLED", "#ffd166");
                                   return;
@@ -667,6 +689,8 @@ public final class MainWindow {
             "Pause",
             "#ffd166",
             () -> {
+              updateSystemStatus("PAUSE REQUESTED", "#ffd166");
+              emitNotification("control.pause", "Pause requested.", "#ffd166");
               controlService.pause();
             });
     resetButton =
@@ -674,6 +698,8 @@ public final class MainWindow {
             "Reset",
             "#ff6b8a",
             () -> {
+              updateSystemStatus("RESET REQUESTED", "#ff6b8a");
+              emitNotification("control.reset", "Reset requested.", "#ff6b8a");
               trainingExecutionService.cancelTraining();
               controlService.reset();
             });
@@ -721,6 +747,7 @@ public final class MainWindow {
     installFocusStyle(startButton, "#22e6ff");
     installFocusStyle(pauseButton, "#ffd166");
     installFocusStyle(resetButton, "#ff6b8a");
+    updateControlAvailability();
     refreshSessionConfigCardPreview();
     return panel;
   }
@@ -1741,19 +1768,61 @@ public final class MainWindow {
     Button button = new Button(label);
     button.setMaxWidth(Double.MAX_VALUE);
     button.setFont(Font.font(UI_FONT_FAMILY, 14));
-    button.setStyle(
-        "-fx-background-color: #11182f;"
-            + "-fx-text-fill: "
-            + accent
-            + ";"
-            + "-fx-border-color: "
-            + accent
-            + ";"
-            + "-fx-border-width: 1;"
-            + "-fx-background-radius: 6;"
-            + "-fx-border-radius: 6;");
+    button.setStyle(neonButtonStyle(accent, "normal"));
     button.setOnAction(event -> action.run());
+    button.hoverProperty()
+        .addListener(
+            (ignored, wasHover, isHover) -> {
+              if (button.isDisabled() || button.isPressed()) {
+                return;
+              }
+              button.setStyle(neonButtonStyle(accent, isHover ? "hover" : "normal"));
+            });
+    button.pressedProperty()
+        .addListener(
+            (ignored, wasPressed, isPressed) -> {
+              if (button.isDisabled()) {
+                return;
+              }
+              if (isPressed) {
+                button.setStyle(neonButtonStyle(accent, "active"));
+              } else {
+                button.setStyle(neonButtonStyle(accent, button.isHover() ? "hover" : "normal"));
+              }
+            });
+    button.disabledProperty()
+        .addListener(
+            (ignored, wasDisabled, isDisabled) ->
+                button.setStyle(neonButtonStyle(accent, isDisabled ? "disabled" : "normal")));
     return button;
+  }
+
+  private String neonButtonStyle(String accent, String state) {
+    String background;
+    String textColor = accent;
+    String border = accent;
+    switch (state) {
+      case "hover" -> background = "#1a2647";
+      case "active" -> background = "#22335f";
+      case "disabled" -> {
+        background = "#0f1528";
+        textColor = "#6f7fa8";
+        border = "#2d3756";
+      }
+      default -> background = "#11182f";
+    }
+    return "-fx-background-color: "
+        + background
+        + ";"
+        + "-fx-text-fill: "
+        + textColor
+        + ";"
+        + "-fx-border-color: "
+        + border
+        + ";"
+        + "-fx-border-width: 1;"
+        + "-fx-background-radius: 6;"
+        + "-fx-border-radius: 6;";
   }
 
   private String panelStyle() {
@@ -2337,6 +2406,7 @@ public final class MainWindow {
   }
 
   private void refreshSessionConfigCardPreview() {
+    updateControlAvailability();
     if (sessionConfigLocked) {
       return;
     }
@@ -2423,6 +2493,42 @@ public final class MainWindow {
     long minutes = totalSeconds / 60;
     long seconds = totalSeconds % 60;
     return String.format("%02d:%02d", minutes, seconds);
+  }
+
+  private void updateControlAvailability() {
+    if (startButton == null || pauseButton == null || resetButton == null) {
+      return;
+    }
+    boolean missingPreset = trainingPresetService.activePreset().isEmpty();
+    boolean missingMaze = selectedMaze == null;
+    boolean running = trajectoryRunning;
+
+    String startDisabledReason = null;
+    if (startActionProcessing) {
+      startDisabledReason = "Start disabled while training is being started.";
+    } else if (running) {
+      startDisabledReason = "Start disabled while a training run is active.";
+    } else if (missingPreset) {
+      startDisabledReason = "Start disabled: select a training preset first.";
+    } else if (missingMaze) {
+      startDisabledReason = "Start disabled: select a maze first.";
+    }
+    applyDisabledReason(startButton, startDisabledReason);
+
+    String pauseDisabledReason = running ? null : "Pause disabled because no run is active.";
+    applyDisabledReason(pauseButton, pauseDisabledReason);
+
+    String resetDisabledReason = running ? null : "Reset disabled because no run is active.";
+    applyDisabledReason(resetButton, resetDisabledReason);
+  }
+
+  private void applyDisabledReason(Button button, String disabledReason) {
+    if (button == null) {
+      return;
+    }
+    boolean disabled = disabledReason != null && !disabledReason.isBlank();
+    button.setDisable(disabled);
+    button.setTooltip(new Tooltip(disabled ? disabledReason : button.getText()));
   }
 
   private void startTrajectoryEpisode() {
@@ -2925,6 +3031,10 @@ public final class MainWindow {
               updateSystemStatus("TRAINING RESUMED", "#89ff9a");
             }
             case FINISHED -> {
+              startActionProcessing = false;
+              if (startButton != null) {
+                startButton.setText("Start");
+              }
               resetTrajectoryEpisode();
               refreshPersistentHeatmapAsync();
               refreshReplayEpisodesAsync();
@@ -2938,12 +3048,17 @@ public final class MainWindow {
               }
             }
             case TIMED_OUT -> {
+              startActionProcessing = false;
+              if (startButton != null) {
+                startButton.setText("Start");
+              }
               trajectoryRunning = false;
               refreshPersistentHeatmapAsync();
               updateSystemStatus("TRAINING TIMEOUT", "#ff6b8a");
               emitNotification("event.timeout", "Episode timeout reached.", "#ff6b8a");
             }
           }
+          updateControlAvailability();
           refreshContextualStatusPanel();
         });
   }
