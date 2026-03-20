@@ -196,6 +196,8 @@ public final class MainWindow {
   private volatile boolean miniHeatmapEnabled = true;
   private volatile boolean episodeDetailsCollapsed;
   private volatile boolean startActionProcessing;
+  private volatile boolean focusModeEnabled;
+  private volatile boolean detailsCollapsedBeforeFocus;
   private volatile boolean replayModeActive;
   private volatile ViewportMode viewportMode = ViewportMode.LIVE;
   private volatile boolean sessionConfigLocked;
@@ -216,6 +218,12 @@ public final class MainWindow {
   private Button pauseButton;
   private Button resetButton;
   private Button episodeDetailsToggleButton;
+  private Button focusModeToggleButton;
+  private HBox focusModeHud;
+  private Label focusModeStatusValue;
+  private Label focusModeElapsedValue;
+  private Label focusModeRewardValue;
+  private Label focusModeCollisionsValue;
   private Label contextModeValue;
   private Label contextSummaryValue;
   private Label contextDetailValue;
@@ -904,8 +912,17 @@ public final class MainWindow {
     Button replayNext = neonButton("Next Success", "#ffb86b", this::nextReplayEpisode);
     episodeDetailsToggleButton =
         neonButton("Episode Details: ON", "#9db2ff", this::toggleEpisodeDetailsPanel);
+    focusModeToggleButton = neonButton("Focus Mode: OFF", "#7ef9ff", this::toggleFocusMode);
+    focusModeHud = buildFocusModeHud();
     HBox replayControls =
-        new HBox(8, replayPlay, replayPause, replayRestart, replayNext, episodeDetailsToggleButton);
+        new HBox(
+            8,
+            replayPlay,
+            replayPause,
+            replayRestart,
+            replayNext,
+            episodeDetailsToggleButton,
+            focusModeToggleButton);
 
     VBox panel =
         new VBox(
@@ -919,13 +936,39 @@ public final class MainWindow {
             replayTitle,
             replayStatusValue,
             replayControls,
+            focusModeHud,
             mazeViewport);
     panel.setPadding(new Insets(16));
     panel.setStyle(panelStyle());
     BorderPane.setMargin(panel, new Insets(0, 16, 0, 16));
     applyEpisodeDetailsPanelState();
+    refreshFocusModeHud();
     refreshReplayEpisodesAsync();
     return panel;
+  }
+
+  private HBox buildFocusModeHud() {
+    focusModeStatusValue = timelinePlaceholder("Episode: IDLE");
+    focusModeElapsedValue = timelinePlaceholder("Elapsed: --:--");
+    focusModeRewardValue = timelinePlaceholder("Reward: 0.0");
+    focusModeCollisionsValue = timelinePlaceholder("Collisions: 0");
+    HBox hud =
+        new HBox(
+            12,
+            focusModeStatusValue,
+            focusModeElapsedValue,
+            focusModeRewardValue,
+            focusModeCollisionsValue);
+    hud.setPadding(new Insets(8, 10, 8, 10));
+    hud.setAlignment(Pos.CENTER_LEFT);
+    hud.setStyle(
+        "-fx-background-color: rgba(8, 17, 36, 0.96);"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    hud.setVisible(false);
+    hud.setManaged(false);
+    return hud;
   }
 
   private void refreshMazeSelector(ComboBox<String> mazeSelector, boolean ascendingDifficulty) {
@@ -2101,6 +2144,7 @@ public final class MainWindow {
                     metrics.rightSideCoverage() * 100.0));
           }
           refreshEpisodeDetailsCard();
+          refreshFocusModeHud();
           refreshContextualStatusPanel();
           renderLiveViewport(metrics);
         });
@@ -2592,8 +2636,47 @@ public final class MainWindow {
   }
 
   private void toggleEpisodeDetailsPanel() {
+    if (focusModeEnabled) {
+      updateSystemStatus(
+          "Episode details stay collapsed while focus mode is active.", UiSemanticState.PAUSED);
+      return;
+    }
     episodeDetailsCollapsed = !episodeDetailsCollapsed;
     applyEpisodeDetailsPanelState();
+  }
+
+  private void toggleFocusMode() {
+    setFocusModeEnabled(!focusModeEnabled);
+  }
+
+  private void setFocusModeEnabled(boolean enabled) {
+    focusModeEnabled = enabled;
+    if (focusModeEnabled) {
+      detailsCollapsedBeforeFocus = episodeDetailsCollapsed;
+      episodeDetailsCollapsed = true;
+    } else {
+      episodeDetailsCollapsed = detailsCollapsedBeforeFocus;
+    }
+    applyEpisodeDetailsPanelState();
+    if (controlPanel != null) {
+      controlPanel.setVisible(!focusModeEnabled);
+      controlPanel.setManaged(!focusModeEnabled);
+    }
+    if (focusModeHud != null) {
+      focusModeHud.setVisible(focusModeEnabled);
+      focusModeHud.setManaged(focusModeEnabled);
+    }
+    if (focusModeToggleButton != null) {
+      focusModeToggleButton.setText(focusModeEnabled ? "Focus Mode: ON" : "Focus Mode: OFF");
+    }
+    updateSystemStatus(
+        focusModeEnabled ? "FOCUS MODE ENABLED" : "FOCUS MODE DISABLED",
+        focusModeEnabled ? UiSemanticState.RUNNING : UiSemanticState.IDLE);
+    emitNotification(
+        focusModeEnabled ? "focus.on" : "focus.off",
+        focusModeEnabled ? "Focus mode enabled." : "Focus mode disabled.",
+        focusModeEnabled ? UiSemanticState.RUNNING.hex() : UiSemanticState.IDLE.hex());
+    refreshFocusModeHud();
   }
 
   private void applyEpisodeDetailsPanelState() {
@@ -2603,6 +2686,12 @@ public final class MainWindow {
     if (episodeDetailsToggleButton != null) {
       episodeDetailsToggleButton.setText(
           episodeDetailsCollapsed ? "Episode Details: OFF" : "Episode Details: ON");
+      episodeDetailsToggleButton.setDisable(focusModeEnabled);
+      episodeDetailsToggleButton.setTooltip(
+          new Tooltip(
+              focusModeEnabled
+                  ? "Episode details stay collapsed while focus mode is active."
+                  : "Toggle episode details side panel."));
     }
   }
 
@@ -2624,6 +2713,30 @@ public final class MainWindow {
     double lastReward = lastLiveMetrics == null ? 0.0 : lastLiveMetrics.accumulatedReward();
     episodeStepDetailValue.setText("Step: " + step);
     episodeRewardDetailValue.setText(String.format(Locale.US, "Last reward: %.1f", lastReward));
+  }
+
+  private void refreshFocusModeHud() {
+    if (focusModeStatusValue == null
+        || focusModeElapsedValue == null
+        || focusModeRewardValue == null
+        || focusModeCollisionsValue == null) {
+      return;
+    }
+    LiveEpisodeMetrics metrics = lastLiveMetrics;
+    String episodeState =
+        metrics == null
+            ? "IDLE"
+            : formatTerminalReason(metrics.terminationReason()).toUpperCase(Locale.ROOT);
+    String elapsed = metrics == null ? "--:--" : formatElapsed(metrics.elapsedMillis());
+    String reward =
+        metrics == null
+            ? "0.0"
+            : String.format(Locale.US, "%.1f", metrics.accumulatedReward());
+    String collisions = metrics == null ? "0" : Integer.toString(metrics.collisions());
+    focusModeStatusValue.setText("Episode: " + episodeState);
+    focusModeElapsedValue.setText("Elapsed: " + elapsed);
+    focusModeRewardValue.setText("Reward: " + reward);
+    focusModeCollisionsValue.setText("Collisions: " + collisions);
   }
 
   private void startTrajectoryEpisode() {
@@ -3176,6 +3289,7 @@ public final class MainWindow {
             }
           }
           updateControlAvailability();
+          refreshFocusModeHud();
           refreshContextualStatusPanel();
         });
   }

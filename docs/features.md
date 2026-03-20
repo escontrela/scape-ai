@@ -1023,6 +1023,7 @@
 - Activacion/desactivacion de modo enfoque sin reiniciar entrenamiento ni perder estado.
 - Minimizacion de paneles secundarios no criticos con prioridad para viewport y metricas esenciales.
 - Restauracion del layout previo al salir de modo enfoque.
+- Implementacion tecnica: `MainWindow` agrega `Focus Mode` con HUD minimo (estado/tiempo/recompensa/colisiones), oculta paneles secundarios y restaura layout previo al salir.
 
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
