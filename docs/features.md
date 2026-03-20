@@ -910,6 +910,13 @@
 - En `RESUME`, resumen del exito seleccionado (identificador, motivo terminal, duracion/recompensa) con estado vacio explicito cuando no haya casos.
 - Implementacion tecnica: `MainWindow` agrega tarjeta `MODE CONTEXT` sincronizada con `viewportMode`, `LiveEpisodeMetrics` y replay activo; `SuccessfulEpisodeReplay` incorpora `elapsedMillis` y `totalReward` para exponer duracion/recompensa en `RESUME`.
 
+### SCAPE-0081 - Navegacion por teclado y foco visible en dashboard
+- Objetivo funcional: habilitar operacion del dashboard por teclado con foco visible de alto contraste.
+- Alcance introducido:
+- Atajos globales `Space` para pausa/reanudacion y `R` para reset con feedback directo en la barra de estado.
+- Estilo de foco consistente aplicado a controles principales (`Start`, `Pause`, `Reset`, selector de algoritmo y toggle `LIVE/RESUME`) sin romper el tema neon.
+- Navegacion por `Tab` reforzada marcando controles principales como focus traversable.
+
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
 - Estado inicial detectado: `in_progress=0` y `backlog=5` (`SCAPE-0075` a `SCAPE-0079`).

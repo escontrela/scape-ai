@@ -65,12 +65,15 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.Alert;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -187,6 +190,10 @@ public final class MainWindow {
   private volatile int replayTrajectoryIndex;
   private volatile ScheduledFuture<?> replayTicker;
   private Label replayStatusValue;
+  private ComboBox<ViewportMode> viewportModeSelector;
+  private Button startButton;
+  private Button pauseButton;
+  private Button resetButton;
   private Label contextModeValue;
   private Label contextSummaryValue;
   private Label contextDetailValue;
@@ -284,6 +291,7 @@ public final class MainWindow {
     refreshAssetCatalogAsync();
 
     Scene scene = new Scene(mainScroll, 1200, 760);
+    installKeyboardNavigation(scene);
     var neonScrollCss =
         getClass().getResource("/styles/neon-scroll.css");
     if (neonScrollCss != null) {
@@ -370,6 +378,7 @@ public final class MainWindow {
           }
         });
     selectActiveAlgorithm(algorithmSelector);
+    installFocusStyle(algorithmSelector, "#7ef9ff");
     algorithmSelector
         .getSelectionModel()
         .selectedItemProperty()
@@ -468,6 +477,7 @@ public final class MainWindow {
             setText(empty || item == null ? null : item.label());
           }
         });
+    installFocusStyle(speedSelector, "#7ef9ff");
     speedSelector.getSelectionModel().select(liveMetricsService.simulationSpeed());
     speedSelector
         .getSelectionModel()
@@ -516,6 +526,7 @@ public final class MainWindow {
             setText(empty || item == null ? null : item.label());
           }
         });
+    installFocusStyle(targetDifficultySelector, "#7ef9ff");
     targetDifficultySelector
         .getSelectionModel()
         .selectedItemProperty()
@@ -540,8 +551,9 @@ public final class MainWindow {
             + "-fx-border-color: #2cf1ff;"
             + "-fx-border-radius: 6;"
             + "-fx-background-radius: 6;");
+    installFocusStyle(batchSelector, "#7ef9ff");
 
-    Button start =
+    startButton =
         neonButton(
             "Start",
             "#22e6ff",
@@ -610,14 +622,14 @@ public final class MainWindow {
                                 refreshCoverageSummaryAsync();
                               }));
             });
-    Button pause =
+    pauseButton =
         neonButton(
             "Pause",
             "#ffd166",
             () -> {
               controlService.pause();
             });
-    Button reset =
+    resetButton =
         neonButton(
             "Reset",
             "#ff6b8a",
@@ -660,12 +672,15 @@ public final class MainWindow {
             batchSelector,
             overlayToggle,
             heatmapToggle,
-            start,
-            pause,
-            reset);
+            startButton,
+            pauseButton,
+            resetButton);
     panel.setPadding(new Insets(18));
     panel.setMinWidth(220);
     panel.setStyle(panelStyle());
+    installFocusStyle(startButton, "#22e6ff");
+    installFocusStyle(pauseButton, "#ffd166");
+    installFocusStyle(resetButton, "#ff6b8a");
     refreshSessionConfigCardPreview();
     return panel;
   }
@@ -675,17 +690,17 @@ public final class MainWindow {
     Label modeLabel = new Label("VIEW MODE");
     modeLabel.setTextFill(Color.web("#9db2ff"));
     modeLabel.setFont(Font.font("Consolas", 12));
-    ComboBox<ViewportMode> modeSelector =
+    viewportModeSelector =
         new ComboBox<>(FXCollections.observableArrayList(ViewportMode.values()));
-    modeSelector.getSelectionModel().select(viewportMode);
-    modeSelector.setMaxWidth(Double.MAX_VALUE);
-    modeSelector.setStyle(
+    viewportModeSelector.getSelectionModel().select(viewportMode);
+    viewportModeSelector.setMaxWidth(Double.MAX_VALUE);
+    viewportModeSelector.setStyle(
         "-fx-background-color: #101938;"
             + "-fx-text-fill: #c6d7ff;"
             + "-fx-border-color: #2cf1ff;"
             + "-fx-border-radius: 6;"
             + "-fx-background-radius: 6;");
-    modeSelector.setCellFactory(
+    viewportModeSelector.setCellFactory(
         ignored ->
             new javafx.scene.control.ListCell<>() {
               @Override
@@ -694,7 +709,7 @@ public final class MainWindow {
                 setText(empty || item == null ? null : item.label());
               }
             });
-    modeSelector.setButtonCell(
+    viewportModeSelector.setButtonCell(
         new javafx.scene.control.ListCell<>() {
           @Override
           protected void updateItem(ViewportMode item, boolean empty) {
@@ -702,7 +717,8 @@ public final class MainWindow {
             setText(empty || item == null ? null : item.label());
           }
         });
-    modeSelector
+    installFocusStyle(viewportModeSelector, "#7ef9ff");
+    viewportModeSelector
         .getSelectionModel()
         .selectedItemProperty()
         .addListener(
@@ -814,7 +830,7 @@ public final class MainWindow {
             12,
             title,
             modeLabel,
-            modeSelector,
+            viewportModeSelector,
             sortLabel,
             sortSelector,
             mazeSelector,
@@ -1706,6 +1722,61 @@ public final class MainWindow {
         + "-fx-border-width: 1;"
         + "-fx-border-radius: 10;"
         + "-fx-background-radius: 10;";
+  }
+
+  private void installKeyboardNavigation(Scene scene) {
+    if (scene == null) {
+      return;
+    }
+    scene.addEventHandler(
+        KeyEvent.KEY_PRESSED,
+        event -> {
+          if (event.getTarget() instanceof TextArea) {
+            return;
+          }
+          if (event.getCode() == KeyCode.SPACE) {
+            if (trajectoryRunning) {
+              controlService.pause();
+              updateSystemStatus("SHORTCUT: PAUSE", "#ffd166");
+            } else {
+              controlService.start();
+              updateSystemStatus("SHORTCUT: RESUME", "#89ff9a");
+            }
+            event.consume();
+            return;
+          }
+          if (event.getCode() == KeyCode.R) {
+            trainingExecutionService.cancelTraining();
+            controlService.reset();
+            updateSystemStatus("SHORTCUT: RESET", "#ff6b8a");
+            event.consume();
+          }
+        });
+  }
+
+  private void installFocusStyle(Control control, String accent) {
+    if (control == null) {
+      return;
+    }
+    String baseStyle = control.getStyle() == null ? "" : control.getStyle();
+    control.setFocusTraversable(true);
+    control.focusedProperty()
+        .addListener(
+            (ignored, oldFocused, focused) -> {
+              if (focused) {
+                control.setStyle(
+                    baseStyle
+                        + "-fx-border-color: "
+                        + accent
+                        + ";"
+                        + "-fx-border-width: 2;"
+                        + "-fx-effect: dropshadow(gaussian, "
+                        + accent
+                        + "66, 12, 0.4, 0, 0);");
+              } else {
+                control.setStyle(baseStyle);
+              }
+            });
   }
 
   private void bindMetricLabel(String metricName, Label label) {
