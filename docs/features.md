@@ -1084,3 +1084,12 @@
 - Creacion de tickets UI en backlog: `SCAPE-0090`, `SCAPE-0091`, `SCAPE-0092`, `SCAPE-0093`, `SCAPE-0094`.
 - Incidencia de payload resuelta: backend rechazo `tagId` (`Tag does not belong to project`), se uso creacion sin tag.
 - Estado final confirmado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0090`, `SCAPE-0091`, `SCAPE-0092`, `SCAPE-0093`, `SCAPE-0094`).
+
+## Iteracion PO 2026-03-20 (automation cycle 21)
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- Estado inicial detectado: `in_progress=2` (`SCAPE-0075`, `SCAPE-0090`) y `backlog=4` (`SCAPE-0091`, `SCAPE-0092`, `SCAPE-0093`, `SCAPE-0094`).
+- Transicion aplicada para restaurar politica de flujo: `SCAPE-0090` movido de `in_progress` a `backlog`.
+- No se crean tickets nuevos para evitar duplicidad funcional y mantener foco en el lote UI vigente.
+- Estado final confirmado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0090`, `SCAPE-0091`, `SCAPE-0092`, `SCAPE-0093`, `SCAPE-0094`).
