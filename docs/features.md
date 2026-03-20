@@ -1015,6 +1015,7 @@
 - Panel lateral colapsable con estado consistente durante la sesion activa.
 - Exposicion de datos tecnicos de episodio (`seed efectiva`, politica activa, paso actual, ultima recompensa).
 - Recuperacion de espacio util para viewport al colapsar panel, manteniendo estabilidad de layout.
+- Implementacion tecnica: `MainWindow` agrega toggle de panel lateral y card `EPISODE DETAILS` sincronizada con semilla efectiva, politica y metricas en vivo.
 
 ### SCAPE-0089 - Modo enfoque del viewport para sesiones largas
 - Objetivo funcional: reducir distracciones visuales en sesiones largas priorizando la observacion del agente.

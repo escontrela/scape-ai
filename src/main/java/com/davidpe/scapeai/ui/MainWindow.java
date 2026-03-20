@@ -160,6 +160,10 @@ public final class MainWindow {
   private Label reviewSessionMetaValue;
   private Label reviewSessionSummaryValue;
   private Label reviewEpisodeMetaValue;
+  private Label episodeSeedDetailValue;
+  private Label episodePolicyDetailValue;
+  private Label episodeStepDetailValue;
+  private Label episodeRewardDetailValue;
   private ComboBox<TrainingSessionEntity> reviewSessionsSelector;
   private VBox timelineEntriesBox;
   private VBox recentRunsEntriesBox;
@@ -169,6 +173,7 @@ public final class MainWindow {
   private TextArea reviewAsciiArea;
   private TextArea reviewTrajectoryArea;
   private StackPane workspaceStack;
+  private BorderPane dashboardPane;
   private VBox controlPanel;
   private VBox mazePanel;
   private VBox metricsPanel;
@@ -189,6 +194,7 @@ public final class MainWindow {
   private volatile boolean trajectoryRunning;
   private volatile boolean unexploredOverlayEnabled;
   private volatile boolean miniHeatmapEnabled = true;
+  private volatile boolean episodeDetailsCollapsed;
   private volatile boolean startActionProcessing;
   private volatile boolean replayModeActive;
   private volatile ViewportMode viewportMode = ViewportMode.LIVE;
@@ -209,6 +215,7 @@ public final class MainWindow {
   private Button startButton;
   private Button pauseButton;
   private Button resetButton;
+  private Button episodeDetailsToggleButton;
   private Label contextModeValue;
   private Label contextSummaryValue;
   private Label contextDetailValue;
@@ -219,6 +226,7 @@ public final class MainWindow {
   private final int persistentHeatmapRuns;
   private final long notificationDurationMillis;
   private final long notificationDedupWindowMillis;
+  private volatile Long activeSessionSeed;
 
   public MainWindow(
       SimulationControlService controlService,
@@ -282,11 +290,11 @@ public final class MainWindow {
     content.setTop(buildHeader());
     controlPanel = buildControlPanel();
     content.setLeft(controlPanel);
-    BorderPane dashboardPane = new BorderPane();
+    dashboardPane = new BorderPane();
     mazePanel = buildMazePanel();
     metricsPanel = buildMetricsPanel();
     dashboardPane.setCenter(mazePanel);
-    dashboardPane.setRight(metricsPanel);
+    applyEpisodeDetailsPanelState();
     reviewPanel = buildReviewPanel();
     reviewPanel.setVisible(false);
     reviewPanel.setManaged(false);
@@ -894,7 +902,10 @@ public final class MainWindow {
     Button replayPause = neonButton("Pause", "#ffd166", this::pauseReplay);
     Button replayRestart = neonButton("Restart", "#89ff9a", this::restartReplay);
     Button replayNext = neonButton("Next Success", "#ffb86b", this::nextReplayEpisode);
-    HBox replayControls = new HBox(8, replayPlay, replayPause, replayRestart, replayNext);
+    episodeDetailsToggleButton =
+        neonButton("Episode Details: ON", "#9db2ff", this::toggleEpisodeDetailsPanel);
+    HBox replayControls =
+        new HBox(8, replayPlay, replayPause, replayRestart, replayNext, episodeDetailsToggleButton);
 
     VBox panel =
         new VBox(
@@ -912,6 +923,7 @@ public final class MainWindow {
     panel.setPadding(new Insets(16));
     panel.setStyle(panelStyle());
     BorderPane.setMargin(panel, new Insets(0, 16, 0, 16));
+    applyEpisodeDetailsPanelState();
     refreshReplayEpisodesAsync();
     return panel;
   }
@@ -932,6 +944,7 @@ public final class MainWindow {
   private VBox buildMetricsPanel() {
     Label title = panelTitle("Metrics");
     VBox contextualPanel = buildContextualStatusPanel();
+    VBox episodeDetailsCard = buildEpisodeDetailsCard();
     VBox metrics =
         new VBox(
             10,
@@ -1066,6 +1079,7 @@ public final class MainWindow {
             12,
             title,
             contextualPanel,
+            episodeDetailsCard,
             metrics,
             diagnostics,
             effectiveSessionCard,
@@ -1085,7 +1099,33 @@ public final class MainWindow {
     panel.setStyle(panelStyle());
     refreshSessionConfigCardPreview();
     refreshContextualStatusPanel();
+    refreshEpisodeDetailsCard();
     return panel;
+  }
+
+  private VBox buildEpisodeDetailsCard() {
+    Label title = new Label("EPISODE DETAILS");
+    title.setTextFill(Color.web("#9db2ff"));
+    title.setFont(Font.font(UI_FONT_FAMILY, FONT_SIZE_SECTION_LABEL));
+    episodeSeedDetailValue = timelinePlaceholder("Seed: AUTO");
+    episodePolicyDetailValue = timelinePlaceholder("Policy: -");
+    episodeStepDetailValue = timelinePlaceholder("Step: 0");
+    episodeRewardDetailValue = timelinePlaceholder("Last reward: 0.0");
+    VBox card =
+        new VBox(
+            4,
+            title,
+            episodeSeedDetailValue,
+            episodePolicyDetailValue,
+            episodeStepDetailValue,
+            episodeRewardDetailValue);
+    card.setPadding(new Insets(10));
+    card.setStyle(
+        "-fx-background-color: #081124;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    return card;
   }
 
   private VBox buildContextualStatusPanel() {
@@ -2060,6 +2100,7 @@ public final class MainWindow {
                     metrics.leftSideCoverage() * 100.0,
                     metrics.rightSideCoverage() * 100.0));
           }
+          refreshEpisodeDetailsCard();
           refreshContextualStatusPanel();
           renderLiveViewport(metrics);
         });
@@ -2371,6 +2412,7 @@ public final class MainWindow {
     }
     activePolicyValue.setText(
         "ACTIVE ALGORITHM: " + controlService.activeMovementPolicy().toUpperCase(Locale.ROOT));
+    refreshEpisodeDetailsCard();
     refreshContextualStatusPanel();
   }
 
@@ -2495,6 +2537,7 @@ public final class MainWindow {
   }
 
   private void updateSessionHud(Long seed, String mode) {
+    activeSessionSeed = seed;
     if (sessionSeedValue != null) {
       sessionSeedValue.setText(seed == null ? "SEED: -" : "SEED: " + seed);
     }
@@ -2502,6 +2545,7 @@ public final class MainWindow {
       executionModeValue.setText(
           "MODE: " + (mode == null ? "VISUAL" : mode.toUpperCase(Locale.ROOT)));
     }
+    refreshEpisodeDetailsCard();
   }
 
   private String formatElapsed(long elapsedMillis) {
@@ -2545,6 +2589,41 @@ public final class MainWindow {
     boolean disabled = disabledReason != null && !disabledReason.isBlank();
     button.setDisable(disabled);
     button.setTooltip(new Tooltip(disabled ? disabledReason : button.getText()));
+  }
+
+  private void toggleEpisodeDetailsPanel() {
+    episodeDetailsCollapsed = !episodeDetailsCollapsed;
+    applyEpisodeDetailsPanelState();
+  }
+
+  private void applyEpisodeDetailsPanelState() {
+    if (dashboardPane != null && metricsPanel != null) {
+      dashboardPane.setRight(episodeDetailsCollapsed ? null : metricsPanel);
+    }
+    if (episodeDetailsToggleButton != null) {
+      episodeDetailsToggleButton.setText(
+          episodeDetailsCollapsed ? "Episode Details: OFF" : "Episode Details: ON");
+    }
+  }
+
+  private void refreshEpisodeDetailsCard() {
+    if (episodeSeedDetailValue == null
+        || episodePolicyDetailValue == null
+        || episodeStepDetailValue == null
+        || episodeRewardDetailValue == null) {
+      return;
+    }
+    episodeSeedDetailValue.setText(
+        activeSessionSeed == null ? "Seed: AUTO" : "Seed: " + activeSessionSeed);
+    String activePolicy =
+        controlService.activeMovementPolicy() == null
+            ? "-"
+            : controlService.activeMovementPolicy().toUpperCase(Locale.ROOT);
+    episodePolicyDetailValue.setText("Policy: " + activePolicy);
+    int step = lastLiveMetrics == null ? 0 : Math.max(0, lastLiveMetrics.steps());
+    double lastReward = lastLiveMetrics == null ? 0.0 : lastLiveMetrics.accumulatedReward();
+    episodeStepDetailValue.setText("Step: " + step);
+    episodeRewardDetailValue.setText(String.format(Locale.US, "Last reward: %.1f", lastReward));
   }
 
   private void startTrajectoryEpisode() {
