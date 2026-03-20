@@ -982,3 +982,47 @@
 - Ajuste de WIP aplicado: `SCAPE-0080` transicionado a `backlog` para restaurar `WIP=1`.
 - Tickets creados en backlog: `SCAPE-0081`, `SCAPE-0082`, `SCAPE-0083`, `SCAPE-0084`.
 - Estado final confirmado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0080`, `SCAPE-0081`, `SCAPE-0082`, `SCAPE-0083`, `SCAPE-0084`).
+
+## Iteracion PO 2026-03-20 (automation cycle 18)
+
+### SCAPE-0085 - Jerarquia tipografica y densidad visual del panel
+- Objetivo funcional: mejorar legibilidad operativa del dashboard con una jerarquia visual estable.
+- Alcance introducido:
+- Definicion de niveles tipograficos consistentes para encabezados, etiquetas y valores criticos.
+- Ajuste de espaciado y densidad de paneles para reducir saturacion visual.
+- Priorizacion visual de metricas clave (estado de episodio, tiempo, recompensa, colisiones).
+
+### SCAPE-0086 - Feedback visual inmediato en controles criticos
+- Objetivo funcional: confirmar de forma inmediata las acciones de usuario sobre controles principales.
+- Alcance introducido:
+- Estados visuales consistentes para controles criticos (`hover`, `activo`, `deshabilitado`, `procesando`).
+- Confirmacion visual al ejecutar `start`, `pause`, `reset` y cambio de algoritmo.
+- Explicacion contextual de estados deshabilitados mediante microtexto o tooltip.
+
+### SCAPE-0087 - Paleta semantica por estado de entrenamiento
+- Objetivo funcional: identificar rapidamente el estado operativo del entrenamiento mediante codificacion visual semantica.
+- Alcance introducido:
+- Tokens visuales para estados `running`, `paused`, `success`, `timeout` y `validation_error`.
+- Aplicacion uniforme de la paleta en badges, banners e indicadores de estado.
+- Reglas de contraste para evitar ambiguedad en estados criticos.
+
+### SCAPE-0088 - Panel lateral colapsable de detalles de episodio
+- Objetivo funcional: exponer diagnostico avanzado sin saturar la vista principal.
+- Alcance introducido:
+- Panel lateral colapsable con estado consistente durante la sesion activa.
+- Exposicion de datos tecnicos de episodio (`seed efectiva`, politica activa, paso actual, ultima recompensa).
+- Recuperacion de espacio util para viewport al colapsar panel, manteniendo estabilidad de layout.
+
+### SCAPE-0089 - Modo enfoque del viewport para sesiones largas
+- Objetivo funcional: reducir distracciones visuales en sesiones largas priorizando la observacion del agente.
+- Alcance introducido:
+- Activacion/desactivacion de modo enfoque sin reiniciar entrenamiento ni perder estado.
+- Minimizacion de paneles secundarios no criticos con prioridad para viewport y metricas esenciales.
+- Restauracion del layout previo al salir de modo enfoque.
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- Estado inicial detectado: `in_progress=1` (`SCAPE-0075`) y `backlog=0`.
+- Intento de creacion con `tagId=1` rechazado por backend (`Tag does not belong to project`); se aplico payload sin tag (`tagId=null`).
+- Tickets creados en backlog: `SCAPE-0085`, `SCAPE-0086`, `SCAPE-0087`, `SCAPE-0088`, `SCAPE-0089`.
+- Estado final confirmado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0085`, `SCAPE-0086`, `SCAPE-0087`, `SCAPE-0088`, `SCAPE-0089`).
