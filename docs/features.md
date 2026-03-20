@@ -840,3 +840,11 @@
 - Renderers cubren `MAZE`, `TRAINING_RUN`, `TRAINING_PRESET`, `TRAINING_SESSION`, `EXPERIENCE_TRANSITION`, `MAZE_POLICY_COVERAGE` y `EXPLORATION_BUDGET`.
 - Formato textual estable en bloques `clave=valor` con compactacion de payloads largos y truncado configurable para uso directo en JavaFX.
 - Repositorio JDBC `PersistedAssetPreviewRepository` obtiene detalle puntual por tipo/id con tolerancia defensiva a datos incompletos.
+
+### SCAPE-0072 - Reglas de limpieza y borrado seguro de assets
+- Objetivo funcional: aplicar eliminacion controlada de assets con validaciones de dependencia por tipo.
+- Alcance introducido:
+- Nuevo servicio `PersistedAssetCleanupService` para evaluar elegibilidad y ejecutar borrado individual/multiple en una misma operacion.
+- Politicas de dependencia: bloquea borrado de `MAZE` con runs/cobertura/sesiones dependientes, `TRAINING_SESSION` con runs asociados y `TRAINING_PRESET` con sesiones o budgets asociados.
+- Soporte de resultado parcial (`deleted`, `blocked`, `failed`) para reflejar exito parcial y errores operativos sin abortar toda la seleccion.
+- Trazabilidad operativa minima en logs (`info/warn/error`) por cada intento de eliminacion.
