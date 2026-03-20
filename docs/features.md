@@ -915,3 +915,40 @@
 - Ajuste de WIP aplicado: `SCAPE-0075` movido a `in_progress`.
 - Ticket creado en backlog: `SCAPE-0080`.
 - Estado final confirmado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0076`, `SCAPE-0077`, `SCAPE-0078`, `SCAPE-0079`, `SCAPE-0080`).
+
+## Iteracion PO 2026-03-20 (automation cycle 17)
+
+### SCAPE-0081 - Navegacion por teclado y foco visible en dashboard
+- Objetivo funcional: mejorar operabilidad y accesibilidad de la UI con flujo completo por teclado.
+- Alcance introducido:
+- Navegacion por `Tab` y activacion por teclado de controles principales (`start`, `pause`, `reset`, selector de algoritmo, toggle `LIVE/RESUME`).
+- Estado de foco visible con alto contraste y coherente con el estilo del panel.
+- Atajos operativos minimos (`Space` para pause/resume y `R` para reset) con feedback visual.
+
+### SCAPE-0082 - Sistema de notificaciones in-app no bloqueantes
+- Objetivo funcional: comunicar eventos operativos clave sin interrumpir la interaccion principal.
+- Alcance introducido:
+- Notificaciones tipo toast/banner para inicio, pausa, error de validacion, exito de episodio y timeout.
+- Descarte automatico configurable y comportamiento no bloqueante para controles/viewport.
+- Supresion de duplicados en rafagas de eventos repetidos para evitar ruido visual.
+
+### SCAPE-0083 - Layout adaptativo para resoluciones de desktop
+- Objetivo funcional: mantener jerarquia visual y legibilidad en multiples resoluciones de escritorio.
+- Alcance introducido:
+- Reglas de layout y proporcion para al menos `1366x768`, `1920x1080` y `2560x1440`.
+- Prevencion de clipping/solape en controles, metricas y viewport principal.
+- Redimensionamiento estable sin perdida de estado visible ni parpadeos severos.
+
+### SCAPE-0084 - Estados vacios y skeletons para carga en UI
+- Objetivo funcional: clarificar estados de espera y ausencia de datos dentro del dashboard.
+- Alcance introducido:
+- Placeholders/skeletons consistentes en paneles clave durante carga.
+- Estados vacios accionables con mensaje claro y siguiente paso recomendado.
+- Coherencia visual con el tema futurista existente sin reescribir todo el sistema de estilos.
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- Estado inicial detectado: `in_progress=2` (`SCAPE-0075`, `SCAPE-0080`) y `backlog=0`.
+- Ajuste de WIP aplicado: `SCAPE-0080` transicionado a `backlog` para restaurar `WIP=1`.
+- Tickets creados en backlog: `SCAPE-0081`, `SCAPE-0082`, `SCAPE-0083`, `SCAPE-0084`.
+- Estado final confirmado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0080`, `SCAPE-0081`, `SCAPE-0082`, `SCAPE-0083`, `SCAPE-0084`).
