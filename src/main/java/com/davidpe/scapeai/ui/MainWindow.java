@@ -94,6 +94,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public final class MainWindow {
+  private static final String UI_FONT_FAMILY = "Consolas";
+  private static final double FONT_SIZE_PANEL_TITLE = 18.0;
+  private static final double FONT_SIZE_SECTION_LABEL = 12.0;
+  private static final double FONT_SIZE_METRIC_LABEL = 12.0;
+  private static final double FONT_SIZE_METRIC_VALUE = 13.0;
+  private static final double FONT_SIZE_METRIC_VALUE_PRIORITY = 15.0;
 
   private final SimulationControlService controlService;
   private final StartTrainingSessionUseCase startTrainingSessionUseCase;
@@ -689,7 +695,7 @@ public final class MainWindow {
 
     VBox panel =
         new VBox(
-            12,
+            10,
             title,
             algorithmLabel,
             algorithmSelector,
@@ -709,7 +715,7 @@ public final class MainWindow {
             startButton,
             pauseButton,
             resetButton);
-    panel.setPadding(new Insets(18));
+    panel.setPadding(new Insets(16));
     panel.setMinWidth(220);
     panel.setStyle(panelStyle());
     installFocusStyle(startButton, "#22e6ff");
@@ -872,7 +878,7 @@ public final class MainWindow {
             replayStatusValue,
             replayControls,
             mazeViewport);
-    panel.setPadding(new Insets(18));
+    panel.setPadding(new Insets(16));
     panel.setStyle(panelStyle());
     BorderPane.setMargin(panel, new Insets(0, 16, 0, 16));
     refreshReplayEpisodesAsync();
@@ -1026,7 +1032,7 @@ public final class MainWindow {
 
     VBox panel =
         new VBox(
-            14,
+            12,
             title,
             contextualPanel,
             metrics,
@@ -1043,7 +1049,7 @@ public final class MainWindow {
             heatmapModeSelector,
             heatmapLegend,
             miniHeatmapGrid);
-    panel.setPadding(new Insets(18));
+    panel.setPadding(new Insets(16));
     panel.setMinWidth(240);
     panel.setStyle(panelStyle());
     refreshSessionConfigCardPreview();
@@ -1162,7 +1168,7 @@ public final class MainWindow {
             reviewEpisodeMetaValue,
             trajectoryTitle,
             reviewTrajectoryArea);
-    panel.setPadding(new Insets(18));
+    panel.setPadding(new Insets(16));
     panel.setStyle(panelStyle());
     panel.setFillWidth(true);
     return panel;
@@ -1297,7 +1303,7 @@ public final class MainWindow {
             assetListView,
             new Label("TEXT PREVIEW"),
             assetPreviewArea);
-    panel.setPadding(new Insets(18));
+    panel.setPadding(new Insets(16));
     panel.setStyle(panelStyle());
     panel.setFillWidth(true);
     return panel;
@@ -1483,7 +1489,7 @@ public final class MainWindow {
     TextArea area = new TextArea(text);
     area.setEditable(false);
     area.setWrapText(false);
-    area.setFont(Font.font("Consolas", 11));
+    area.setFont(Font.font(UI_FONT_FAMILY, 11));
     area.setStyle(
         "-fx-control-inner-background: #081124;"
             + "-fx-text-fill: #c6d7ff;"
@@ -1712,11 +1718,11 @@ public final class MainWindow {
   private HBox metricLine(String name, String value) {
     Label left = new Label(name);
     left.setTextFill(Color.web("#9db2ff"));
-    left.setFont(Font.font("Consolas", 14));
+    left.setFont(Font.font(UI_FONT_FAMILY, FONT_SIZE_METRIC_LABEL));
 
     Label right = new Label(value);
     right.setTextFill(Color.web("#b8ffcb"));
-    right.setFont(Font.font("Consolas", 14));
+    right.setFont(Font.font(UI_FONT_FAMILY, FONT_SIZE_METRIC_VALUE));
     bindMetricLabel(name, right);
 
     Region spacer = new Region();
@@ -1727,14 +1733,14 @@ public final class MainWindow {
   private Label panelTitle(String text) {
     Label title = new Label(text.toUpperCase());
     title.setTextFill(Color.web("#7ef9ff"));
-    title.setFont(Font.font("Consolas", 18));
+    title.setFont(Font.font(UI_FONT_FAMILY, FONT_SIZE_PANEL_TITLE));
     return title;
   }
 
   private Button neonButton(String label, String accent, Runnable action) {
     Button button = new Button(label);
     button.setMaxWidth(Double.MAX_VALUE);
-    button.setFont(Font.font("Consolas", 15));
+    button.setFont(Font.font(UI_FONT_FAMILY, 14));
     button.setStyle(
         "-fx-background-color: #11182f;"
             + "-fx-text-fill: "
@@ -1905,12 +1911,24 @@ public final class MainWindow {
   private void bindMetricLabel(String metricName, Label label) {
     switch (metricName) {
       case "Steps" -> stepsValue = label;
-      case "Collisions" -> collisionsValue = label;
-      case "Reward" -> rewardValue = label;
-      case "Elapsed" -> elapsedValue = label;
+      case "Collisions" -> {
+        collisionsValue = label;
+        emphasizePriorityMetric(label);
+      }
+      case "Reward" -> {
+        rewardValue = label;
+        emphasizePriorityMetric(label);
+      }
+      case "Elapsed" -> {
+        elapsedValue = label;
+        emphasizePriorityMetric(label);
+      }
       case "Remaining" -> remainingValue = label;
       case "Coverage L/R" -> sideCoverageValue = label;
-      case "Termination" -> diagnosticTerminationValue = label;
+      case "Termination" -> {
+        diagnosticTerminationValue = label;
+        emphasizePriorityMetric(label);
+      }
       case "Maze Coverage" -> diagnosticCoverageValue = label;
       case "Alert" -> diagnosticAlertValue = label;
       default -> {}
@@ -2220,9 +2238,17 @@ public final class MainWindow {
 
   private Label timelinePlaceholder(String text) {
     Label label = new Label(text);
-    label.setFont(Font.font("Consolas", 12));
+    label.setFont(Font.font(UI_FONT_FAMILY, FONT_SIZE_SECTION_LABEL));
     label.setTextFill(Color.web("#5e719f"));
     return label;
+  }
+
+  private void emphasizePriorityMetric(Label label) {
+    if (label == null) {
+      return;
+    }
+    label.setFont(Font.font(UI_FONT_FAMILY, FONT_SIZE_METRIC_VALUE_PRIORITY));
+    label.setTextFill(Color.web("#d9fff5"));
   }
 
   private String terminalReasonColor(String terminalReason) {

@@ -991,6 +991,7 @@
 - Definicion de niveles tipograficos consistentes para encabezados, etiquetas y valores criticos.
 - Ajuste de espaciado y densidad de paneles para reducir saturacion visual.
 - Priorizacion visual de metricas clave (estado de episodio, tiempo, recompensa, colisiones).
+- Implementacion tecnica: `MainWindow` centraliza escalas tipograficas y aplica enfasis a metricas prioritarias con menor densidad de panel.
 
 ### SCAPE-0086 - Feedback visual inmediato en controles criticos
 - Objetivo funcional: confirmar de forma inmediata las acciones de usuario sobre controles principales.
