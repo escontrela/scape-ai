@@ -898,18 +898,18 @@ public final class MainWindow {
     VBox metrics =
         new VBox(
             10,
-            metricLine("Steps", "0"),
-            metricLine("Collisions", "0"),
-            metricLine("Reward", "0.0"),
-            metricLine("Elapsed", "00:00"),
-            metricLine("Remaining", "00:00"),
-            metricLine("Coverage L/R", "0% / 0%"));
+            metricLine("Steps", "--"),
+            metricLine("Collisions", "--"),
+            metricLine("Reward", "--"),
+            metricLine("Elapsed", "--:--"),
+            metricLine("Remaining", "--:--"),
+            metricLine("Coverage L/R", "-- / --"));
     VBox diagnostics =
         new VBox(
             10,
-            metricLine("Termination", "IDLE"),
-            metricLine("Maze Coverage", "0%"),
-            metricLine("Alert", "NOMINAL"));
+            metricLine("Termination", "LOADING"),
+            metricLine("Maze Coverage", "--"),
+            metricLine("Alert", "WAITING"));
     VBox effectiveSessionCard = buildEffectiveSessionCard();
 
     Label timelineTitle = new Label("RECENT EPISODES");
@@ -917,7 +917,7 @@ public final class MainWindow {
     timelineTitle.setFont(Font.font("Consolas", 12));
 
     timelineEntriesBox = new VBox(6);
-    timelineEntriesBox.getChildren().add(timelinePlaceholder("No episodes completed yet."));
+    timelineEntriesBox.getChildren().add(timelinePlaceholder("Loading episode timeline..."));
 
     Label comparisonTitle = new Label("LAST 10 RUNS");
     comparisonTitle.setTextFill(Color.web("#9db2ff"));
@@ -963,14 +963,14 @@ public final class MainWindow {
             });
 
     recentRunsEntriesBox = new VBox(6);
-    recentRunsEntriesBox.getChildren().add(timelinePlaceholder("No training runs stored yet."));
+    recentRunsEntriesBox.getChildren().add(timelinePlaceholder("Loading recent run catalog..."));
 
     Label coverageTitle = new Label("PENDING COVERAGE");
     coverageTitle.setTextFill(Color.web("#9db2ff"));
     coverageTitle.setFont(Font.font("Consolas", 12));
 
     coverageEntriesBox = new VBox(6);
-    coverageEntriesBox.getChildren().add(timelinePlaceholder("No pending mazes."));
+    coverageEntriesBox.getChildren().add(timelinePlaceholder("Loading coverage catalog..."));
 
     Label heatmapTitle = new Label("VISIT HEATMAP");
     heatmapTitle.setTextFill(Color.web("#9db2ff"));
@@ -2003,7 +2003,9 @@ public final class MainWindow {
           }
           timelineEntriesBox.getChildren().clear();
           if (entries.isEmpty()) {
-            timelineEntriesBox.getChildren().add(timelinePlaceholder("No episodes completed yet."));
+            timelineEntriesBox
+                .getChildren()
+                .add(timelinePlaceholder("No episodes completed yet. Start training to build timeline."));
             return;
           }
           for (TrainingTimelineEntry entry : entries) {
@@ -2015,13 +2017,19 @@ public final class MainWindow {
   private void refreshRecentRunsAsync() {
     String mazeName = selectedMazeName;
     RecentRunsSortOption sort = selectedRecentRunsSort;
+    Platform.runLater(
+        () -> {
+          if (recentRunsEntriesBox != null) {
+            recentRunsEntriesBox.getChildren().setAll(timelinePlaceholder("Loading recent run catalog..."));
+          }
+        });
     if (mazeName == null || mazeName.isBlank()) {
       Platform.runLater(
           () -> {
             if (recentRunsEntriesBox != null) {
               recentRunsEntriesBox
                   .getChildren()
-                  .setAll(timelinePlaceholder("Select a maze to compare runs."));
+                  .setAll(timelinePlaceholder("No run catalog yet. Select a maze and launch training."));
             }
           });
       return;
@@ -2035,6 +2043,12 @@ public final class MainWindow {
   }
 
   private void refreshCoverageSummaryAsync() {
+    Platform.runLater(
+        () -> {
+          if (coverageEntriesBox != null) {
+            coverageEntriesBox.getChildren().setAll(timelinePlaceholder("Loading coverage catalog..."));
+          }
+        });
     recentRunsExecutor.execute(
         () -> {
           List<MazeCoverageSummaryRow> rows = mazeCoverageSummaryService.pendingCoverage();
@@ -2080,7 +2094,9 @@ public final class MainWindow {
     }
     recentRunsEntriesBox.getChildren().clear();
     if (rows.isEmpty()) {
-      recentRunsEntriesBox.getChildren().add(timelinePlaceholder("No training runs stored yet."));
+      recentRunsEntriesBox
+          .getChildren()
+          .add(timelinePlaceholder("No training runs stored yet. Launch a batch from Controls."));
       return;
     }
     for (RecentRunComparisonRow row : rows) {
@@ -2094,7 +2110,7 @@ public final class MainWindow {
     }
     coverageEntriesBox.getChildren().clear();
     if (rows.isEmpty()) {
-      coverageEntriesBox.getChildren().add(timelinePlaceholder("No pending mazes."));
+      coverageEntriesBox.getChildren().add(timelinePlaceholder("No pending mazes. Coverage is up to date."));
       return;
     }
     int shown = 0;
@@ -2422,6 +2438,12 @@ public final class MainWindow {
   }
 
   private void refreshReplayEpisodesAsync() {
+    Platform.runLater(
+        () -> {
+          if (replayStatusValue != null) {
+            replayStatusValue.setText("Loading successful episodes...");
+          }
+        });
     recentRunsExecutor.execute(
         () -> {
           List<TrainingSessionEntity> sessions = trainingSessionRepository.findRecent(1);
@@ -2432,7 +2454,7 @@ public final class MainWindow {
                   replayEpisodeIndex = 0;
                   replayTrajectoryIndex = 0;
                   if (replayStatusValue != null) {
-                    replayStatusValue.setText("No successful episodes yet.");
+                    replayStatusValue.setText("No successful episodes yet. Run training to generate successes.");
                   }
                   if (viewportMode == ViewportMode.RESUME) {
                     mazeViewportRenderer.clearTrajectory();
@@ -2454,7 +2476,10 @@ public final class MainWindow {
     replayTrajectoryIndex = 0;
     if (replayEpisodes.isEmpty()) {
       if (replayStatusValue != null) {
-        replayStatusValue.setText("Session " + sessionId + ": no EXIT_REACHED episodes.");
+        replayStatusValue.setText(
+            "Session "
+                + sessionId
+                + ": no EXIT_REACHED episodes. Run additional batches to populate resume.");
       }
       if (viewportMode == ViewportMode.RESUME) {
         mazeViewportRenderer.clearTrajectory();

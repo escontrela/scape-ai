@@ -932,6 +932,13 @@
 - Ajuste dinamico de anchos de panel lateral de controles, panel de metricas y altura util del viewport sin recrear nodos.
 - Aplicacion reactiva via listeners de `Scene` para transiciones suaves sin perdida de estado visible.
 
+### SCAPE-0084 - Estados vacios y skeletons para carga en UI
+- Objetivo funcional: unificar estados de carga/vacio para reducir ambiguedad durante esperas y ausencia de datos.
+- Alcance introducido:
+- Placeholders de carga consistentes en timeline de episodios, catalogo de runs, cobertura pendiente y estado de resume.
+- Mensajes vacios accionables con siguiente paso recomendado (iniciar entrenamiento, lanzar batch o revisar cobertura actualizada).
+- Integracion visual con el tema neon existente sin introducir layout adicional ni bloqueos de interaccion.
+
 ### Validacion MCP de la iteracion
 - projectId=5, userId=1.
 - Estado inicial detectado: `in_progress=0` y `backlog=5` (`SCAPE-0075` a `SCAPE-0079`).
