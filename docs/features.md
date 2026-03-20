@@ -1026,3 +1026,12 @@
 - Intento de creacion con `tagId=1` rechazado por backend (`Tag does not belong to project`); se aplico payload sin tag (`tagId=null`).
 - Tickets creados en backlog: `SCAPE-0085`, `SCAPE-0086`, `SCAPE-0087`, `SCAPE-0088`, `SCAPE-0089`.
 - Estado final confirmado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0085`, `SCAPE-0086`, `SCAPE-0087`, `SCAPE-0088`, `SCAPE-0089`).
+
+## Iteracion PO 2026-03-20 (automation cycle 19)
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- Estado detectado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0085`, `SCAPE-0086`, `SCAPE-0087`, `SCAPE-0088`, `SCAPE-0089`).
+- No se aplican transiciones ni nuevas altas para preservar `WIP=1` y evitar sobrecargar backlog UI ya planificado.
+- Verificacion de `done` realizada para evitar duplicidad funcional con tickets UI ya cerrados (`SCAPE-0081` a `SCAPE-0084`).
+- Estado final confirmado sin cambios: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0085`, `SCAPE-0086`, `SCAPE-0087`, `SCAPE-0088`, `SCAPE-0089`).
