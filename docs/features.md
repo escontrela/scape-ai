@@ -807,3 +807,11 @@
 - La grafica codifica exito/fracaso terminal (`E/T/A/X`) y variacion por episodio de reward/cobertura usando escala ASCII compacta apta para controles JavaFX monoespaciados.
 - La salida incluye resumen de sesion (`episodes`, `success`, `timeout`, min/max reward) y puede pintarse sin bloqueo al ser una transformacion pura en memoria.
 - Tests dedicados cubren sesiones cortas, largas y con valores extremos de reward para validar legibilidad y estabilidad del render.
+
+### SCAPE-0068 - Pantalla JavaFX de revision de entrenamiento
+- Objetivo funcional: habilitar una vista navegable desde la aplicacion principal para revisar sesiones y episodios persistidos.
+- Alcance introducido:
+- `MainWindow` incorpora navegacion `Dashboard/Review` y un panel de revision dedicado sin rediseñar el dashboard operativo.
+- La pantalla de revision lista sesiones recientes, muestra resumen agregado de sesion y presenta la grafica ASCII generada por `TrainingSessionAsciiTrendRenderer`.
+- La vista incluye listado de episodios por sesion y, al seleccionar uno, renderiza motivo terminal, metricas clave, trayectoria persistida legible y replay metadata.
+- Carga de sesiones/detalles se ejecuta via `recentRunsExecutor` para mantener respuesta UI sin bloquear el hilo JavaFX.

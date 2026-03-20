@@ -23,9 +23,18 @@ import com.davidpe.scapeai.application.TrainingLifecycleSubscriberRouter;
 import com.davidpe.scapeai.application.TrainingPreset;
 import com.davidpe.scapeai.application.TrainingPresetOption;
 import com.davidpe.scapeai.application.TrainingPresetService;
+import com.davidpe.scapeai.application.TrainingSessionAsciiTrendRenderer;
 import com.davidpe.scapeai.application.TrainingSessionConfig;
+import com.davidpe.scapeai.application.TrainingSessionSummary;
+import com.davidpe.scapeai.application.TrainingSessionSummaryService;
 import com.davidpe.scapeai.application.TrainingTargetDifficulty;
+import com.davidpe.scapeai.application.TrainingEpisodeDetail;
+import com.davidpe.scapeai.application.TrainingEpisodeDetailService;
 import com.davidpe.scapeai.application.TrainingTimelineEntry;
+import com.davidpe.scapeai.persistence.TrainingRunEntity;
+import com.davidpe.scapeai.persistence.TrainingSessionEntity;
+import com.davidpe.scapeai.persistence.repository.TrainingRunRepository;
+import com.davidpe.scapeai.persistence.repository.TrainingSessionRepository;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
 import com.davidpe.scapeai.simulation.MoveDirection;
@@ -47,6 +56,8 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextArea;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -72,6 +83,11 @@ public final class MainWindow {
   private final RecentRunsComparisonService recentRunsComparisonService;
   private final PersistentMazeHeatmapService persistentMazeHeatmapService;
   private final MazeCoverageSummaryService mazeCoverageSummaryService;
+  private final TrainingSessionRepository trainingSessionRepository;
+  private final TrainingRunRepository trainingRunRepository;
+  private final TrainingSessionSummaryService trainingSessionSummaryService;
+  private final TrainingSessionAsciiTrendRenderer trainingSessionAsciiTrendRenderer;
+  private final TrainingEpisodeDetailService trainingEpisodeDetailService;
   private final MazeCatalogService mazeCatalogService;
   private final MazeViewportRenderer mazeViewportRenderer;
   private final ScheduledExecutorService trajectoryScheduler =
@@ -110,10 +126,19 @@ public final class MainWindow {
   private Label systemStatusValue;
   private Label sessionSeedValue;
   private Label executionModeValue;
+  private Label reviewSessionMetaValue;
+  private Label reviewSessionSummaryValue;
+  private Label reviewEpisodeMetaValue;
+  private ComboBox<TrainingSessionEntity> reviewSessionsSelector;
   private VBox timelineEntriesBox;
   private VBox recentRunsEntriesBox;
   private VBox coverageEntriesBox;
+  private VBox reviewEpisodesEntriesBox;
   private GridPane miniHeatmapGrid;
+  private TextArea reviewAsciiArea;
+  private TextArea reviewTrajectoryArea;
+  private StackPane workspaceStack;
+  private VBox reviewPanel;
   private StackPane mazeViewport;
   private MazeDefinition selectedMaze;
   private String selectedMazeName;
@@ -128,6 +153,8 @@ public final class MainWindow {
       TrainingTargetDifficulty.MEDIUM;
   private volatile HeatmapComparisonMode heatmapComparisonMode = HeatmapComparisonMode.SUPERPOSED;
   private volatile List<CellVisitFrequency> accumulatedHeatmapFrequencies = List.of();
+  private volatile String selectedReviewSessionId;
+  private volatile Long selectedReviewRunId;
   private final double coverageAlertThreshold;
   private final int persistentHeatmapRuns;
 
@@ -140,6 +167,11 @@ public final class MainWindow {
       RecentRunsComparisonService recentRunsComparisonService,
       PersistentMazeHeatmapService persistentMazeHeatmapService,
       MazeCoverageSummaryService mazeCoverageSummaryService,
+      TrainingSessionRepository trainingSessionRepository,
+      TrainingRunRepository trainingRunRepository,
+      TrainingSessionSummaryService trainingSessionSummaryService,
+      TrainingSessionAsciiTrendRenderer trainingSessionAsciiTrendRenderer,
+      TrainingEpisodeDetailService trainingEpisodeDetailService,
       MazeCatalogService mazeCatalogService,
       MazeViewportRenderer mazeViewportRenderer,
       TrainingLifecycleSubscriberRouter trainingLifecycleSubscriberRouter,
@@ -153,6 +185,11 @@ public final class MainWindow {
     this.recentRunsComparisonService = recentRunsComparisonService;
     this.persistentMazeHeatmapService = persistentMazeHeatmapService;
     this.mazeCoverageSummaryService = mazeCoverageSummaryService;
+    this.trainingSessionRepository = trainingSessionRepository;
+    this.trainingRunRepository = trainingRunRepository;
+    this.trainingSessionSummaryService = trainingSessionSummaryService;
+    this.trainingSessionAsciiTrendRenderer = trainingSessionAsciiTrendRenderer;
+    this.trainingEpisodeDetailService = trainingEpisodeDetailService;
     this.mazeCatalogService = mazeCatalogService;
     this.mazeViewportRenderer = mazeViewportRenderer;
     this.coverageAlertThreshold = Math.max(0.0, Math.min(1.0, coverageAlertThreshold));
@@ -170,13 +207,20 @@ public final class MainWindow {
 
     root.setTop(buildHeader());
     root.setLeft(buildControlPanel());
-    root.setCenter(buildMazePanel());
-    root.setRight(buildMetricsPanel());
+    BorderPane dashboardPane = new BorderPane();
+    dashboardPane.setCenter(buildMazePanel());
+    dashboardPane.setRight(buildMetricsPanel());
+    reviewPanel = buildReviewPanel();
+    reviewPanel.setVisible(false);
+    reviewPanel.setManaged(false);
+    workspaceStack = new StackPane(dashboardPane, reviewPanel);
+    root.setCenter(workspaceStack);
     refreshMiniHeatmap();
     liveMetricsService.subscribe(this::applyMetrics);
     liveMetricsService.subscribeTimeline(this::applyTimeline);
     refreshRecentRunsAsync();
     refreshCoverageSummaryAsync();
+    refreshReviewSessionsAsync();
 
     Scene scene = new Scene(root, 1200, 760);
     stage.setTitle("Scape AI Control Panel");
@@ -201,11 +245,24 @@ public final class MainWindow {
     executionModeValue.setFont(Font.font("Consolas", 13));
     executionModeValue.setTextFill(Color.web("#9db2ff"));
 
+    Button dashboardButton = neonButton("Dashboard", "#7ef9ff", () -> setReviewMode(false));
+    dashboardButton.setMinWidth(110);
+    Button reviewButton = neonButton("Review", "#ffd166", () -> setReviewMode(true));
+    reviewButton.setMinWidth(110);
+
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
 
     HBox header =
-        new HBox(12, title, spacer, sessionSeedValue, executionModeValue, systemStatusValue);
+        new HBox(
+            12,
+            title,
+            spacer,
+            dashboardButton,
+            reviewButton,
+            sessionSeedValue,
+            executionModeValue,
+            systemStatusValue);
     header.setAlignment(Pos.CENTER_LEFT);
     header.setPadding(new Insets(0, 0, 18, 0));
     return header;
@@ -806,6 +863,274 @@ public final class MainWindow {
     panel.setStyle(panelStyle());
     refreshSessionConfigCardPreview();
     return panel;
+  }
+
+  private VBox buildReviewPanel() {
+    Label title = panelTitle("Training Review");
+    Label sessionsTitle = new Label("SESSIONS");
+    sessionsTitle.setTextFill(Color.web("#9db2ff"));
+    sessionsTitle.setFont(Font.font("Consolas", 12));
+
+    reviewSessionsSelector = new ComboBox<>();
+    reviewSessionsSelector.setMaxWidth(Double.MAX_VALUE);
+    reviewSessionsSelector.setStyle(
+        "-fx-background-color: #101938;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-border-color: #ffd166;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    reviewSessionsSelector.setCellFactory(
+        ignored ->
+            new javafx.scene.control.ListCell<>() {
+              @Override
+              protected void updateItem(TrainingSessionEntity item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : formatSessionLabel(item));
+              }
+            });
+    reviewSessionsSelector.setButtonCell(
+        new javafx.scene.control.ListCell<>() {
+          @Override
+          protected void updateItem(TrainingSessionEntity item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty || item == null ? null : formatSessionLabel(item));
+          }
+        });
+    reviewSessionsSelector
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (ignored, oldSession, session) -> {
+              if (session == null || session.equals(oldSession)) {
+                return;
+              }
+              selectedReviewSessionId = session.id();
+              selectedReviewRunId = null;
+              refreshReviewSessionDetailAsync(session.id());
+            });
+
+    reviewSessionMetaValue = timelinePlaceholder("Select a session.");
+    reviewSessionSummaryValue = timelinePlaceholder("Summary will appear here.");
+    reviewEpisodeMetaValue = timelinePlaceholder("Select an episode to inspect details.");
+
+    Label asciiTitle = new Label("ASCII TREND");
+    asciiTitle.setTextFill(Color.web("#9db2ff"));
+    asciiTitle.setFont(Font.font("Consolas", 12));
+    reviewAsciiArea = readonlyArea("No session selected.");
+    reviewAsciiArea.setPrefRowCount(8);
+
+    Label episodesTitle = new Label("EPISODES");
+    episodesTitle.setTextFill(Color.web("#9db2ff"));
+    episodesTitle.setFont(Font.font("Consolas", 12));
+    reviewEpisodesEntriesBox = new VBox(6);
+    reviewEpisodesEntriesBox.getChildren().setAll(timelinePlaceholder("No session selected."));
+    ScrollPane episodesScroll = new ScrollPane(reviewEpisodesEntriesBox);
+    episodesScroll.setFitToWidth(true);
+    episodesScroll.setPrefHeight(220);
+    episodesScroll.setStyle(
+        "-fx-background: #081124;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+
+    Label trajectoryTitle = new Label("EPISODE PATH");
+    trajectoryTitle.setTextFill(Color.web("#9db2ff"));
+    trajectoryTitle.setFont(Font.font("Consolas", 12));
+    reviewTrajectoryArea = readonlyArea("No trajectory loaded.");
+    reviewTrajectoryArea.setPrefRowCount(7);
+
+    VBox panel =
+        new VBox(
+            10,
+            title,
+            sessionsTitle,
+            reviewSessionsSelector,
+            reviewSessionMetaValue,
+            reviewSessionSummaryValue,
+            asciiTitle,
+            reviewAsciiArea,
+            episodesTitle,
+            episodesScroll,
+            reviewEpisodeMetaValue,
+            trajectoryTitle,
+            reviewTrajectoryArea);
+    panel.setPadding(new Insets(18));
+    panel.setStyle(panelStyle());
+    panel.setFillWidth(true);
+    return panel;
+  }
+
+  private void setReviewMode(boolean reviewMode) {
+    if (reviewPanel == null) {
+      return;
+    }
+    reviewPanel.setVisible(reviewMode);
+    reviewPanel.setManaged(reviewMode);
+    if (reviewMode) {
+      refreshReviewSessionsAsync();
+    }
+  }
+
+  private TextArea readonlyArea(String text) {
+    TextArea area = new TextArea(text);
+    area.setEditable(false);
+    area.setWrapText(false);
+    area.setFont(Font.font("Consolas", 11));
+    area.setStyle(
+        "-fx-control-inner-background: #081124;"
+            + "-fx-text-fill: #c6d7ff;"
+            + "-fx-highlight-fill: #2cf1ff;"
+            + "-fx-highlight-text-fill: #081124;"
+            + "-fx-border-color: #2cf1ff;"
+            + "-fx-border-radius: 6;"
+            + "-fx-background-radius: 6;");
+    return area;
+  }
+
+  private void refreshReviewSessionsAsync() {
+    recentRunsExecutor.execute(
+        () -> {
+          List<TrainingSessionEntity> sessions = trainingSessionRepository.findRecent(40);
+          Platform.runLater(() -> renderReviewSessions(sessions));
+        });
+  }
+
+  private void renderReviewSessions(List<TrainingSessionEntity> sessions) {
+    if (reviewPanel == null || reviewSessionsSelector == null) {
+      return;
+    }
+    reviewSessionsSelector.getItems().setAll(sessions);
+    if (sessions.isEmpty()) {
+      reviewSessionMetaValue.setText("No training sessions stored yet.");
+      reviewSessionSummaryValue.setText("Run training to populate review history.");
+      reviewAsciiArea.setText("No session selected.");
+      reviewEpisodesEntriesBox.getChildren().setAll(timelinePlaceholder("No session selected."));
+      reviewTrajectoryArea.setText("No trajectory loaded.");
+      return;
+    }
+    TrainingSessionEntity preferred =
+        sessions.stream()
+            .filter(session -> session.id().equals(selectedReviewSessionId))
+            .findFirst()
+            .orElse(sessions.get(0));
+    reviewSessionsSelector.getSelectionModel().select(preferred);
+    selectedReviewSessionId = preferred.id();
+    refreshReviewSessionDetailAsync(preferred.id());
+  }
+
+  private void refreshReviewSessionDetailAsync(String sessionId) {
+    if (sessionId == null || sessionId.isBlank()) {
+      return;
+    }
+    recentRunsExecutor.execute(
+        () -> {
+          TrainingSessionSummary summary = trainingSessionSummaryService.summarize(sessionId);
+          String ascii = trainingSessionAsciiTrendRenderer.renderForSession(sessionId);
+          List<TrainingRunEntity> runs = trainingRunRepository.findByTrainingSessionId(sessionId);
+          Platform.runLater(() -> renderReviewSessionDetail(summary, ascii, runs));
+        });
+  }
+
+  private void renderReviewSessionDetail(
+      TrainingSessionSummary summary, String ascii, List<TrainingRunEntity> runs) {
+    if (summary == null) {
+      return;
+    }
+    reviewSessionMetaValue.setText(
+        "Session " + summary.trainingSessionId() + " episodes=" + summary.episodesTotal());
+    reviewSessionSummaryValue.setText(
+        String.format(
+            Locale.US,
+            "Success %.0f%% | Reward %.2f | Collisions %.2f | Coverage %.0f%% | Duration %s",
+            summary.successRate() * 100.0,
+            summary.averageReward(),
+            summary.averageCollisions(),
+            summary.averageCoverage() * 100.0,
+            formatElapsed(summary.totalDurationMillis())));
+    reviewAsciiArea.setText(ascii == null ? "" : ascii);
+    reviewEpisodesEntriesBox.getChildren().clear();
+    if (runs == null || runs.isEmpty()) {
+      reviewEpisodesEntriesBox.getChildren().setAll(timelinePlaceholder("No episodes in session."));
+      reviewTrajectoryArea.setText("No trajectory loaded.");
+      return;
+    }
+    for (TrainingRunEntity run : runs) {
+      reviewEpisodesEntriesBox.getChildren().add(reviewEpisodeRow(run));
+    }
+    selectedReviewRunId = runs.get(runs.size() - 1).id();
+    refreshEpisodeDetailAsync(selectedReviewRunId);
+  }
+
+  private HBox reviewEpisodeRow(TrainingRunEntity run) {
+    Button pick = neonButton("#" + run.id(), "#2cf1ff", () -> refreshEpisodeDetailAsync(run.id()));
+    pick.setMinWidth(76);
+    Label terminal = new Label(formatTerminalReason(run.terminalReason()));
+    terminal.setFont(Font.font("Consolas", 11));
+    terminal.setTextFill(Color.web(terminalReasonColor(run.terminalReason())));
+    Label reward = new Label(String.format(Locale.US, "R %.1f", run.totalReward()));
+    reward.setFont(Font.font("Consolas", 11));
+    reward.setTextFill(Color.web("#b8ffcb"));
+    Label coverage =
+        new Label(String.format(Locale.US, "C %.0f%%", run.mazeCoverageRatio() * 100.0));
+    coverage.setFont(Font.font("Consolas", 11));
+    coverage.setTextFill(Color.web("#9db2ff"));
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    return new HBox(8, pick, terminal, reward, coverage, spacer, new Label(formatElapsed(run.elapsedMillis())));
+  }
+
+  private void refreshEpisodeDetailAsync(Long trainingRunId) {
+    if (trainingRunId == null) {
+      return;
+    }
+    selectedReviewRunId = trainingRunId;
+    recentRunsExecutor.execute(
+        () -> {
+          var detail = trainingEpisodeDetailService.findByTrainingRunId(trainingRunId);
+          Platform.runLater(() -> renderEpisodeDetail(trainingRunId, detail.orElse(null)));
+        });
+  }
+
+  private void renderEpisodeDetail(long trainingRunId, TrainingEpisodeDetail detail) {
+    if (detail == null) {
+      reviewEpisodeMetaValue.setText("Episode #" + trainingRunId + " not found.");
+      reviewTrajectoryArea.setText("No trajectory available.");
+      return;
+    }
+    reviewEpisodeMetaValue.setText(
+        "Episode #"
+            + detail.trainingRunId()
+            + " final="
+            + detail.finalPosition().row()
+            + ","
+            + detail.finalPosition().col());
+    StringBuilder path = new StringBuilder();
+    path.append("Path length=").append(detail.trajectory().size()).append('\n');
+    int index = 0;
+    for (GridPosition position : detail.trajectory()) {
+      if (index > 0) {
+        path.append(" -> ");
+      }
+      path.append('(').append(position.row()).append(',').append(position.col()).append(')');
+      index++;
+      if (index % 8 == 0) {
+        path.append('\n');
+      }
+      if (index >= 120) {
+        path.append(" ...");
+        break;
+      }
+    }
+    path.append('\n')
+        .append("Replay metadata: ")
+        .append(detail.replayMetadata() == null ? "{}" : detail.replayMetadata());
+    reviewTrajectoryArea.setText(path.toString());
+  }
+
+  private String formatSessionLabel(TrainingSessionEntity session) {
+    String maze = session.mazeRef() == null || session.mazeRef().isBlank() ? "maze?" : session.mazeRef();
+    String policy = session.policyId() == null || session.policyId().isBlank() ? "policy?" : session.policyId();
+    return session.id() + " :: " + maze + " :: " + policy;
   }
 
   private VBox buildEffectiveSessionCard() {
