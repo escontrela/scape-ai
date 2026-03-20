@@ -1,5 +1,6 @@
 package com.davidpe.scapeai.application;
 
+import com.davidpe.scapeai.simulation.MazeDefinition;
 import java.time.Duration;
 import java.util.function.Consumer;
 
@@ -30,4 +31,6 @@ public interface LiveMetricsService {
   void subscribe(Consumer<LiveEpisodeMetrics> listener);
 
   void subscribeTimeline(Consumer<java.util.List<TrainingTimelineEntry>> listener);
+
+  default void setActiveMaze(MazeDefinition maze) {}
 }

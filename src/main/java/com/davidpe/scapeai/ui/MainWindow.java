@@ -45,7 +45,6 @@ import com.davidpe.scapeai.persistence.repository.TrainingRunRepository;
 import com.davidpe.scapeai.persistence.repository.TrainingSessionRepository;
 import com.davidpe.scapeai.simulation.GridPosition;
 import com.davidpe.scapeai.simulation.MazeDefinition;
-import com.davidpe.scapeai.simulation.MoveDirection;
 import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -55,7 +54,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -462,9 +460,6 @@ public final class MainWindow {
                 return;
               }
               liveMetricsService.setSimulationSpeed(selected);
-              if (trajectoryRunning) {
-                restartTrajectoryTicker();
-              }
               updateActiveSpeedLabel();
             });
 
@@ -560,6 +555,7 @@ public final class MainWindow {
               if (startResult.maze() != null) {
                 selectedMaze = startResult.maze();
                 mazeViewportRenderer.renderInto(mazeViewport, startResult.maze());
+                liveMetricsService.setActiveMaze(startResult.maze());
               }
               updateSystemStatus(startResult.message(), "#89ff9a");
               updateSessionHud(startResult.effectiveSeed(), "visual");
@@ -717,6 +713,7 @@ public final class MainWindow {
                 selectedMaze = maze;
                 accumulatedHeatmapFrequencies = List.of();
                 mazeViewportRenderer.renderInto(mazeViewport, maze);
+                liveMetricsService.setActiveMaze(maze);
                 resetTrajectoryEpisode();
                 refreshUnexploredOverlay();
                 refreshMiniHeatmap();
@@ -734,6 +731,7 @@ public final class MainWindow {
         selectedMaze = firstMaze;
         accumulatedHeatmapFrequencies = List.of();
         mazeViewportRenderer.renderInto(mazeViewport, firstMaze);
+        liveMetricsService.setActiveMaze(firstMaze);
         refreshUnexploredOverlay();
         refreshMiniHeatmap();
         refreshPersistentHeatmapAsync();
@@ -1669,7 +1667,26 @@ public final class MainWindow {
                     metrics.leftSideCoverage() * 100.0,
                     metrics.rightSideCoverage() * 100.0));
           }
+          renderLiveViewport(metrics);
         });
+  }
+
+  private void renderLiveViewport(LiveEpisodeMetrics metrics) {
+    if (metrics == null) {
+      return;
+    }
+    synchronized (trajectoryLock) {
+      trajectoryCells.clear();
+      trajectoryCells.addAll(metrics.trajectory());
+      trajectoryCurrent = metrics.currentPosition();
+    }
+    mazeViewportRenderer.renderTrajectory(metrics.trajectory());
+    if (unexploredOverlayEnabled) {
+      mazeViewportRenderer.renderUnexploredOverlay(metrics.trajectory());
+    }
+    if (miniHeatmapEnabled) {
+      renderMiniHeatmap(metrics.trajectory(), metrics.currentPosition());
+    }
   }
 
   private void applyTimeline(List<TrainingTimelineEntry> entries) {
@@ -2062,6 +2079,7 @@ public final class MainWindow {
     if (selectedMaze == null || mazeViewport == null) {
       return;
     }
+    liveMetricsService.setActiveMaze(selectedMaze);
     synchronized (trajectoryLock) {
       trajectoryCells.clear();
       trajectoryCurrent = selectedMaze.start();
@@ -2071,12 +2089,10 @@ public final class MainWindow {
     refreshUnexploredOverlay();
     refreshMiniHeatmap();
     trajectoryRunning = true;
-    restartTrajectoryTicker();
   }
 
   private void resetTrajectoryEpisode() {
     trajectoryRunning = false;
-    stopTrajectoryTicker();
     synchronized (trajectoryLock) {
       trajectoryCells.clear();
       trajectoryCurrent = null;
@@ -2084,66 +2100,6 @@ public final class MainWindow {
     Platform.runLater(mazeViewportRenderer::clearTrajectory);
     Platform.runLater(mazeViewportRenderer::clearUnexploredOverlay);
     refreshMiniHeatmap();
-  }
-
-  private void advanceTrajectoryOverlay() {
-    MazeDefinition maze = selectedMaze;
-    if (maze == null) {
-      return;
-    }
-
-    List<GridPosition> snapshot;
-    GridPosition currentPosition;
-    synchronized (trajectoryLock) {
-      GridPosition current = trajectoryCurrent == null ? maze.start() : trajectoryCurrent;
-      GridPosition next = chooseNextPosition(current, maze);
-      trajectoryCurrent = next;
-      trajectoryCells.add(next);
-      if (trajectoryCells.size() > 600) {
-        trajectoryCells.remove(0);
-      }
-      snapshot = List.copyOf(trajectoryCells);
-      currentPosition = trajectoryCurrent;
-    }
-    Platform.runLater(
-        () -> {
-          mazeViewportRenderer.renderTrajectory(snapshot);
-          if (unexploredOverlayEnabled) {
-            mazeViewportRenderer.renderUnexploredOverlay(snapshot);
-          }
-          if (miniHeatmapEnabled) {
-            renderMiniHeatmap(snapshot, currentPosition);
-          }
-        });
-  }
-
-  private GridPosition chooseNextPosition(GridPosition current, MazeDefinition maze) {
-    GridPosition revisitCandidate = null;
-    for (MoveDirection direction : MoveDirection.values()) {
-      GridPosition candidate = current.move(direction);
-      if (!maze.isInside(candidate) || maze.isWall(candidate)) {
-        continue;
-      }
-      if (recentlyVisited(candidate)) {
-        if (revisitCandidate == null) {
-          revisitCandidate = candidate;
-        }
-        continue;
-      }
-      return candidate;
-    }
-    return revisitCandidate == null ? current : revisitCandidate;
-  }
-
-  private boolean recentlyVisited(GridPosition candidate) {
-    int size = trajectoryCells.size();
-    int start = Math.max(0, size - 6);
-    for (int index = start; index < size; index++) {
-      if (trajectoryCells.get(index).equals(candidate)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   private synchronized void stopTrajectoryTicker() {
@@ -2154,11 +2110,7 @@ public final class MainWindow {
   }
 
   private synchronized void restartTrajectoryTicker() {
-    stopTrajectoryTicker();
-    long period = liveMetricsService.simulationSpeed().trajectoryTickMillis();
-    trajectoryTicker =
-        trajectoryScheduler.scheduleAtFixedRate(
-            this::advanceTrajectoryOverlay, period, period, TimeUnit.MILLISECONDS);
+    // Live trajectory now comes from LiveMetricsService updates.
   }
 
   private void refreshUnexploredOverlay() {
@@ -2338,12 +2290,10 @@ public final class MainWindow {
             }
             case PAUSED -> {
               trajectoryRunning = false;
-              stopTrajectoryTicker();
               updateSystemStatus("TRAINING PAUSED", "#ffd166");
             }
             case RESUMED -> {
               trajectoryRunning = true;
-              restartTrajectoryTicker();
               updateSystemStatus("TRAINING RESUMED", "#89ff9a");
             }
             case FINISHED -> {
@@ -2356,7 +2306,6 @@ public final class MainWindow {
             }
             case TIMED_OUT -> {
               trajectoryRunning = false;
-              stopTrajectoryTicker();
               refreshPersistentHeatmapAsync();
               updateSystemStatus("TRAINING TIMEOUT", "#ff6b8a");
             }

@@ -1,10 +1,15 @@
 package com.davidpe.scapeai.application;
 
+import com.davidpe.scapeai.simulation.GridPosition;
+import com.davidpe.scapeai.simulation.MazeDefinition;
+import com.davidpe.scapeai.simulation.MoveDirection;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,6 +41,8 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   private final AtomicInteger rightVisits = new AtomicInteger(0);
   private final AtomicLong elapsedMillis = new AtomicLong(0L);
   private final AtomicLong remainingMillis = new AtomicLong(0L);
+  private final Deque<GridPosition> trajectory = new ArrayDeque<>();
+  private final Set<GridPosition> uniqueVisitedCells = new HashSet<>();
   private volatile double accumulatedReward = 0.0;
   private volatile long episodeStartedAt = 0L;
   private volatile long episodeTimeoutMillis = 0L;
@@ -43,6 +50,16 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
   private volatile SimulationSpeed simulationSpeed = SimulationSpeed.NORMAL;
   private volatile boolean episodeActive;
   private volatile String terminationReason = "IDLE";
+  private volatile MazeDefinition activeMaze;
+  private volatile GridPosition currentPosition;
+
+  @Override
+  public synchronized void setActiveMaze(MazeDefinition maze) {
+    activeMaze = maze;
+    currentPosition = maze == null ? null : maze.start();
+    resetTrajectoryState();
+    publish(snapshot());
+  }
 
   @Override
   public synchronized void startEpisode() {
@@ -169,14 +186,14 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     scheduler.shutdownNow();
   }
 
-  private void tick() {
+  private synchronized void tick() {
+    advanceLivePosition();
     int tickStep = steps.incrementAndGet();
     if (tickStep % 5 == 0) {
       collisions.incrementAndGet();
       accumulatedReward -= 0.8;
     } else {
       accumulatedReward += 0.2;
-      discoveredCells.incrementAndGet();
     }
     if (tickStep % 4 == 0 || tickStep % 4 == 1) {
       rightVisits.incrementAndGet();
@@ -185,6 +202,52 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     }
     syncElapsedWithCurrentTime();
     publish(snapshot());
+  }
+
+  private void advanceLivePosition() {
+    MazeDefinition maze = activeMaze;
+    if (maze == null) {
+      return;
+    }
+    GridPosition current = currentPosition == null ? maze.start() : currentPosition;
+    GridPosition next = chooseNextPosition(current, maze);
+    currentPosition = next;
+    trajectory.addLast(next);
+    uniqueVisitedCells.add(next);
+    discoveredCells.set(Math.max(discoveredCells.get(), uniqueVisitedCells.size()));
+    while (trajectory.size() > 600) {
+      trajectory.removeFirst();
+    }
+  }
+
+  private GridPosition chooseNextPosition(GridPosition current, MazeDefinition maze) {
+    GridPosition revisitCandidate = null;
+    for (MoveDirection direction : MoveDirection.values()) {
+      GridPosition candidate = current.move(direction);
+      if (!maze.isInside(candidate) || maze.isWall(candidate)) {
+        continue;
+      }
+      if (recentlyVisited(candidate)) {
+        if (revisitCandidate == null) {
+          revisitCandidate = candidate;
+        }
+        continue;
+      }
+      return candidate;
+    }
+    return revisitCandidate == null ? current : revisitCandidate;
+  }
+
+  private boolean recentlyVisited(GridPosition candidate) {
+    int index = 0;
+    int start = Math.max(0, trajectory.size() - 6);
+    for (GridPosition position : trajectory) {
+      if (index >= start && position.equals(candidate)) {
+        return true;
+      }
+      index++;
+    }
+    return false;
   }
 
   private synchronized void stopTicker() {
@@ -209,6 +272,25 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
     elapsedMillis.set(0);
     remainingMillis.set(0);
     accumulatedReward = 0.0;
+    resetTrajectoryState();
+  }
+
+  private void resetTrajectoryState() {
+    trajectory.clear();
+    uniqueVisitedCells.clear();
+    currentPosition = activeMaze == null ? null : activeMaze.start();
+    if (currentPosition != null) {
+      trajectory.addLast(currentPosition);
+      uniqueVisitedCells.add(currentPosition);
+      discoveredCells.set(Math.max(discoveredCells.get(), 1));
+      if (activeMaze != null) {
+        if (currentPosition.col() < (activeMaze.cols() / 2)) {
+          leftVisits.set(Math.max(leftVisits.get(), 1));
+        } else {
+          rightVisits.set(Math.max(rightVisits.get(), 1));
+        }
+      }
+    }
   }
 
   private LiveEpisodeMetrics snapshot() {
@@ -224,7 +306,9 @@ public class InMemoryLiveMetricsService implements LiveMetricsService {
         terminationReason,
         Math.min(1.0, discoveredCells.get() / 40.0),
         (double) left / (double) total,
-        (double) right / (double) total);
+        (double) right / (double) total,
+        currentPosition,
+        List.copyOf(trajectory));
   }
 
   private void syncElapsedWithCurrentTime() {
