@@ -951,27 +951,27 @@ public final class MainWindow {
 
     mazeViewport = new StackPane();
     mazeViewport.setAlignment(Pos.CENTER);
-    mazeViewport.setMinHeight(520);
+    mazeViewport.setMinHeight(640);
     mazeViewport.setStyle(
-        "-fx-background-color: #0a1329;"
-            + "-fx-border-color: #2cf1ff;"
+        "-fx-background-color: linear-gradient(to bottom right, #091225, #0c1a34);"
+            + "-fx-border-color: #47f4ff;"
             + "-fx-border-width: 1;"
             + "-fx-border-radius: 8;"
             + "-fx-background-radius: 8;");
     splitActiveMazeViewport = new StackPane();
     splitActiveMazeViewport.setAlignment(Pos.CENTER);
-    splitActiveMazeViewport.setMinHeight(520);
+    splitActiveMazeViewport.setMinHeight(640);
     splitActiveMazeViewport.setStyle(
-        "-fx-background-color: #0a1329;"
-            + "-fx-border-color: #2cf1ff;"
+        "-fx-background-color: linear-gradient(to bottom right, #091225, #0c1a34);"
+            + "-fx-border-color: #47f4ff;"
             + "-fx-border-width: 1;"
             + "-fx-border-radius: 8;"
             + "-fx-background-radius: 8;");
     baselineMazeViewport = new StackPane();
     baselineMazeViewport.setAlignment(Pos.CENTER);
-    baselineMazeViewport.setMinHeight(520);
+    baselineMazeViewport.setMinHeight(640);
     baselineMazeViewport.setStyle(
-        "-fx-background-color: #10172e;"
+        "-fx-background-color: linear-gradient(to bottom right, #111c35, #0f1730);"
             + "-fx-border-color: #ffd166;"
             + "-fx-border-width: 1;"
             + "-fx-border-radius: 8;"
@@ -994,6 +994,7 @@ public final class MainWindow {
     installCellInspector(mazeViewport, "LIVE");
     installCellInspector(splitActiveMazeViewport, "SPLIT_ACTIVE");
     installCellInspector(baselineMazeViewport, "SPLIT_BASELINE");
+    StackPane mainViewportFrame = createViewportFrame(mazeViewport, "#2cf1ff");
 
     mazeSelector
         .getSelectionModel()
@@ -1101,6 +1102,7 @@ public final class MainWindow {
         new VBox(
             12,
             title,
+            mainViewportFrame,
             modeLabel,
             viewportModeSelector,
             sortLabel,
@@ -1117,8 +1119,7 @@ public final class MainWindow {
             cellInspectorValue,
             cellInspectorDetailValue,
             focusModeHud,
-            splitViewportRow,
-            mazeViewport);
+            splitViewportRow);
     panel.setPadding(new Insets(16));
     panel.setStyle(panelStyle());
     BorderPane.setMargin(panel, new Insets(0, 16, 0, 16));
@@ -1163,8 +1164,9 @@ public final class MainWindow {
     Label title = new Label(titleText);
     title.setTextFill(Color.web("#9db2ff"));
     title.setFont(Font.font("Consolas", 12));
-    VBox card = new VBox(6, title, policyValue, metricsValue, viewport);
-    VBox.setVgrow(viewport, Priority.ALWAYS);
+    StackPane framedViewport = createViewportFrame(viewport, accentColor);
+    VBox card = new VBox(6, title, policyValue, metricsValue, framedViewport);
+    VBox.setVgrow(framedViewport, Priority.ALWAYS);
     card.setStyle(
         "-fx-background-color: rgba(8, 17, 36, 0.96);"
             + "-fx-border-color: "
@@ -1176,6 +1178,20 @@ public final class MainWindow {
     card.setFillWidth(true);
     HBox.setHgrow(card, Priority.ALWAYS);
     return card;
+  }
+
+  private StackPane createViewportFrame(StackPane viewport, String accentColor) {
+    StackPane frame = new StackPane(viewport);
+    frame.setPadding(new Insets(10));
+    frame.setStyle(
+        "-fx-background-color: linear-gradient(to bottom right, rgba(12, 30, 62, 0.96), rgba(8, 16, 34, 0.96));"
+            + "-fx-border-color: "
+            + accentColor
+            + ";"
+            + "-fx-border-width: 1.2;"
+            + "-fx-border-radius: 10;"
+            + "-fx-background-radius: 10;");
+    return frame;
   }
 
   private void applySplitViewState() {
@@ -1208,8 +1224,24 @@ public final class MainWindow {
           if (width <= 0.0 || height <= 0.0) {
             return;
           }
-          int col = (int) Math.floor((event.getX() / width) * selectedMaze.cols());
-          int row = (int) Math.floor((event.getY() / height) * selectedMaze.rows());
+          double cellSize =
+              Math.min(
+                  width / Math.max(1, selectedMaze.cols()),
+                  height / Math.max(1, selectedMaze.rows()));
+          double gridWidth = cellSize * selectedMaze.cols();
+          double gridHeight = cellSize * selectedMaze.rows();
+          double originX = (width - gridWidth) / 2.0;
+          double originY = (height - gridHeight) / 2.0;
+          double relativeX = event.getX() - originX;
+          double relativeY = event.getY() - originY;
+          if (relativeX < 0.0
+              || relativeY < 0.0
+              || relativeX >= gridWidth
+              || relativeY >= gridHeight) {
+            return;
+          }
+          int col = (int) Math.floor(relativeX / cellSize);
+          int row = (int) Math.floor(relativeY / cellSize);
           GridPosition position = new GridPosition(row, col);
           if (!selectedMaze.isInside(position)) {
             return;
@@ -2332,15 +2364,15 @@ public final class MainWindow {
     if (safeWidth <= 1440.0) {
       controlWidth = 240.0;
       metricsWidth = 270.0;
-      viewportHeight = 440.0;
+      viewportHeight = 560.0;
     } else if (safeWidth <= 2200.0) {
       controlWidth = 280.0;
       metricsWidth = 320.0;
-      viewportHeight = 520.0;
+      viewportHeight = 680.0;
     } else {
       controlWidth = 340.0;
       metricsWidth = 390.0;
-      viewportHeight = 620.0;
+      viewportHeight = 820.0;
     }
     double scaledControlWidth = controlWidth * layoutScale;
     double scaledMetricsWidth = metricsWidth * layoutScale;

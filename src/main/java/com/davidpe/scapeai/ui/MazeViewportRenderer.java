@@ -6,7 +6,7 @@ import com.davidpe.scapeai.simulation.MazeDefinition;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javafx.scene.layout.GridPane;
+import javafx.beans.binding.Bindings;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
@@ -18,13 +18,13 @@ public class MazeViewportRenderer {
 
   private static final double CELL_SIZE = 32.0;
   private static final String WALKABLE_STYLE =
-      "-fx-fill: #0b1831; -fx-stroke: #1b2b52; -fx-stroke-width: 0.8;";
+      "-fx-fill: #102443; -fx-stroke: #334f7c; -fx-stroke-width: 0.9;";
   private static final String WALL_STYLE =
-      "-fx-fill: #142247; -fx-stroke: #3be2ff; -fx-stroke-width: 1.0;";
+      "-fx-fill: #0a1730; -fx-stroke: #3be2ff; -fx-stroke-width: 1.1;";
   private static final String START_STYLE =
-      "-fx-fill: #1f4f35; -fx-stroke: #63ffb1; -fx-stroke-width: 1.4;";
+      "-fx-fill: #1d5a3d; -fx-stroke: #6cffba; -fx-stroke-width: 1.4;";
   private static final String EXIT_STYLE =
-      "-fx-fill: #4b2f17; -fx-stroke: #ffcf57; -fx-stroke-width: 1.4;";
+      "-fx-fill: #4f3419; -fx-stroke: #ffd166; -fx-stroke-width: 1.4;";
   private Pane persistentHeatmapLayer;
   private Pane unexploredOverlayLayer;
   private Pane trajectoryLayer;
@@ -32,33 +32,57 @@ public class MazeViewportRenderer {
 
   public void renderInto(StackPane container, MazeDefinition maze) {
     activeMaze = maze;
-    GridPane grid = new GridPane();
+    double logicalWidth = maze.cols() * CELL_SIZE;
+    double logicalHeight = maze.rows() * CELL_SIZE;
+    Pane gridLayer = new Pane();
+    gridLayer.setPrefSize(logicalWidth, logicalHeight);
 
     for (int row = 0; row < maze.rows(); row++) {
       for (int col = 0; col < maze.cols(); col++) {
         GridPosition position = new GridPosition(row, col);
         Rectangle cell = new Rectangle(CELL_SIZE, CELL_SIZE);
         cell.setStyle(styleForCell(maze, position));
-        grid.add(cell, col, row);
+        cell.setLayoutX(col * CELL_SIZE);
+        cell.setLayoutY(row * CELL_SIZE);
+        gridLayer.getChildren().add(cell);
       }
     }
 
     unexploredOverlayLayer = new Pane();
     unexploredOverlayLayer.setManaged(false);
     unexploredOverlayLayer.setMouseTransparent(true);
-    unexploredOverlayLayer.setPrefSize(maze.cols() * CELL_SIZE, maze.rows() * CELL_SIZE);
+    unexploredOverlayLayer.setPrefSize(logicalWidth, logicalHeight);
 
     persistentHeatmapLayer = new Pane();
     persistentHeatmapLayer.setManaged(false);
     persistentHeatmapLayer.setMouseTransparent(true);
-    persistentHeatmapLayer.setPrefSize(maze.cols() * CELL_SIZE, maze.rows() * CELL_SIZE);
+    persistentHeatmapLayer.setPrefSize(logicalWidth, logicalHeight);
 
     trajectoryLayer = new Pane();
     trajectoryLayer.setManaged(false);
     trajectoryLayer.setMouseTransparent(true);
-    trajectoryLayer.setPrefSize(maze.cols() * CELL_SIZE, maze.rows() * CELL_SIZE);
+    trajectoryLayer.setPrefSize(logicalWidth, logicalHeight);
 
-    container.getChildren().setAll(grid, persistentHeatmapLayer, unexploredOverlayLayer, trajectoryLayer);
+    StackPane viewportContent =
+        new StackPane(gridLayer, persistentHeatmapLayer, unexploredOverlayLayer, trajectoryLayer);
+    viewportContent.setManaged(false);
+    viewportContent.setPrefSize(logicalWidth, logicalHeight);
+    viewportContent.setMinSize(logicalWidth, logicalHeight);
+    viewportContent.setMaxSize(logicalWidth, logicalHeight);
+    var scaleBinding =
+        Bindings.createDoubleBinding(
+            () -> {
+              double availableWidth = Math.max(1.0, container.getWidth());
+              double availableHeight = Math.max(1.0, container.getHeight());
+              double scaleX = availableWidth / Math.max(1.0, logicalWidth);
+              double scaleY = availableHeight / Math.max(1.0, logicalHeight);
+              return Math.max(0.15, Math.min(scaleX, scaleY));
+            },
+            container.widthProperty(),
+            container.heightProperty());
+    viewportContent.scaleXProperty().bind(scaleBinding);
+    viewportContent.scaleYProperty().bind(scaleBinding);
+    container.getChildren().setAll(viewportContent);
   }
 
   public void renderPersistentHeatmap(List<CellVisitFrequency> frequencies) {

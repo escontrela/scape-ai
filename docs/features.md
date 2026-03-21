@@ -873,6 +873,9 @@
 - Sustituir el viewport encajado en casillas por un panel/canvas principal de mayor superficie.
 - Mantener coherencia visual con el lenguaje heatmap ya presente en el producto.
 - Reducir solapes visuales en seguimiento de agente, trayectoria y estados del episodio.
+- Implementacion tecnica: `MainWindow` promueve el viewport al bloque principal del panel `Maze`, lo encapsula en un frame dedicado de alto contraste y aumenta alturas responsivas (`compact/balanced/wide`) para priorizar superficie visual.
+- Implementacion tecnica: `MazeViewportRenderer` renderiza en un lienzo logico escalado al contenedor para evitar clipping y desajustes de encaje en distintos tamanos de escena.
+- Implementacion tecnica: `installCellInspector(...)` normaliza coordenadas con area util centrada del laberinto para mantener inspeccion correcta tras el nuevo escalado del viewport.
 
 ### SCAPE-0076 - Modo live de entrenamiento en viewport unificado
 - Objetivo funcional: consolidar observabilidad en tiempo real del episodio sobre el nuevo viewport principal.
@@ -1098,3 +1101,47 @@
 - Transicion aplicada para restaurar politica de flujo: `SCAPE-0090` movido de `in_progress` a `backlog`.
 - No se crean tickets nuevos para evitar duplicidad funcional y mantener foco en el lote UI vigente.
 - Estado final confirmado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0090`, `SCAPE-0091`, `SCAPE-0092`, `SCAPE-0093`, `SCAPE-0094`).
+
+## Iteracion PO 2026-03-20 (automation cycle 22)
+
+### SCAPE-0095 - Modo alto contraste para metricas criticas
+- Objetivo funcional: reforzar legibilidad operativa en estados de entrenamiento sensibles.
+- Alcance introducido:
+- Toggle de alto contraste para valores criticos (`estado`, `tiempo`, `recompensa`, `colisiones`) sin cambiar la estructura del dashboard.
+- Aplicacion en caliente del modo visual sin reiniciar la simulacion.
+- Reuso de tokens visuales para mantener consistencia del tema actual.
+
+### SCAPE-0096 - Atajos de teclado para controles operativos
+- Objetivo funcional: reducir friccion de control durante sesiones intensivas con interaccion por teclado.
+- Alcance introducido:
+- Atajos para acciones principales (`start`, `pause`, `reset`) y alternancia de vistas operativas.
+- Ayuda rapida visible con mapa de atajos disponibles en el dashboard.
+- Respeto de estados deshabilitados para evitar comandos invalidos.
+
+### SCAPE-0097 - Centro de notificaciones de eventos de sesion
+- Objetivo funcional: concentrar eventos de sesion en una vista compacta y legible.
+- Alcance introducido:
+- Feed cronologico de eventos clave (`inicio`, `pausa`, `timeout`, `finalizacion`, `error de validacion`).
+- Cada evento con timestamp y tipo visual semantico consistente.
+- Refresco en vivo sin bloqueo del viewport principal.
+
+### SCAPE-0098 - Sparklines en cabecera para tendencia corta
+- Objetivo funcional: exponer tendencia inmediata de entrenamiento en la cabecera.
+- Alcance introducido:
+- Micrograficas de recompensa y colisiones con ventana corta de lectura rapida.
+- Actualizacion incremental por intervalo/episodio sin degradar la experiencia de UI.
+- Compatibilidad visual con modos normal y enfoque.
+
+### SCAPE-0099 - Guia contextual de primera ejecucion en dashboard
+- Objetivo funcional: facilitar onboarding UI para ejecutar la primera sesion sin dependencia de documentacion externa.
+- Alcance introducido:
+- Guia contextual con pasos minimos (`seleccionar laberinto`, `elegir algoritmo`, `iniciar sesion`).
+- Marcado de progreso por interaccion real del usuario.
+- Apertura/cierre de la guia sin perder estado de la sesion activa.
+
+### Validacion MCP de la iteracion
+- projectId=5, userId=1.
+- Estado inicial detectado: `in_progress=1` (`SCAPE-0075`) y `backlog=0`.
+- Creacion de tickets UI en backlog: `SCAPE-0095`, `SCAPE-0096`, `SCAPE-0097`, `SCAPE-0098`, `SCAPE-0099`.
+- Incidencia de payload resuelta: backend rechazo `tagId` (`Tag not found`), se uso creacion sin tag.
+- Estado final confirmado: `in_progress=1` (`SCAPE-0075`) y `backlog=5` (`SCAPE-0095`, `SCAPE-0096`, `SCAPE-0097`, `SCAPE-0098`, `SCAPE-0099`).
